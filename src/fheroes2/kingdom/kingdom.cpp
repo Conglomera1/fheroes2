@@ -68,10 +68,7 @@ namespace
     constexpr std::string_view taxpayerGoldPerPeasantKey = "taxpayer.gold_per_peasant_per_day";
     constexpr int32_t defaultTaxpayerGoldPerPeasantPerDay = 2;
 
-    void logTaxpayerConfigCreationFailure( const std::string & configPath )
-    {
-        ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath )
-    }
+    void logTaxpayerConfigCreationFailure( const std::string & configPath ){ ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath ) }
 
     int32_t getTaxpayerGoldPerPeasantPerDay()
     {
