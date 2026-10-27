@@ -25,7 +25,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <fstream>
 #include <initializer_list>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -55,11 +57,92 @@
 #include "serialize.h"
 #include "settings.h"
 #include "skill.h"
+#include "system.h"
+#include "tinyconfig.h"
 #include "visit.h"
 #include "world.h"
 
 namespace
 {
+    constexpr char taxpayerConfigFileName[] = "knight_mod.ini";
+    constexpr char taxpayerGoldPerPeasantKey[] = "taxpayer.gold_per_peasant_per_day";
+    constexpr int32_t defaultTaxpayerGoldPerPeasantPerDay = 2;
+
+    int32_t getTaxpayerGoldPerPeasantPerDay()
+    {
+        // Load the setting once per process. Restart fheroes2 after editing the file.
+        static const int32_t goldPerPeasant = []() {
+            const std::string configDirectory = System::GetConfigDirectory( "fheroes2" );
+            const std::string configPath = System::concatPath( configDirectory, taxpayerConfigFileName );
+
+            TinyConfig config( '=', '#' );
+            if ( !config.Load( configPath ) ) {
+                // Generate a sample file on first run; never overwrite an existing file.
+                if ( !System::IsFile( configPath ) ) {
+                    if ( !configDirectory.empty() ) {
+                        System::MakeDirectory( configDirectory );
+                    }
+
+                    std::ofstream configFile( configPath );
+                    if ( configFile ) {
+                        configFile << "# Experimental Peasant Taxpayer test\n"
+                                      "# Gold earned per Peasant owned by each player, per day.\n"
+                                      "# Peasants in town garrisons and hero armies count.\n"
+                                      "# Set to 0 to disable this income.\n"
+                                      "# Restart fheroes2 after changing this value.\n"
+                                      "taxpayer.gold_per_peasant_per_day = 2\n";
+                    }
+                    else {
+                        ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath )
+                    }
+                }
+
+                return defaultTaxpayerGoldPerPeasantPerDay;
+            }
+
+            if ( !config.Exists( taxpayerGoldPerPeasantKey ) ) {
+                return defaultTaxpayerGoldPerPeasantPerDay;
+            }
+
+            return std::max<int32_t>( 0, config.IntParams( taxpayerGoldPerPeasantKey ) );
+        }();
+
+        return goldPerPeasant;
+    }
+
+    uint64_t getKingdomPeasantCount( const Kingdom & kingdom )
+    {
+        uint64_t peasantCount = 0;
+        const Monster peasant( Monster::PEASANT );
+
+        // Peasants in each owned town/castle garrison.
+        for ( const Castle * castle : kingdom.GetCastles() ) {
+            if ( castle != nullptr ) {
+                peasantCount += castle->GetArmy().GetCountMonsters( peasant );
+            }
+        }
+
+        // Peasants in each owned hero's army, whether the hero is in town or on the map.
+        for ( const Heroes * hero : kingdom.GetHeroes() ) {
+            if ( hero != nullptr ) {
+                peasantCount += hero->GetArmy().GetCountMonsters( peasant );
+            }
+        }
+
+        return peasantCount;
+    }
+
+    int32_t getKingdomTaxpayerIncome( const Kingdom & kingdom, const int32_t goldPerPeasant )
+    {
+        if ( goldPerPeasant <= 0 ) {
+            return 0;
+        }
+
+        const uint64_t income = getKingdomPeasantCount( kingdom ) * static_cast<uint64_t>( goldPerPeasant );
+        const uint64_t maximumIncome = static_cast<uint64_t>( std::numeric_limits<int32_t>::max() );
+        return static_cast<int32_t>( std::min( income, maximumIncome ) );
+    }
+
     int32_t getHandicapIncomePercentage( const Player::HandicapStatus handicapStatus )
     {
         switch ( handicapStatus ) {
@@ -224,9 +307,18 @@ void Kingdom::ActionNewDay()
 
 void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventDate & event, const Funds & funds )> & displayEventDialog )
 {
-    // Skip the income for the first day
+    // Read or create the Taxpayer configuration even when normal daily income is skipped on day 1.
+    const int32_t taxpayerGoldPerPeasant = getTaxpayerGoldPerPeasantPerDay();
+
+    // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
         AddFundsResource( GetIncome() );
+
+        // Taxpayer income applies to every Peasant owned by this player, regardless of town faction.
+        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, taxpayerGoldPerPeasant );
+        if ( taxpayerIncome > 0 ) {
+            AddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( taxpayerIncome ) ) );
+        }
     }
 
     const bool isAIPlayer = ( GetControl() == CONTROL_AI );
