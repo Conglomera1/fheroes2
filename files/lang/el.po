@@ -9619,6 +9619,9 @@ msgstr ""
 msgid "Double damage from Water creatures"
 msgstr ""
 
+msgid "Taxpayer"
+msgstr "Φορολογούμενος"
+
 msgid "Lightning"
 msgstr ""
 

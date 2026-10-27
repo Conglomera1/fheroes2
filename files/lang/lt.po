@@ -10047,6 +10047,9 @@ msgstr ""
 msgid "Double damage from Water creatures"
 msgstr ""
 
+msgid "Taxpayer"
+msgstr "Mokesčių mokėtojas"
+
 msgid "Lightning"
 msgstr ""
 

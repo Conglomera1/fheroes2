@@ -10979,6 +10979,9 @@ msgstr "200% щети от огнени магии"
 msgid "Double damage from Water creatures"
 msgstr "Премахва всички магически заклинания от всички същества."
 
+msgid "Taxpayer"
+msgstr "Данъкоплатец"
+
 msgid "Lightning"
 msgstr "Светкавица"
 

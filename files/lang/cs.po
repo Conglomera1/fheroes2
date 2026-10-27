@@ -10534,6 +10534,9 @@ msgstr "Dvojnásobné poškození od ohnivých jednotek"
 msgid "Double damage from Water creatures"
 msgstr "Dvojnásobné poškození od vodních jednotek"
 
+msgid "Taxpayer"
+msgstr "Daňový poplatník"
+
 msgid "Lightning"
 msgstr "Blesk"
 

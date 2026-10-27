@@ -10630,6 +10630,9 @@ msgstr "Dupla sebzés tűz teremtményektől"
 msgid "Double damage from Water creatures"
 msgstr "Dupla sebzés víz teremtményektől"
 
+msgid "Taxpayer"
+msgstr "Adófizető"
+
 msgid "Lightning"
 msgstr "Villámlás"
 

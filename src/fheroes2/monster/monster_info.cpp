@@ -796,6 +796,10 @@ namespace fheroes2
     {
         std::vector<std::string> output;
 
+        if ( monsterId == Monster::PEASANT ) {
+            output.emplace_back( std::string( _( "Taxpayer" ) ) + '.' );
+        }
+
         const auto listSpells = []( const std::vector<int> & sortedSpells ) {
             std::string result;
 

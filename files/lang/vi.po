@@ -10958,6 +10958,9 @@ msgstr "200% sát thương từ phép Lửa"
 msgid "Double damage from Water creatures"
 msgstr "Loại bỏ tất cả các phép thuật từ tất cả các sinh vật."
 
+msgid "Taxpayer"
+msgstr "Người nộp thuế"
+
 msgid "Lightning"
 msgstr "Sét"
 

@@ -10824,6 +10824,9 @@ msgstr "Dobbelt skade fra ildvæsener"
 msgid "Double damage from Water creatures"
 msgstr "Dobbelt skade fra vandvæsener"
 
+msgid "Taxpayer"
+msgstr "Skatteyder"
+
 msgid "Lightning"
 msgstr "Lyn"
 

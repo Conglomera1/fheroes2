@@ -10697,6 +10697,9 @@ msgstr "Подвійна шкода від Вогняних істот"
 msgid "Double damage from Water creatures"
 msgstr "Подвійна шкода від Водяних істот"
 
+msgid "Taxpayer"
+msgstr "Платник податків"
+
 msgid "Lightning"
 msgstr "Блискавка"
 

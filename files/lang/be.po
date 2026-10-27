@@ -10743,6 +10743,9 @@ msgstr "Атрымліваюць удвая больш пашкоджанняў 
 msgid "Double damage from Water creatures"
 msgstr "Атрымліваюць удвая больш пашкоджанняў ад істот вады"
 
+msgid "Taxpayer"
+msgstr "Плацельшчык падаткаў"
+
 msgid "Lightning"
 msgstr "Б’юць маланкай"
 

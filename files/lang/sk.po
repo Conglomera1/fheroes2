@@ -10910,6 +10910,9 @@ msgstr "Dvojité poškodenie od kúziel ohňa"
 msgid "Double damage from Water creatures"
 msgstr "Odstráni všetky kúzla zo všetkých tvorov."
 
+msgid "Taxpayer"
+msgstr "Daňovník"
+
 msgid "Lightning"
 msgstr "Blesk"
 

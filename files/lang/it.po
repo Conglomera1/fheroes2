@@ -10256,6 +10256,9 @@ msgstr "200% di danni dalle magie del fuoco"
 msgid "Double damage from Water creatures"
 msgstr "Rimuove tutte le magie da tutte le creature nel campo di battaglia."
 
+msgid "Taxpayer"
+msgstr "Contribuente"
+
 msgid "Lightning"
 msgstr "Fulmine"
 

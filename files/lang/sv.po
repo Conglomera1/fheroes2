@@ -10641,6 +10641,9 @@ msgstr "Dubbel skada från Eldvaralser"
 msgid "Double damage from Water creatures"
 msgstr "Dubbel skada från Vattenvarelser"
 
+msgid "Taxpayer"
+msgstr "Skattebetalare"
+
 msgid "Lightning"
 msgstr "Blixt"
 

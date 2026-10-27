@@ -10694,6 +10694,9 @@ msgstr "Двойной урон от огненных существ"
 msgid "Double damage from Water creatures"
 msgstr "Двойной урон от водных существ"
 
+msgid "Taxpayer"
+msgstr "Налогоплательщик"
+
 msgid "Lightning"
 msgstr "Молния"
 

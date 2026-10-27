@@ -66,14 +66,22 @@ namespace
 {
     constexpr std::string_view taxpayerConfigFileName = "knight_mod.ini";
     constexpr std::string_view taxpayerGoldPerPeasantKey = "taxpayer.gold_per_peasant_per_day";
+    constexpr std::string_view taxpayerRequireFarmsKey = "taxpayer.require_farms";
     constexpr int32_t defaultTaxpayerGoldPerPeasantPerDay = 2;
+
+    struct TaxpayerSettings
+    {
+        int32_t goldPerPeasantPerDay{ defaultTaxpayerGoldPerPeasantPerDay };
+        bool requireFarms{ true };
+    };
 
     void logTaxpayerConfigCreationFailure( const std::string & configPath ){ ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath ) }
 
-    int32_t getTaxpayerGoldPerPeasantPerDay()
+    const TaxpayerSettings & getTaxpayerSettings()
     {
-        // Load the setting once per process. Restart fheroes2 after editing the file.
-        static const int32_t goldPerPeasant = []() {
+        // Load the settings once per process. Restart fheroes2 after editing the file.
+        static const TaxpayerSettings settings = []() {
+            TaxpayerSettings result;
             const std::string configDirectory = System::GetConfigDirectory( "fheroes2" );
             const std::string configPath = System::concatPath( configDirectory, taxpayerConfigFileName );
 
@@ -88,45 +96,80 @@ namespace
                     std::ofstream configFile( configPath );
                     if ( configFile ) {
                         configFile << "# Experimental Peasant Taxpayer test\n"
-                                      "# Gold earned per Peasant owned by each player, per day.\n"
-                                      "# Peasants in town garrisons and hero armies count.\n"
-                                      "# Set to 0 to disable this income.\n"
-                                      "# Restart fheroes2 after changing this value.\n"
-                                      "taxpayer.gold_per_peasant_per_day = 2\n";
+                                      "# Gold earned per Peasant per day.\n"
+                                      "# With require_farms = 1, only Knight towns with Farms count,\n"
+                                      "# including the garrison and the army of the hero stationed there.\n"
+                                      "# With require_farms = 0, all owned Peasants count wherever they are.\n"
+                                      "# Restart fheroes2 after changing these values.\n"
+                                      "taxpayer.gold_per_peasant_per_day = 2\n"
+                                      "taxpayer.require_farms = 1\n";
                     }
                     else {
                         logTaxpayerConfigCreationFailure( configPath );
                     }
                 }
 
-                return defaultTaxpayerGoldPerPeasantPerDay;
+                return result;
             }
 
-            const std::string taxpayerKey( taxpayerGoldPerPeasantKey );
-            if ( !config.Exists( taxpayerKey ) ) {
-                return defaultTaxpayerGoldPerPeasantPerDay;
+            const std::string goldKey( taxpayerGoldPerPeasantKey );
+            if ( config.Exists( goldKey ) ) {
+                result.goldPerPeasantPerDay = std::max<int32_t>( 0, config.IntParams( goldKey ) );
             }
 
-            return std::max<int32_t>( 0, config.IntParams( taxpayerKey ) );
+            const std::string farmsKey( taxpayerRequireFarmsKey );
+            if ( config.Exists( farmsKey ) ) {
+                result.requireFarms = config.IntParams( farmsKey ) != 0;
+            }
+            else {
+                // Add the new setting to an existing config without disturbing its current values.
+                std::ofstream configFile( configPath, std::ios::app );
+                if ( configFile ) {
+                    configFile << "\n# Require a Knight town with Farms for Peasant taxation (1 = yes, 0 = no).\n"
+                                  "taxpayer.require_farms = 1\n";
+                }
+                else {
+                    logTaxpayerConfigCreationFailure( configPath );
+                }
+            }
+
+            return result;
         }();
 
-        return goldPerPeasant;
+        return settings;
     }
 
-    uint64_t getKingdomPeasantCount( const Kingdom & kingdom )
+    uint64_t getKingdomPeasantCount( const Kingdom & kingdom, const bool requireFarms )
     {
         uint64_t peasantCount = 0;
         const Monster peasant( Monster::PEASANT );
 
-        // Peasants in each owned town/castle garrison.
-        for ( const Castle * castle : kingdom.GetCastles() ) {
-            if ( castle != nullptr ) {
-                peasantCount += castle->GetArmy().GetCountMonsters( peasant );
+        if ( !requireFarms ) {
+            // Compatibility mode: count all owned Peasants, as in the original prototype.
+            for ( const Castle * castle : kingdom.GetCastles() ) {
+                if ( castle != nullptr ) {
+                    peasantCount += castle->GetArmy().GetCountMonsters( peasant );
+                }
             }
+
+            for ( const Heroes * hero : kingdom.GetHeroes() ) {
+                if ( hero != nullptr ) {
+                    peasantCount += hero->GetArmy().GetCountMonsters( peasant );
+                }
+            }
+
+            return peasantCount;
         }
 
-        // Peasants in each owned hero's army, whether the hero is in town or on the map.
-        for ( const Heroes * hero : kingdom.GetHeroes() ) {
+        // Tax only Peasants in Knight towns with Farms, including the stationed hero.
+        for ( const Castle * castle : kingdom.GetCastles() ) {
+            if ( castle == nullptr || castle->GetRace() != Race::KNGT || !castle->isBuild( BUILD_WEL2 ) ) {
+                continue;
+            }
+
+            peasantCount += castle->GetArmy().GetCountMonsters( peasant );
+
+            const Heroes * hero = castle->GetHero();
             if ( hero != nullptr ) {
                 peasantCount += hero->GetArmy().GetCountMonsters( peasant );
             }
@@ -135,13 +178,14 @@ namespace
         return peasantCount;
     }
 
-    int32_t getKingdomTaxpayerIncome( const Kingdom & kingdom, const int32_t goldPerPeasant )
+    int32_t getKingdomTaxpayerIncome( const Kingdom & kingdom, const TaxpayerSettings & settings )
     {
-        if ( goldPerPeasant <= 0 ) {
+        if ( settings.goldPerPeasantPerDay <= 0 ) {
             return 0;
         }
 
-        const uint64_t income = getKingdomPeasantCount( kingdom ) * static_cast<uint64_t>( goldPerPeasant );
+        const uint64_t income = getKingdomPeasantCount( kingdom, settings.requireFarms )
+                                * static_cast<uint64_t>( settings.goldPerPeasantPerDay );
         const uint64_t maximumIncome = static_cast<uint64_t>( std::numeric_limits<int32_t>::max() );
         return static_cast<int32_t>( std::min( income, maximumIncome ) );
     }
@@ -311,14 +355,14 @@ void Kingdom::ActionNewDay()
 void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventDate & event, const Funds & funds )> & displayEventDialog )
 {
     // Read or create the Taxpayer configuration even when normal daily income is skipped on day 1.
-    const int32_t taxpayerGoldPerPeasant = getTaxpayerGoldPerPeasantPerDay();
+    const TaxpayerSettings & taxpayerSettings = getTaxpayerSettings();
 
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
         AddFundsResource( GetIncome() );
 
-        // Taxpayer income applies to every Peasant owned by this player, regardless of town faction.
-        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, taxpayerGoldPerPeasant );
+        // Apply the Taxpayer rule consistently to human and CPU players.
+        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, taxpayerSettings );
         if ( taxpayerIncome > 0 ) {
             AddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( taxpayerIncome ) ) );
         }

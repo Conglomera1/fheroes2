@@ -10947,6 +10947,9 @@ msgstr "Double les dégâts subis par les créatures de feu"
 msgid "Double damage from Water creatures"
 msgstr "Double les dégâts subis par les créatures de l'eau"
 
+msgid "Taxpayer"
+msgstr "Contribuable"
+
 msgid "Lightning"
 msgstr "Éclair foudroyant"
 

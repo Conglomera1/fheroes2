@@ -11122,6 +11122,9 @@ msgstr "200% skade fra ildmagi"
 msgid "Double damage from Water creatures"
 msgstr "Fjerner all trolldom fra alle krigere, både vennlige og fiendtlige."
 
+msgid "Taxpayer"
+msgstr "Skattebetaler"
+
 msgid "Lightning"
 msgstr "Lynnedslag"
 

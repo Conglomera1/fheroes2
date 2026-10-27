@@ -10797,6 +10797,9 @@ msgstr "Doble daño de criaturas de fuego"
 msgid "Double damage from Water creatures"
 msgstr "Doble daño de criaturas de agua"
 
+msgid "Taxpayer"
+msgstr "Contribuyente"
+
 msgid "Lightning"
 msgstr "Rayo"
 

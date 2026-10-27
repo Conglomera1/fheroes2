@@ -10694,6 +10694,9 @@ msgstr "Podwójne obrażenia od stworzeń ognia"
 msgid "Double damage from Water creatures"
 msgstr "Podwójne obrażenia od stworzeń wody"
 
+msgid "Taxpayer"
+msgstr "Podatnik"
+
 msgid "Lightning"
 msgstr "błyskawic"
 
