@@ -75,7 +75,10 @@ namespace
         bool requireFarms{ true };
     };
 
-    void logTaxpayerConfigCreationFailure( const std::string & configPath ){ ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath ) }
+    void logTaxpayerConfigCreationFailure( const std::string & configPath )
+    {
+        ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath )
+    }
 
     const TaxpayerSettings & getTaxpayerSettings()
     {
@@ -184,8 +187,7 @@ namespace
             return 0;
         }
 
-        const uint64_t income = getKingdomPeasantCount( kingdom, settings.requireFarms )
-                                * static_cast<uint64_t>( settings.goldPerPeasantPerDay );
+        const uint64_t income = getKingdomPeasantCount( kingdom, settings.requireFarms ) * static_cast<uint64_t>( settings.goldPerPeasantPerDay );
         const uint64_t maximumIncome = static_cast<uint64_t>( std::numeric_limits<int32_t>::max() );
         return static_cast<int32_t>( std::min( income, maximumIncome ) );
     }
