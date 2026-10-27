@@ -28,8 +28,8 @@
 #include <fstream>
 #include <initializer_list>
 #include <limits>
-#include <ostream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "army.h"
@@ -64,9 +64,14 @@
 
 namespace
 {
-    constexpr char taxpayerConfigFileName[] = "knight_mod.ini";
-    constexpr char taxpayerGoldPerPeasantKey[] = "taxpayer.gold_per_peasant_per_day";
+    constexpr std::string_view taxpayerConfigFileName = "knight_mod.ini";
+    constexpr std::string_view taxpayerGoldPerPeasantKey = "taxpayer.gold_per_peasant_per_day";
     constexpr int32_t defaultTaxpayerGoldPerPeasantPerDay = 2;
+
+    void logTaxpayerConfigCreationFailure( const std::string & configPath )
+    {
+        ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath )
+    }
 
     int32_t getTaxpayerGoldPerPeasantPerDay()
     {
@@ -93,18 +98,19 @@ namespace
                                       "taxpayer.gold_per_peasant_per_day = 2\n";
                     }
                     else {
-                        ERROR_LOG( "Unable to create Taxpayer configuration file: " << configPath )
+                        logTaxpayerConfigCreationFailure( configPath );
                     }
                 }
 
                 return defaultTaxpayerGoldPerPeasantPerDay;
             }
 
-            if ( !config.Exists( taxpayerGoldPerPeasantKey ) ) {
+            const std::string taxpayerKey( taxpayerGoldPerPeasantKey );
+            if ( !config.Exists( taxpayerKey ) ) {
                 return defaultTaxpayerGoldPerPeasantPerDay;
             }
 
-            return std::max<int32_t>( 0, config.IntParams( taxpayerGoldPerPeasantKey ) );
+            return std::max<int32_t>( 0, config.IntParams( taxpayerKey ) );
         }();
 
         return goldPerPeasant;
