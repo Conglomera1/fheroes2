@@ -701,6 +701,11 @@ int32_t Kingdom::GetTaxpayerGoldPerPeasantPerDay()
     return getTaxpayerSettings().goldPerPeasantPerDay;
 }
 
+bool Kingdom::TaxpayerRequiresFarms()
+{
+    return getTaxpayerSettings().requireFarms;
+}
+
 Funds Kingdom::GetIncome( int type /* = INCOME_STANDARD */ ) const
 {
     Funds totalIncome;
