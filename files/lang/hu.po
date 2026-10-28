@@ -12836,3 +12836,6 @@ msgstr "Egy ismeretlen erő kelt új életre ..."
 
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Kattints a hős gépi irányításához."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "A farmon művelő minden paraszt napi %{tax_rate} arany adót termel."
