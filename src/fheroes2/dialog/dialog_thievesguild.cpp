@@ -398,7 +398,7 @@ void Dialog::ThievesGuild( const bool oracle )
     text.draw( textOffsetX - text.width(), offset.y, display );
 
     if ( thievesGuildCount > 4 ) {
-        getInfo( valuesForPlayerColors, colors, []( const PlayerColor color ) { return world.GetKingdom( color ).GetIncome().gold; } );
+        getInfo( valuesForPlayerColors, colors, []( const PlayerColor color ) { return world.GetKingdom( color ).GetIncome( Kingdom::INCOME_ALL ).gold; } );
         drawFlags( valuesForPlayerColors, offset, stepX, playersCount, display );
     }
 
