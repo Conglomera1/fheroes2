@@ -146,7 +146,13 @@ namespace
                 continue;
             }
 
-            const uint32_t fundsMultiplier = order.priority * multiplier;
+            uint32_t priority = order.priority;
+            if ( order.building == BUILD_WEL2 && castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms() ) {
+                // Prioritize the Farm when it unlocks Taxpayer income for this Knight town.
+                priority = 5;
+            }
+
+            const uint32_t fundsMultiplier = priority * multiplier;
 
             if ( fundsMultiplier == 1 ) {
                 if ( AI::BuildIfPossible( castle, order.building ) ) {
