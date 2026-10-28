@@ -13142,3 +13142,6 @@ msgstr "Eine unbekannte Macht wird wiederbelebt..."
 
 #~ msgid "Create a new map from scratch."
 #~ msgstr "Komplett neue Karte erstellen."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Jeder Bauer, der auf dem Bauernhof arbeitet, bringt täglich %{tax_rate} Gold an Steuern ein."
