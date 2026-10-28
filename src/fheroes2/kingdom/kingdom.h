@@ -139,6 +139,8 @@ public:
         return resource;
     }
 
+    static int32_t GetTaxpayerGoldPerPeasantPerDay();
+
     Funds GetIncome( int type = INCOME_STANDARD ) const;
 
     double GetArmiesStrength() const;
