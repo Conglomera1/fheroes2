@@ -153,13 +153,30 @@ namespace
             }
 
             const uint32_t fundsMultiplier = priority * multiplier;
+            const bool traceKnightBuild = castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms();
 
-            if ( fundsMultiplier == 1 ) {
-                if ( AI::BuildIfPossible( castle, order.building ) ) {
-                    return true;
-                }
+            if ( traceKnightBuild ) {
+                DEBUG_LOG( DBG_AI, DBG_INFO,
+                           "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": considering building id "
+                                  << static_cast<uint32_t>( order.building ) << ", priority " << order.priority << " -> " << priority
+                                  << ", funds multiplier " << fundsMultiplier );
             }
-            else if ( AI::BuildIfEnoughFunds( castle, order.building, fundsMultiplier ) ) {
+
+            bool built = false;
+            if ( fundsMultiplier == 1 ) {
+                built = AI::BuildIfPossible( castle, order.building );
+            }
+            else {
+                built = AI::BuildIfEnoughFunds( castle, order.building, fundsMultiplier );
+            }
+
+            if ( traceKnightBuild ) {
+                DEBUG_LOG( DBG_AI, DBG_INFO,
+                           "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": building id "
+                                  << static_cast<uint32_t>( order.building ) << ( built ? " BUILT" : " not selected (fund threshold or building unavailable)" ) );
+            }
+
+            if ( built ) {
                 return true;
             }
         }
