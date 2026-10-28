@@ -13067,3 +13067,6 @@ msgstr "Una fuerza desconocida está siendo resucitada..."
 
 #~ msgid "Create a new map from scratch."
 #~ msgstr "Crea un nuevo mapa desde cero."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Cada campesino que trabaja en la granja genera %{tax_rate} de oro en impuestos al día."
