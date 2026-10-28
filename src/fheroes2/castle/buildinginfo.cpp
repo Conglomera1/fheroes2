@@ -295,6 +295,11 @@ std::string BuildingInfo::getBuildingDescription( const int race, const uint32_t
             break;
         case BUILD_WEL2:
             StringReplace( description, "%{count}", Castle::GetGrownWel2() );
+            if ( race == Race::KNGT ) {
+                description += "\n\n";
+                description += _( "Each Peasant working at the farm yields %{tax_rate} gold in tax per day." );
+                StringReplace( description, "%{tax_rate}", Kingdom::GetTaxpayerGoldPerPeasantPerDay() );
+            }
             break;
         case BUILD_MOAT:
             StringReplace( description, "%{count}", GameStatic::GetBattleMoatReduceDefense() );
