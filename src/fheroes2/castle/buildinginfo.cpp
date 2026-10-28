@@ -36,6 +36,7 @@
 #include "dialog.h"
 #include "game_assets.h"
 #include "game_static.h"
+#include "kingdom.h"
 #include "icn.h"
 #include "localevent.h"
 #include "m82.h"
