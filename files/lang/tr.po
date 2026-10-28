@@ -11737,3 +11737,6 @@ msgstr ""
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Savaşı otomatik modda bitirmek istediğinizden emin misiniz?"
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Çiftlikte çalışan her köylü, günde %{tax_rate} altın vergi geliri sağlar."
