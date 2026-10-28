@@ -12853,3 +12853,6 @@ msgstr "En okänd kraft återuppstår..."
 
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Klicka för att ange denna hjälte som AI-kontrollerad."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Varje bonde som arbetar på gården ger %{tax_rate} guld i skatt per dag."
