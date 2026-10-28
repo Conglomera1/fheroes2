@@ -28,14 +28,14 @@ jobs:
     - name: Build fheroes2 (Win32 Release)
       shell: cmd
       run: |
-        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=Win32 /property:Configuration=Release-SDL2
+        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=x86 /property:Configuration=Release-SDL2
 
     - name: Upload executable and runtime libraries
       uses: actions/upload-artifact@v4
       with:
         name: taxpayer-test-windows-x86
         path: |
-          build/Win32/Release-SDL2/fheroes2.exe
+          build/x86/Release-SDL2/fheroes2.exe
           build/Win32/Release-SDL2/*.dll
         if-no-files-found: error
         retention-days: 14
