@@ -157,7 +157,7 @@ namespace
             const bool traceKnightBuild = castle.GetRace() == Race::KNGT;
 
             if ( traceKnightBuild ) {
-                DEBUG_LOG( DBG_AI, DBG_INFO,
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " <<
                            "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": considering building id "
                                   << static_cast<uint32_t>( order.building ) << ", priority " << order.priority << " -> " << priority
                                   << ", funds multiplier " << fundsMultiplier );
@@ -172,7 +172,7 @@ namespace
             }
 
             if ( traceKnightBuild ) {
-                DEBUG_LOG( DBG_AI, DBG_INFO,
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " <<
                            "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": building id "
                                   << static_cast<uint32_t>( order.building ) << ( built ? " BUILT" : " not selected (fund threshold or building unavailable)" ) );
             }
@@ -342,7 +342,7 @@ void AI::Planner::reinforceCastle( Castle & castle )
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
         if ( castle.RecruitMonster( troop, false ) ) {
-            DEBUG_LOG( DBG_AI, DBG_INFO, castle.GetName() << " hires " << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) )
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " << castle.GetName() << " hires " << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) )
 
             return true;
         }
