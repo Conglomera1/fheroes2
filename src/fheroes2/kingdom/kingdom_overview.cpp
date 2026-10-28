@@ -742,7 +742,8 @@ namespace
         text.draw( pt.x + 496 - text.width() / 2, offsetY, display );
 
         offsetY += 14;
-        text.set( _( "Gold Per Day:" ) + std::string( " " ) + std::to_string( myKingdom.GetIncome( Kingdom::INCOME_ALL ).Get( Resource::GOLD ) ), fheroes2::FontType::smallWhite() );
+        text.set( _( "Gold Per Day:" ) + std::string( " " ) + std::to_string( myKingdom.GetIncome( Kingdom::INCOME_ALL ).Get( Resource::GOLD ) ),
+                  fheroes2::FontType::smallWhite() );
         text.draw( pt.x + 180, offsetY, display );
 
         std::string msg = _( "Day: %{day}" );
