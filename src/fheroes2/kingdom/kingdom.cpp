@@ -361,13 +361,7 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
 
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
-        AddFundsResource( GetIncome() );
-
-        // Apply the Taxpayer rule consistently to human and CPU players.
-        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, taxpayerSettings );
-        if ( taxpayerIncome > 0 ) {
-            AddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( taxpayerIncome ) ) );
-        }
+        AddFundsResource( GetIncome( INCOME_ALL ) );
     }
 
     const bool isAIPlayer = ( GetControl() == CONTROL_AI );
@@ -702,7 +696,12 @@ uint32_t Kingdom::GetMaxHeroes()
     return GameStatic::GetKingdomMaxHeroes();
 }
 
-Funds Kingdom::GetIncome( int type /* = INCOME_ALL */ ) const
+int32_t Kingdom::GetTaxpayerGoldPerPeasantPerDay()
+{
+    return getTaxpayerSettings().goldPerPeasantPerDay;
+}
+
+Funds Kingdom::GetIncome( int type /* = INCOME_STANDARD */ ) const
 {
     Funds totalIncome;
 
@@ -783,7 +782,17 @@ Funds Kingdom::GetIncome( int type /* = INCOME_ALL */ ) const
     assert( player != nullptr );
 
     // Some human players can have handicap for resources.
-    return getHandicapDependentIncome( totalIncome, player->getHandicapStatus() );
+    Funds adjustedIncome = getHandicapDependentIncome( totalIncome, player->getHandicapStatus() );
+
+    // Taxpayer income is added after AI and handicap modifiers.
+    if ( INCOME_TAXPAYER & type ) {
+        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, getTaxpayerSettings() );
+        if ( taxpayerIncome > 0 ) {
+            adjustedIncome.gold += static_cast<uint32_t>( taxpayerIncome );
+        }
+    }
+
+    return adjustedIncome;
 }
 
 Heroes * Kingdom::GetBestHero() const
