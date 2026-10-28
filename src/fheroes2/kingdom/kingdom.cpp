@@ -357,8 +357,6 @@ void Kingdom::ActionNewDay()
 void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventDate & event, const Funds & funds )> & displayEventDialog )
 {
     // Read or create the Taxpayer configuration even when normal daily income is skipped on day 1.
-    const TaxpayerSettings & taxpayerSettings = getTaxpayerSettings();
-
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
         AddFundsResource( GetIncome( INCOME_ALL ) );
@@ -694,6 +692,11 @@ void Kingdom::ApplyPlayWithStartingHero()
 uint32_t Kingdom::GetMaxHeroes()
 {
     return GameStatic::GetKingdomMaxHeroes();
+}
+
+int32_t Kingdom::GetTaxpayerGoldPerPeasantPerDay()
+{
+    return getTaxpayerSettings().goldPerPeasantPerDay;
 }
 
 Funds Kingdom::GetIncome( int type /* = INCOME_STANDARD */ ) const
