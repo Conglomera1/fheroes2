@@ -36,6 +36,6 @@ jobs:
         name: taxpayer-test-windows-x86
         path: |
           build/x86/Release-SDL2/fheroes2.exe
-          build/Win32/Release-SDL2/*.dll
+          build/x86/Release-SDL2/*.dll
         if-no-files-found: error
         retention-days: 14
