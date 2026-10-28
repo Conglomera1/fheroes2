@@ -140,6 +140,7 @@ public:
     }
 
     static int32_t GetTaxpayerGoldPerPeasantPerDay();
+    static bool TaxpayerRequiresFarms();
 
     Funds GetIncome( int type = INCOME_STANDARD ) const;
 
