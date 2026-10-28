@@ -11393,3 +11393,6 @@ msgstr ""
 #~ msgstr ""
 #~ "ΙΣΤΟΡΙΑ\n"
 #~ "ΕΠΕΚΤΑΣΗΣ"
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Κάθε χωρικός που εργάζεται στο αγρόκτημα αποδίδει %{tax_rate} χρυσό σε φόρους την ημέρα."
