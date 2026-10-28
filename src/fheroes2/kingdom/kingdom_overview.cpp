@@ -686,7 +686,7 @@ namespace
 
     void RedrawIncomeInfo( const fheroes2::Point & pt, const Kingdom & myKingdom )
     {
-        const Funds income = myKingdom.GetIncome( Kingdom::INCOME_ARTIFACTS | Kingdom::INCOME_HERO_SKILLS | Kingdom::INCOME_CAMPAIGN_BONUS );
+        const Funds income = myKingdom.GetIncome( Kingdom::INCOME_ARTIFACTS | Kingdom::INCOME_HERO_SKILLS | Kingdom::INCOME_CAMPAIGN_BONUS | Kingdom::INCOME_TAXPAYER );
         const int32_t offsetY = pt.y + 410;
         fheroes2::Display & display = fheroes2::Display::instance();
 
@@ -742,7 +742,7 @@ namespace
         text.draw( pt.x + 496 - text.width() / 2, offsetY, display );
 
         offsetY += 14;
-        text.set( _( "Gold Per Day:" ) + std::string( " " ) + std::to_string( myKingdom.GetIncome().Get( Resource::GOLD ) ), fheroes2::FontType::smallWhite() );
+        text.set( _( "Gold Per Day:" ) + std::string( " " ) + std::to_string( myKingdom.GetIncome( Kingdom::INCOME_ALL ).Get( Resource::GOLD ) ), fheroes2::FontType::smallWhite() );
         text.draw( pt.x + 180, offsetY, display );
 
         std::string msg = _( "Day: %{day}" );
