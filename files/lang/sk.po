@@ -13126,3 +13126,6 @@ msgstr "Neznáma sila je vzkriesená..."
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Klikni sem a vyber scenár, ktorý chceš hrať."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Každý roľník pracujúci na farme prinesie denne %{tax_rate} zlata na daniach."
