@@ -12972,3 +12972,6 @@ msgstr "Uma força misteriosa está ressuscitando..."
 
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Clique para definir este herói como controlado pela IA."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Cada camponês que trabalha na fazenda gera %{tax_rate} em ouro de impostos por dia."
