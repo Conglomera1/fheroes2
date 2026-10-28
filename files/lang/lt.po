@@ -11860,3 +11860,6 @@ msgstr ""
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Rodyti kitą miestą"
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Kiekvienas ūkyje dirbantis valstietis per dieną surenka %{tax_rate} aukso mokesčių."
