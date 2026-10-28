@@ -11418,3 +11418,6 @@ msgstr ""
 #~ msgstr ""
 #~ "ALDONITA\n"
 #~ "KAMPANJO"
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Ĉiu kamparano laboranta en la farmbieno enspezigas %{tax_rate} oron en impostoj ĉiutage."
