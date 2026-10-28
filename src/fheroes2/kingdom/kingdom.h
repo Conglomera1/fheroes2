@@ -75,6 +75,8 @@ public:
         INCOME_ARTIFACTS = 0x04,
         INCOME_HERO_SKILLS = 0x08,
         INCOME_CAMPAIGN_BONUS = 0x10,
+        INCOME_TAXPAYER = 0x20,
+        INCOME_STANDARD = 0x1F,
         INCOME_ALL = 0xFF
     };
 
@@ -137,7 +139,7 @@ public:
         return resource;
     }
 
-    Funds GetIncome( int type = INCOME_ALL ) const;
+    Funds GetIncome( int type = INCOME_STANDARD ) const;
 
     double GetArmiesStrength() const;
 
