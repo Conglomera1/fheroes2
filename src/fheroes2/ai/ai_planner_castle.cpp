@@ -153,7 +153,8 @@ namespace
             }
 
             const uint32_t fundsMultiplier = priority * multiplier;
-            const bool traceKnightBuild = castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms();
+            // Trace Knight town construction in both Taxpayer modes so their logs can be compared.
+            const bool traceKnightBuild = castle.GetRace() == Race::KNGT;
 
             if ( traceKnightBuild ) {
                 DEBUG_LOG( DBG_AI, DBG_INFO,
