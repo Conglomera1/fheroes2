@@ -23,7 +23,7 @@ jobs:
       shell: cmd
       run: |
         set CI=true
-        call script\\windows\\install_packages.bat
+        call script/windows/install_packages.bat
 
     - name: Build fheroes2 (Win32 Release)
       shell: cmd
