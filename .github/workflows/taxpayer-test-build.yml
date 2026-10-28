@@ -1,0 +1,41 @@
+name: Taxpayer Test Build
+
+on:
+  push:
+    branches: [ taxpayer-test ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x86:
+    name: Windows x86 test build
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install MSVC build tools
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Install project dependencies
+      shell: cmd
+      run: |
+        set CI=true
+        call script\\windows\\install_packages.bat
+
+    - name: Build fheroes2 (Win32 Release)
+      shell: cmd
+      run: |
+        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=Win32 /property:Configuration=Release-SDL2
+
+    - name: Upload executable and runtime libraries
+      uses: actions/upload-artifact@v4
+      with:
+        name: taxpayer-test-windows-x86
+        path: |
+          build/Win32/Release-SDL2/fheroes2.exe
+          build/Win32/Release-SDL2/*.dll
+        if-no-files-found: error
+        retention-days: 14
