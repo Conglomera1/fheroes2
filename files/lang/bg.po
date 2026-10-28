@@ -13222,3 +13222,6 @@ msgstr "Непозната сила възкръсва..."
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Кликни тук, за да избереш кой сценарий да играеш."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Всеки селянин, работещ във фермата, носи %{tax_rate} злато от данъци на ден."
