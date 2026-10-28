@@ -315,7 +315,7 @@ std::string BuildingInfo::getBuildingDescription( const int race, const uint32_t
     if ( race == Race::KNGT && buildingId == BUILD_SPEC ) {
         std::string taxpayerDescription = _( "Each Peasant working at the farm yields %{tax_rate} gold in tax per day." );
         StringReplace( taxpayerDescription, "%{tax_rate}", Kingdom::GetTaxpayerGoldPerPeasantPerDay() );
-        description.append( "\\n\\n" );
+        description.append( "\n\n" );
         description.append( taxpayerDescription );
     }
 
