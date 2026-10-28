@@ -13212,3 +13212,6 @@ msgstr "Une force inconnue est ressuscitée..."
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Cliquez ici pour sélectionner cette couleur."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Chaque paysan affecté à la ferme rapporte %{tax_rate} pièces d’or par jour en impôts."
