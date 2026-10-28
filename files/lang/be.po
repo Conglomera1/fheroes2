@@ -13012,3 +13012,6 @@ msgstr "Невядомая сіла ўваскрашаецца..."
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Націсніце сюды, каб выбраць гэты колер."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Кожны селянін, які працуе на ферме, прыносіць %{tax_rate} залатых манет падаткаў у дзень."
