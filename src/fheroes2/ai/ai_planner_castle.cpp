@@ -342,7 +342,7 @@ void AI::Planner::reinforceCastle( Castle & castle )
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
         if ( castle.RecruitMonster( troop, false ) ) {
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " << castle.GetName() << " hires " << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) )
+            DEBUG_LOG( DBG_AI, DBG_INFO, castle.GetName() << " hires " << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) )
 
             return true;
         }
