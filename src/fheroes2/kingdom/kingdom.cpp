@@ -357,7 +357,7 @@ void Kingdom::ActionNewDay()
 void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventDate & event, const Funds & funds )> & displayEventDialog )
 {
     // Read or create the Taxpayer configuration even when normal daily income is skipped on day 1.
-    const TaxpayerSettings & taxpayerSettings = getTaxpayerSettings();
+    getTaxpayerSettings();
 
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
