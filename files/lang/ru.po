@@ -12883,3 +12883,6 @@ msgstr "Возрождается неведомая сила..."
 
 #~ msgid "Create a new map from scratch."
 #~ msgstr "Создать новую карту с нуля."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Каждый крестьянин, работающий на ферме, приносит %{tax_rate} золотых налогов в день."
