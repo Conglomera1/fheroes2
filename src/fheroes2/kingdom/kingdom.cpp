@@ -785,7 +785,10 @@ Funds Kingdom::GetIncome( int type /* = INCOME_STANDARD */ ) const
     totalIncome = getHandicapDependentIncome( totalIncome, player->getHandicapStatus() );
 
     if ( type & INCOME_TAXPAYER ) {
-        totalIncome.gold += getKingdomTaxpayerIncome( *this, getTaxpayerSettings() );
+        const int32_t taxpayerIncome = getKingdomTaxpayerIncome( *this, getTaxpayerSettings() );
+        if ( taxpayerIncome > 0 ) {
+            totalIncome.gold += static_cast<uint32_t>( taxpayerIncome );
+        }
     }
 
     return totalIncome;
