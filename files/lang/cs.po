@@ -12686,3 +12686,6 @@ msgstr "Neznámá síla se probouzí..."
 #, fuzzy
 #~ msgid "Click to set this hero to be AI-controlled."
 #~ msgstr "Kliknout pro výběr barvy."
+
+msgid "Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
+msgstr "Každý rolník pracující na farmě přináší %{tax_rate} zlatých na daních denně."
