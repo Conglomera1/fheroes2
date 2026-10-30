@@ -415,9 +415,9 @@ void Interface::GameArea::Redraw( fheroes2::Image & dst, int flag, bool isPuzzle
     const int32_t worldHeight = world.h();
 
 #ifdef WITH_DEBUG
-    const bool renderFog = ( ( flag & LEVEL_FOG ) == LEVEL_FOG ) && !IS_DEVEL();
+    const bool renderFog = ( ( flag & LEVEL_FOG ) == LEVEL_FOG ) && !IS_DEVEL() && !Settings::Get().isTaxpayerTestMapRevealEnabled();
 #else
-    const bool renderFog = ( flag & LEVEL_FOG ) == LEVEL_FOG;
+    const bool renderFog = ( ( flag & LEVEL_FOG ) == LEVEL_FOG ) && !Settings::Get().isTaxpayerTestMapRevealEnabled();
 #endif
 
     // Render terrain.
