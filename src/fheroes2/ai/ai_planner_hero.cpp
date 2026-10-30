@@ -2246,23 +2246,49 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
     (void)objectType;
 #endif
 
+    double value = 0;
     switch ( hero.getAIRole() ) {
     case Heroes::Role::HUNTER:
-        return getGeneralObjectValue( hero, index, valueToIgnore, distanceToObject );
+        value = getGeneralObjectValue( hero, index, valueToIgnore, distanceToObject );
+        break;
     case Heroes::Role::SCOUT:
-        return getScoutObjectValue( hero, index, valueToIgnore, distanceToObject );
+        value = getScoutObjectValue( hero, index, valueToIgnore, distanceToObject );
+        break;
     case Heroes::Role::CHAMPION:
     case Heroes::Role::FIGHTER:
-        return getFighterObjectValue( hero, index, valueToIgnore, distanceToObject );
+        value = getFighterObjectValue( hero, index, valueToIgnore, distanceToObject );
+        break;
     case Heroes::Role::COURIER:
         return getCourierObjectValue( hero, index, valueToIgnore, distanceToObject );
     default:
         // If you set a new type of a hero you must add the logic here.
         assert( 0 );
-        break;
+        return 0;
     }
 
-    return 0;
+    // Only a very nearby Farm may be an extra opportunity. Important tasks retain their higher values,
+    // and a Courier's transport assignment is never interrupted for a tax deposit.
+    const uint32_t localVisitLimit = std::min<uint32_t>( 300, hero.GetMovePoints() / 4 );
+    if ( objectType != MP2::OBJ_CASTLE || distanceToObject == 0 || distanceToObject > localVisitLimit || !Kingdom::TaxpayerRequiresFarms()
+         || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || isCriticalTask( index ) ) {
+        return value;
+    }
+
+    const Castle * castle = world.getCastleEntrance( Maps::GetPoint( index ) );
+    if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetHero() != nullptr || castle->GetRace() != Race::KNGT
+         || !castle->isBuild( BUILD_WEL2 ) || _regions.at( world.getTile( index ).GetRegion() ).safetyFactor < 100 ) {
+        return value;
+    }
+
+    const uint32_t peasantCount = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+    const uint64_t weeklyIncome = static_cast<uint64_t>( peasantCount ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+    if ( weeklyIncome < 1000 ) {
+        return value;
+    }
+
+    // Limit the bonus so that Taxpayer cannot turn a small optional stop into a strategic objective.
+    const double taxpayerVisitValue = std::min( 1250.0, static_cast<double>( weeklyIncome ) / 4.0 + 200.0 );
+    return std::max( value, taxpayerVisitValue );
 }
 
 double AI::Planner::getFutureObjectValue( const Heroes & hero, const int32_t index, const MP2::MapObjectType objectType, const double valueToIgnore,
