@@ -186,6 +186,20 @@ namespace
         return false;
     }
 
+    // Compare the next week's expected tax receipts with the opportunity cost of the military recruitment.
+    // This is a preference, not a prohibition: threatened regions bypass this protection entirely.
+    bool shouldPreserveTaxpayerPeasants( const Castle & castle, const Troop & candidate, const Troop & incoming )
+    {
+        if ( castle.GetRace() != Race::KNGT || !castle.isBuild( BUILD_WEL2 ) || !Kingdom::TaxpayerRequiresFarms()
+             || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || candidate.GetID() != Monster::PEASANT ) {
+            return false;
+        }
+
+        const uint64_t weeklyTax = static_cast<uint64_t>( candidate.GetCount() ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+        const uint64_t replacementValue = static_cast<uint64_t>( std::max<int32_t>( 1000, incoming.GetTotalCost().gold ) );
+        return weeklyTax > replacementValue;
+    }
+
     // Economic recruitment is deliberately separate from military reinforcement. It uses only spare gold and
     // never fills the last free garrison slot with a new Peasant stack.
     void recruitTaxpayerPeasants( Castle & castle )
@@ -382,6 +396,9 @@ void AI::Planner::reinforceCastle( Castle & castle )
 {
     assert( castle.isControlAI() );
 
+    const uint32_t regionID = world.getTile( castle.GetIndex() ).GetRegion();
+    const bool safeForTaxpayerInvestment = _regions.at( regionID ).safetyFactor >= 100;
+
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
         if ( castle.RecruitMonster( troop, false ) ) {
@@ -439,11 +456,15 @@ void AI::Planner::reinforceCastle( Castle & castle )
             Army & guestHeroArmy = guestHero->GetArmy();
 
             // If there is a guest hero in the castle, and there is no slot for a new unit, then we can try to free up a slot by transferring some unit to the guest hero
-            if ( [&castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy]() {
+            if ( [&castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy, &troop, safeForTaxpayerInvestment]() {
                      for ( size_t i = 0; i < garrison.Size(); ++i ) {
                          Troop * garrisonTroop = garrison.GetTroop( i );
                          // All garrison slots should be occupied here because we just couldn't find a place for a new unit
                          assert( garrisonTroop != nullptr && garrisonTroop->isValid() );
+
+                         if ( safeForTaxpayerInvestment && shouldPreserveTaxpayerPeasants( castle, *garrisonTroop, troop ) ) {
+                             continue;
+                         }
 
                          if ( guestHeroArmy.JoinTroop( *garrisonTroop ) ) {
                              DEBUG_LOG( DBG_AI, DBG_TRACE,
@@ -490,6 +511,13 @@ void AI::Planner::reinforceCastle( Castle & castle )
         assert( weakestTroop != nullptr );
 
         // We need to compare a strength of troops themselves here (excluding commanding hero's stats)
+        if ( safeForTaxpayerInvestment && shouldPreserveTaxpayerPeasants( castle, *weakestTroop, troop ) ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                            << ": kept " << weakestTroop->GetCount() << " Peasants over recruitment of " << troop.GetCount()
+                                            << " " << troop.GetPluralName( troop.GetCount() ) );
+            continue;
+        }
+
         if ( Troop( *weakestTroop ).GetStrength() > troop.GetStrength() ) {
             DEBUG_LOG( DBG_AI, DBG_TRACE,
                        castle.GetName() << " skips hiring " << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() )
