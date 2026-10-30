@@ -283,9 +283,9 @@ void Interface::Radar::redrawForEditor( const bool renderMapObjects )
 void Interface::Radar::RedrawObjects( const PlayerColorsSet playerColor, const ViewWorldMode flags )
 {
 #ifdef WITH_DEBUG
-    const bool revealAll = ( flags == ViewWorldMode::ViewAll ) || IS_DEVEL();
+    const bool revealAll = ( flags == ViewWorldMode::ViewAll ) || IS_DEVEL() || Settings::Get().isTaxpayerTestMapRevealEnabled();
 #else
-    const bool revealAll = flags == ViewWorldMode::ViewAll;
+    const bool revealAll = ( flags == ViewWorldMode::ViewAll ) || Settings::Get().isTaxpayerTestMapRevealEnabled();
 #endif
 
     uint8_t * radarImage = _map.image();
