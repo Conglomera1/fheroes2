@@ -213,7 +213,7 @@ namespace
         const Funds peasantCost = peasant.GetCost();
 
         // A Peasant bought solely as a taxpayer should repay its purchase within two weeks.
-        if ( peasantCost.gold <= 0 || peasantCost.gold > Kingdom::GetTaxpayerGoldPerPeasantPerDay() * 14 ) {
+        if ( peasantCost.gold <= 0 || static_cast<int64_t>( peasantCost.gold ) > static_cast<int64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 14 ) {
             return;
         }
 
@@ -528,6 +528,13 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         }
 
         DEBUG_LOG( DBG_AI, DBG_TRACE, castle.GetName() << " dismisses " << weakestTroop->GetCount() << " " << weakestTroop->GetPluralName( weakestTroop->GetCount() ) )
+
+        if ( weakestTroop->GetID() == Monster::PEASANT && castle.GetRace() == Race::KNGT && castle.isBuild( BUILD_WEL2 )
+             && Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                            << ": dismissed " << weakestTroop->GetCount() << " Peasants for military recruitment of "
+                                            << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) );
+        }
 
         weakestTroop->Reset();
 
