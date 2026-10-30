@@ -2,7 +2,7 @@ name: Taxpayer Test Build
 
 on:
   push:
-    branches: [ taxpayer-test, taxpayer-ai-economy ]
+    branches: [ taxpayer-test, taxpayer-ai-economy, taxpayer-ai-huts-reveal ]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +33,7 @@ jobs:
     - name: Upload executable and runtime libraries
       uses: actions/upload-artifact@v4
       with:
-        name: taxpayer-test-windows-x86
+        name: taxpayer-huts-reveal-windows-x86
         path: |
           build/x86/Release-SDL2/fheroes2.exe
           build/x86/Release-SDL2/*.dll
