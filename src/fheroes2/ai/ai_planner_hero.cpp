@@ -2952,6 +2952,7 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
             }
 
             reinforceCastle( *castle );
+            depositTaxpayerPeasants( &hero, castle );
 
             // If the hero has very little movement points, we can check whether it is worth keeping him in the castle for the next turn.
             //
