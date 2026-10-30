@@ -585,7 +585,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             Army & guestHeroArmy = guestHero->GetArmy();
 
             // If there is a guest hero in the castle, and there is no slot for a new unit, then we can try to free up a slot by transferring some unit to the guest hero
-            if ( [this, &castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy, &troop]() {
+            if ( [this, &castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy]() {
                      for ( size_t i = 0; i < garrison.Size(); ++i ) {
                          Troop * garrisonTroop = garrison.GetTroop( i );
                          // All garrison slots should be occupied here because we just couldn't find a place for a new unit

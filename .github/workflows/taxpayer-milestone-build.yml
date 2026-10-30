@@ -270,13 +270,14 @@ jobs:
 
         ./bootstrap-vitasdk.sh
 
-        ./vdpm flac libmikmod libmodplug libogg libvita2d libvorbis libxmp mpg123 opus opusfile sdl2 sdl2_mixer zlib
+        "$VITASDK/bin/vdpm" install flac libmikmod libmodplug libogg libvita2d libvorbis libxmp mpg123 opus opusfile sdl2 sdl2_mixer zlib
 
         rm -rf ~/.vitasdk-cache
 
         '
       env:
         VITASDK: /usr/local/vitasdk
+        VDPM_NONINTERACTIVE: '1'
     - name: Restore Vita SDK from cache
       run: "if [[ -d ~/.vitasdk-cache ]]; then\n    sudo rm -rf /usr/local/vitasdk\n    sudo mv ~/.vitasdk-cache /usr/local/vitasdk\nfi\n"
     - name: Build
