@@ -18,6 +18,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <algorithm>
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -183,6 +184,48 @@ namespace
         }
 
         return false;
+    }
+
+    // Economic recruitment is deliberately separate from military reinforcement. It uses only spare gold and
+    // never fills the last free garrison slot with a new Peasant stack.
+    void recruitTaxpayerPeasants( Castle & castle )
+    {
+        if ( castle.GetRace() != Race::KNGT || !castle.isBuild( BUILD_WEL2 ) || !castle.isBuild( DWELLING_MONSTER1 )
+             || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) {
+            return;
+        }
+
+        const Monster peasant( Monster::PEASANT );
+        const Funds peasantCost = peasant.GetCost();
+
+        // A Peasant bought solely as a taxpayer should repay its purchase within two weeks.
+        if ( peasantCost.gold <= 0 || peasantCost.gold > Kingdom::GetTaxpayerGoldPerPeasantPerDay() * 14 ) {
+            return;
+        }
+
+        const Army & garrison = castle.GetArmy();
+        const uint32_t occupiedSlots = garrison.GetOccupiedSlotCount();
+        if ( occupiedSlots >= 5 || ( occupiedSlots >= 4 && garrison.GetCountMonsters( peasant ) == 0 ) ) {
+            return;
+        }
+
+        // Reserve at least 2000 gold and at least 75% of the current treasury for other AI needs.
+        const Funds & treasury = castle.GetKingdom().GetFunds();
+        const int32_t goldBudget = std::min( std::max( 0, treasury.gold - 2000 ), treasury.gold / 4 );
+        if ( goldBudget < peasantCost.gold ) {
+            return;
+        }
+
+        Funds budget = treasury;
+        budget.gold = goldBudget;
+        const uint32_t peasantCount = castle.getRecruitLimit( peasant, budget );
+        if ( peasantCount == 0 || !castle.RecruitMonster( Troop( peasant, peasantCount ), false ) ) {
+            return;
+        }
+
+        COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                        << ": recruited " << peasantCount << " Peasants for tax, estimated daily income +"
+                                        << static_cast<uint64_t>( peasantCount ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
     }
 
     bool CastleDevelopment( Castle & castle, int safetyFactor, int spellLevel )
@@ -556,5 +599,6 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
         const RegionStats & stats = _regions[regionID];
 
         CastleDevelopment( castle, stats.safetyFactor, stats.spellLevel );
+        recruitTaxpayerPeasants( castle );
     }
 }
