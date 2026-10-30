@@ -46,6 +46,7 @@
 #include "maps.h"
 #include "maps_tiles.h"
 #include "maps_tiles_helper.h"
+#include "monster.h"
 #include "mp2.h"
 #include "payment.h"
 #include "players.h"
@@ -200,6 +201,44 @@ void AI::OptimizeTroopsOrder( Army & army )
     if ( Difficulty::allowAIToSplitWeakStacks( Game::getDifficulty() ) ) {
         // Complicate the task of a potential attacker
         army.splitStackOfWeakestUnitsIntoFreeSlots();
+    }
+}
+
+void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
+{
+    assert( hero != nullptr && castle != nullptr );
+
+    if ( !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || castle->GetRace() != Race::KNGT
+         || !castle->isBuild( BUILD_WEL2 ) || hero->GetColor() != castle->GetColor() || castle->GetHero() != hero ) {
+        return;
+    }
+
+    Army & heroArmy = hero->GetArmy();
+    Army & garrison = castle->GetArmy();
+
+    for ( size_t i = 0; i < heroArmy.Size(); ++i ) {
+        Troop * troop = heroArmy.GetTroop( i );
+        if ( troop == nullptr || !troop->isValid() || troop->GetID() != Monster::PEASANT ) {
+            continue;
+        }
+
+        const uint32_t initialCount = troop->GetCount();
+        // The hero must retain at least one unit if this is the only occupied army slot.
+        const uint32_t countToTransfer = heroArmy.GetOccupiedSlotCount() == 1 ? initialCount - 1 : initialCount;
+        if ( countToTransfer == 0 || !garrison.JoinTroop( troop->GetMonster(), countToTransfer, true ) ) {
+            return;
+        }
+
+        if ( countToTransfer == initialCount ) {
+            troop->Reset();
+        }
+        else {
+            troop->SetCount( initialCount - countToTransfer );
+        }
+
+        COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
+                                        << ": deposited " << countToTransfer << " Peasants from hero " << hero->GetName() );
+        return;
     }
 }
 
