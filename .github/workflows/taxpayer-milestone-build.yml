@@ -1,0 +1,485 @@
+name: Taxpayer Clean Milestone
+'on':
+  push:
+    branches:
+    - taxpayer-milestone-clean
+  workflow_dispatch: null
+permissions:
+  contents: read
+jobs:
+  policy-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Verify fiscal defense policy
+      run: 'g++ -std=c++17 -Wall -Wextra -Werror tests/taxpayer_policy_test.cpp -o taxpayer_policy_test
+
+        ./taxpayer_policy_test
+
+        '
+  windows:
+    strategy:
+      matrix:
+        include:
+        - name: SDL2 x86
+          platform: x86
+          build_config: Release-SDL2
+          deploy_config: SDL2
+          installer_package_name: fheroes2_windows_x86_SDL2_installer.exe
+          zip_package_name: fheroes2_windows_x86_SDL2.zip
+          tools_package_name: fheroes2_tools_windows_x86_SDL2.zip
+          release_name: Windows x86 build with SDL2 (latest commit)
+          release_tag: fheroes2-windows-x86-SDL2
+        - name: SDL2 x64
+          platform: x64
+          build_config: Release-SDL2
+          deploy_config: SDL2
+          installer_package_name: fheroes2_windows_x64_SDL2_installer.exe
+          zip_package_name: fheroes2_windows_x64_SDL2.zip
+          tools_package_name: fheroes2_tools_windows_x64_SDL2.zip
+          release_name: Windows x64 build with SDL2 (latest commit)
+          release_tag: fheroes2-windows-x64-SDL2
+      fail-fast: false
+    name: MSVC (${{ matrix.name }})
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: 'script/windows/install_packages.bat
+
+        '
+    - name: Install MSYS2 tools
+      run: 'C:\msys64\usr\bin\pacman.exe -S --noconfirm --noprogressbar gettext-devel make
+
+        '
+      shell: cmd
+    - name: Download MSVC Redistributable package
+      run: 'mkdir .vcredist && ^
+
+        C:\msys64\usr\bin\wget.exe -O .vcredist/vcredist.exe "%VCREDIST_URL%"
+
+        '
+      shell: cmd
+      env:
+        VCREDIST_URL: https://aka.ms/vs/17/release/vc_redist.${{ matrix.platform }}.exe
+    - name: Verify MSVC Redistributable package
+      run: '"%SIGNTOOL_DIR%\signtool.exe" verify /v /d /all /pa /r "Microsoft Root Certificate Authority" .vcredist\vcredist.exe
+
+        '
+      shell: cmd
+      env:
+        SIGNTOOL_DIR: C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64
+    - name: Generate version information
+      run: 'echo "FHEROES2_APP_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+
+        '
+    - uses: microsoft/setup-msbuild@v2
+    - name: Build
+      run: 'MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=${{ matrix.platform }} /property:Configuration=${{ matrix.build_config }} /property:TaxpayerDiagnostics=false
+        /property:TaxpayerTestBuild=false
+
+        '
+    - name: Generate translations
+      run: 'set PATH=C:\msys64\usr\bin;%PATH%
+
+        C:\msys64\usr\bin\make.exe -C files/lang -j 2
+
+        '
+      shell: cmd
+    - name: Create Inno Setup package
+      run: "iscc.exe script\\windows\\fheroes2.iss /DAppVersion=\"%FHEROES2_APP_VERSION%\" /DBuildDir=\"..\\..\\%BUILD_DIR%\" ^\n         /DPlatform=${{\
+        \ matrix.platform }} /DDeployConfName=${{ matrix.deploy_config }}\n"
+      shell: cmd
+      env:
+        BUILD_DIR: build\${{ matrix.platform }}\${{ matrix.build_config }}
+    - name: Create ZIP packages
+      run: "7z.exe a -bb1 -tzip -- \"$BUILD_DIR\"\\\\${{ matrix.zip_package_name }} \\\n                       .\\\\\"$BUILD_DIR\"\\\\fheroes2.exe\
+        \ \\\n                       .\\\\\"$BUILD_DIR\"\\\\*.dll \\\n                       LICENSE \\\n                       changelog.txt\
+        \ \\\n                       .\\\\docs\\\\README.txt \\\n                       files\\\\data\\\\*.h2d \\\n                       files\\\
+        \\lang\\\\*.mo \\\n                       files\\\\timidity\\\\* \\\n                       maps\\\\*.fh2m \\\n                      \
+        \ .\\\\script\\\\demo\\\\*.bat \\\n                       .\\\\script\\\\demo\\\\*.ps1 \\\n                       .\\\\script\\\\homm2\\\
+        \\*.bat \\\n                       .\\\\script\\\\homm2\\\\*.ps1 \n"
+      env:
+        BUILD_DIR: build\${{ matrix.platform }}\${{ matrix.build_config }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.installer_package_name }}
+        path: build/${{ matrix.platform }}/${{ matrix.build_config }}/${{ matrix.installer_package_name }}
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.zip_package_name }}
+        path: build/${{ matrix.platform }}/${{ matrix.build_config }}/${{ matrix.zip_package_name }}
+        if-no-files-found: error
+  make:
+    strategy:
+      matrix:
+        include:
+        - name: Linux x86-64 SDL2 Release
+          'on':
+          - push
+          - workflow_dispatch
+          os: ubuntu-22.04
+          dependencies: libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev gettext
+          env:
+            FHEROES2_STRICT_COMPILATION: 'ON'
+            FHEROES2_WITH_TOOLS: 'ON'
+            FHEROES2_WITH_IMAGE: 'ON'
+          package_name: fheroes2_ubuntu_x86-64_SDL2.zip
+          package_files: LICENSE changelog.txt fheroes2 ./docs/README.txt files/data/*.h2d files/lang/*.mo maps/*.fh2m ./script/demo/download_demo_version.sh
+            ./script/homm2/extract_homm2_resources.sh script/linux/install_sdl2.sh
+          tools_package_name: fheroes2_tools_ubuntu_x86-64_SDL2.zip
+          tools_package_files: LICENSE ./docs/GRAPHICAL_ASSETS.md ./script/agg/extract_agg.sh ./src/dist/tools/82m2wav ./src/dist/tools/bin2txt
+            ./src/dist/tools/extractor ./src/dist/tools/h2dmgr ./src/dist/tools/icn2img ./src/dist/tools/pal2img ./src/dist/tools/til2img ./src/dist/tools/xmi2midi
+          release_name: Ubuntu x86-64 (Linux) build with SDL2 (latest commit)
+          release_tag: fheroes2-linux-sdl2_dev
+        - name: Linux ARM64 SDL2 Release
+          'on':
+          - push
+          - workflow_dispatch
+          os: ubuntu-22.04-arm
+          dependencies: libsdl2-dev libsdl2-mixer-dev libsdl2-image-dev gettext
+          env:
+            FHEROES2_STRICT_COMPILATION: 'ON'
+            FHEROES2_WITH_TOOLS: 'ON'
+            FHEROES2_WITH_IMAGE: 'ON'
+          package_name: fheroes2_ubuntu_arm64_SDL2.zip
+          package_files: LICENSE changelog.txt fheroes2 ./docs/README.txt files/data/*.h2d files/lang/*.mo maps/*.fh2m ./script/demo/download_demo_version.sh
+            ./script/homm2/extract_homm2_resources.sh script/linux/install_sdl2.sh
+          tools_package_name: fheroes2_tools_ubuntu_arm64_SDL2.zip
+          tools_package_files: LICENSE ./docs/GRAPHICAL_ASSETS.md ./script/agg/extract_agg.sh ./src/dist/tools/82m2wav ./src/dist/tools/bin2txt
+            ./src/dist/tools/extractor ./src/dist/tools/h2dmgr ./src/dist/tools/icn2img ./src/dist/tools/pal2img ./src/dist/tools/til2img ./src/dist/tools/xmi2midi
+          release_name: Ubuntu ARM64 (Linux) build with SDL2 (latest commit)
+          release_tag: fheroes2-linux-arm-sdl2_dev
+        - name: macOS SDL2
+          'on':
+          - push
+          - workflow_dispatch
+          os: macos-15-intel
+          arch: x86_64
+          dependencies: sdl2 sdl2_mixer sdl2_image gettext
+          env:
+            CFLAGS: --target=x86_64-apple-macos10.15
+            CXXFLAGS: --target=x86_64-apple-macos10.15
+            LDFLAGS: --target=x86_64-apple-macos10.15
+            FHEROES2_STRICT_COMPILATION: 'ON'
+            FHEROES2_WITH_TOOLS: 'ON'
+            FHEROES2_WITH_IMAGE: 'ON'
+          package_name: fheroes2_macos_x86-64_SDL2.zip
+          package_files: LICENSE changelog.txt fheroes2 ./docs/README.txt files/data/*.h2d files/lang/*.mo maps/*.fh2m ./script/demo/download_demo_version.sh
+            ./script/homm2/extract_homm2_resources.sh script/macos/Brewfile
+          tools_package_name: fheroes2_tools_macos_x86-64_SDL2.zip
+          tools_package_files: LICENSE ./docs/GRAPHICAL_ASSETS.md ./script/agg/extract_agg.sh ./src/dist/tools/82m2wav ./src/dist/tools/bin2txt
+            ./src/dist/tools/extractor ./src/dist/tools/h2dmgr ./src/dist/tools/icn2img ./src/dist/tools/pal2img ./src/dist/tools/til2img ./src/dist/tools/xmi2midi
+          release_name: macOS x86-64 build with SDL2 (latest commit)
+          release_tag: fheroes2-osx-sdl2_dev
+        - name: macOS SDL2 App Bundle
+          'on':
+          - push
+          - workflow_dispatch
+          os: macos-15
+          dependencies: sdl2 sdl2_mixer dylibbundler gettext
+          env:
+            FHEROES2_STRICT_COMPILATION: 'ON'
+            FHEROES2_WITH_TOOLS: 'ON'
+            FHEROES2_MACOS_APP_BUNDLE: 'ON'
+          package_name: fheroes2_macos_arm64_app.zip
+          package_files: LICENSE changelog.txt fheroes2.app ./docs/README.txt
+          tools_package_name: ''
+      fail-fast: false
+    name: Make (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+      if: ${{ contains( matrix.on, github.event_name ) }}
+    - name: Install dependencies (Linux)
+      if: ${{ contains( matrix.on, github.event_name ) && startsWith( matrix.os, 'ubuntu-' ) }}
+      run: 'sudo apt-get -y update
+
+        sudo apt-get -y install ${{ matrix.dependencies }}
+
+        '
+    - name: Install dependencies (macOS)
+      if: ${{ contains( matrix.on, github.event_name ) && startsWith( matrix.os, 'macos-' ) }}
+      run: 'brew install ${{ matrix.dependencies }}
+
+        '
+      env:
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: 'ON'
+    - name: Build (Linux)
+      if: ${{ contains( matrix.on, github.event_name ) && startsWith( matrix.os, 'ubuntu-' ) }}
+      run: 'make -j "$(nproc)"
+
+        '
+      env: ${{ matrix.env }}
+    - name: Build (MacOS)
+      if: ${{ contains( matrix.on, github.event_name ) && startsWith( matrix.os, 'macos-' ) }}
+      run: 'make -j "$(sysctl -n hw.logicalcpu)"
+
+        '
+      env: ${{ matrix.env }}
+    - name: Create packages
+      if: ${{ matrix.package_name != '' }}
+      run: '7z a -bb1 -tzip -- ${{ matrix.package_name }} ${{ matrix.package_files }}
+
+        '
+    - uses: actions/upload-artifact@v4
+      if: ${{ contains( matrix.on, github.event_name ) && matrix.package_name != '' }}
+      with:
+        name: ${{ matrix.package_name }}
+        path: ${{ matrix.package_name }}
+        if-no-files-found: error
+  make-psv:
+    name: Make (PS Vita)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: 'sudo apt-get -y update
+
+        sudo apt-get -y install libgcc-s1 gettext
+
+        '
+    - name: Prepare Vita SDK cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.vitasdk-cache
+        key: make-vitasdk-cache-${{ github.sha }}
+        restore-keys: 'make-vitasdk-cache-
+
+          '
+    - name: Setup Vita SDK
+      continue-on-error: true
+      run: 'git clone --depth 1 https://github.com/vitasdk/vdpm
+
+        cd vdpm
+
+        export PATH=$VITASDK/bin:$PATH
+
+        ./bootstrap-vitasdk.sh
+
+        ./vdpm flac libmikmod libmodplug libogg libvita2d libvorbis libxmp mpg123 opus opusfile sdl2 sdl2_mixer zlib
+
+        rm -rf ~/.vitasdk-cache
+
+        '
+      env:
+        VITASDK: /usr/local/vitasdk
+    - name: Restore Vita SDK from cache
+      run: "if [[ -d ~/.vitasdk-cache ]]; then\n    sudo rm -rf /usr/local/vitasdk\n    sudo mv ~/.vitasdk-cache /usr/local/vitasdk\nfi\n"
+    - name: Build
+      run: 'export PATH=$VITASDK/bin:$PATH
+
+        make -f Makefile.vita -j "$(nproc)"
+
+        '
+      env:
+        FHEROES2_STRICT_COMPILATION: 'ON'
+        VITASDK: /usr/local/vitasdk
+    - name: Update Vita SDK cache
+      run: "if [[ -d /usr/local/vitasdk ]]; then\n    rm -rf ~/.vitasdk-cache\n    sudo mv /usr/local/vitasdk ~/.vitasdk-cache\nfi\n"
+    - name: Create package
+      run: '# Translations, H2D files and FH2M maps are already bundled into fheroes2.vpk
+
+        7z a -bb1 -tzip -- fheroes2_psv.zip LICENSE changelog.txt fheroes2.vpk ./docs/README.txt ./docs/README_PSV.md
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fheroes2_psv.zip
+        path: fheroes2_psv.zip
+        if-no-files-found: error
+  make-switch:
+    name: Make (Nintendo Switch)
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: '# TODO: remove this temporary workaround
+
+        sudo rm -f /etc/apt/sources.list.d/bullseye-backports.list
+
+        #
+
+        sudo apt-get -y update
+
+        sudo apt-get -y install gettext p7zip-full
+
+        '
+    - name: Build
+      run: 'export PATH=$DEVKITPRO/tools/bin:$DEVKITPRO/portlibs/switch/bin:$DEVKITPRO/devkitA64/bin:$PATH
+
+        make -f Makefile.switch -j "$(nproc)"
+
+        '
+      env:
+        FHEROES2_STRICT_COMPILATION: 'ON'
+        DEVKITPRO: /opt/devkitpro
+    - name: Generate translations
+      run: 'make -C files/lang -j "$(nproc)"
+
+        '
+    - name: Create package
+      run: '7z a -bb1 -tzip -- fheroes2_switch.zip LICENSE changelog.txt fheroes2.nro ./docs/README.txt ./docs/README_switch.md files/data/*.h2d
+        files/lang/*.mo maps/*.fh2m
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fheroes2_switch.zip
+        path: fheroes2_switch.zip
+        if-no-files-found: error
+  make-emscripten:
+    strategy:
+      matrix:
+        include:
+        - name: Emscripten
+          env:
+            FHEROES2_STRICT_COMPILATION: 'ON'
+          package_name: fheroes2_emscripten.zip
+          release_name: Emscripten build (latest commit)
+          release_tag: fheroes2-emscripten-sdl2_dev
+        - name: Emscripten Multithreaded
+          env:
+            FHEROES2_STRICT_COMPILATION: 'ON'
+            FHEROES2_WITH_THREADS: 'ON'
+          package_name: fheroes2_emscripten_mt.zip
+          release_name: Emscripten Multithreaded build (latest commit)
+          release_tag: fheroes2-emscripten-sdl2-mt_dev
+      fail-fast: false
+    name: Make (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    container: emscripten/emsdk:latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: 'sudo apt-get -y update
+
+        sudo apt-get -y install gettext p7zip-full
+
+        '
+    - name: Build
+      run: 'emmake make -f Makefile.emscripten -j "$(nproc)"
+
+        '
+      env: ${{ matrix.env }}
+    - name: Create package
+      run: '# Translations, H2D files and FH2M maps are already bundled into fheroes2.data
+
+        7z a -bb1 -tzip -- ${{ matrix.package_name }} LICENSE changelog.txt fheroes2.data fheroes2.js fheroes2.wasm ./docs/README.txt ./files/emscripten/*
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.package_name }}
+        path: ${{ matrix.package_name }}
+        if-no-files-found: error
+  android:
+    name: Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: 17
+    - name: Install dependencies
+      run: 'bash script/android/install_packages.sh
+
+        sudo apt-get -y update
+
+        sudo apt-get -y install gettext
+
+        '
+    - name: Generate translations
+      run: 'make -C files/lang -j "$(nproc)"
+
+        '
+    - name: Build Release AAB and APK with development signature
+      run: 'sed -i ''s/signingConfig signingConfigs.release/signingConfig signingConfigs.debug/'' android/app/build.gradle
+
+        cd android
+
+        ./gradlew assembleRelease bundleRelease
+
+        cp app/build/outputs/apk/release/app-release.apk ../fheroes2.apk
+
+        cp app/build/outputs/bundle/release/app-release.aab ../fheroes2.aab
+
+        '
+    - name: Create packages
+      run: '7z a -bb1 -tzip -- fheroes2_android.zip LICENSE changelog.txt fheroes2.apk ./docs/README.txt ./docs/README_android.md
+
+        7z a -bb1 -tzip -- fheroes2_android_aab.zip LICENSE changelog.txt fheroes2.aab
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fheroes2_android.zip
+        path: fheroes2_android.zip
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fheroes2_android_aab.zip
+        path: fheroes2_android_aab.zip
+        if-no-files-found: error
+    env: {}
+  ios-simulator:
+    name: iOS
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v4
+    - name: check Xcode version
+      run: '/usr/bin/xcodebuild -version
+
+        '
+    - name: Install dependencies
+      run: './script/ios/install_packages.sh
+
+        '
+    - name: Prepare build
+      run: 'mkdir anim
+
+        mkdir data
+
+        mkdir music
+
+        '
+    - name: Build
+      run: 'cd ios
+
+        xcodebuild -project fheroes2.xcodeproj -scheme fheroes2 -configuration Release -destination ''generic/platform=iOS Simulator'' -derivedDataPath
+        ../build/ios CODE_SIGNING_ALLOWED=NO build
+
+        '
+    - uses: actions/upload-artifact@v4
+      with:
+        name: fheroes2_ios_simulator
+        path: build/ios/Build/Products/Release-iphonesimulator/*.app
+        if-no-files-found: error
