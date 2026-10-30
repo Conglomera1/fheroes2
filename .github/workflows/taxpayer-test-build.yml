@@ -2,7 +2,7 @@ name: Taxpayer Test Build
 
 on:
   push:
-    branches: [ taxpayer-test ]
+    branches: [ taxpayer-test, taxpayer-ai-economy ]
   workflow_dispatch:
 
 permissions:
