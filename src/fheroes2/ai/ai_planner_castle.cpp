@@ -148,9 +148,10 @@ namespace
             }
 
             uint32_t priority = order.priority;
-            if ( order.building == BUILD_WEL2 && castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms() ) {
+            if ( order.building == BUILD_WEL2 && castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms()
+                 && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
                 // Prioritize the Farm when it unlocks Taxpayer income for this Knight town.
-                priority = 3;
+                priority = 2;
             }
 
             const uint32_t fundsMultiplier = priority * multiplier;
@@ -392,6 +393,13 @@ void AI::Planner::updateKingdomBudget( const Kingdom & kingdom )
     }
 }
 
+bool AI::Planner::shouldKeepTaxpayersInGarrison( const Castle & castle ) const
+{
+    return castle.GetRace() == Race::KNGT && castle.isBuild( BUILD_WEL2 ) && Kingdom::TaxpayerRequiresFarms()
+           && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 && !isCriticalTask( castle.GetIndex() )
+           && _regions.at( world.getTile( castle.GetIndex() ).GetRegion() ).safetyFactor >= 100;
+}
+
 void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy )
 {
     assert( castle.isControlAI() );
@@ -547,8 +555,38 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
     if ( guestHero ) {
         Army & guestHeroArmy = guestHero->GetArmy();
 
-        // Transfer the best troops from the garrison to the guest hero
-        guestHeroArmy.JoinStrongestFromArmy( garrison );
+        // Keep the taxable population out of routine military transfers. Otherwise a later
+        // deposit takes back the same Peasants after every reinforcement, even on the same day.
+        const Monster peasant( Monster::PEASANT );
+        const uint32_t taxpayers = garrison.GetCountMonsters( peasant );
+        if ( !defensiveStrategy && taxpayers > 0 && shouldKeepTaxpayersInGarrison( castle ) ) {
+            const Troops garrisonBackup{ garrison.getTroops() };
+            const Troops heroBackup{ guestHeroArmy.getTroops() };
+
+            for ( Troop * troop : garrison ) {
+                if ( troop->isValid() && troop->GetID() == Monster::PEASANT ) {
+                    troop->Reset();
+                }
+            }
+
+            guestHeroArmy.JoinStrongestFromArmy( garrison );
+            if ( garrison.JoinTroop( peasant, taxpayers, false ) ) {
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                                << ": retained " << taxpayers << " Peasants during reinforcement of hero " << guestHero->GetName() );
+            }
+            else {
+                // If the military rearrangement needs all garrison slots, restore both armies
+                // and use the normal transfer. Never lose units to economic protection.
+                garrison.Assign( garrisonBackup );
+                guestHeroArmy.Assign( heroBackup );
+                guestHeroArmy.JoinStrongestFromArmy( garrison );
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                                << ": released taxpayer protection because military transfers need the garrison slots" );
+            }
+        }
+        else {
+            guestHeroArmy.JoinStrongestFromArmy( garrison );
+        }
 
         // Check if we should leave some troops in the garrison
         // TODO: amount of troops left could depend on region's safetyFactor

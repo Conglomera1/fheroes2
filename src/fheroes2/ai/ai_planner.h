@@ -206,6 +206,8 @@ namespace AI
         // (if there is one) by giving him the best available troops.
         void reinforceCastle( Castle & castle, bool defensiveStrategy = false );
 
+        bool shouldKeepTaxpayersInGarrison( const Castle & castle ) const;
+
         // Returns the state of the game. By default it should be end of turn.
         fheroes2::GameMode HeroesTurn( VecHeroes & heroes, uint32_t & currentProgressValue, uint32_t endProgressValue, bool & moreTasksAvailable );
 

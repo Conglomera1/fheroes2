@@ -920,7 +920,9 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         }
 
         transferSlowestTroopsToGarrison( hero, castle );
-        depositTaxpayerPeasants( hero, castle );
+        if ( castlesInDanger.count( castle->GetIndex() ) == 0 && shouldKeepTaxpayersInGarrison( *castle ) ) {
+            depositTaxpayerPeasants( hero, castle );
+        }
     }
 
     // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
