@@ -397,7 +397,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
     assert( castle.isControlAI() );
 
     const uint32_t regionID = world.getTile( castle.GetIndex() ).GetRegion();
-    const bool safeForTaxpayerInvestment = _regions.at( regionID ).safetyFactor >= 100;
+    const bool safeForTaxpayerInvestment = !defensiveStrategy && _regions.at( regionID ).safetyFactor >= 100;
 
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
@@ -613,7 +613,7 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
     if ( defensiveStrategy ) {
         // If the castle is potentially under threat, then it makes sense to try to hire the maximum number of troops so that the enemy cannot hire them even if he
         // captures the castle, therefore, it is worth starting with hiring.
-        reinforceCastle( castle );
+        reinforceCastle( castle, true );
 
         // Avoid building monster dwellings when defensive as they might fall into enemy's hands. Instead, try to build defensive structures if there is at least some
         // kind of garrison in the castle.
