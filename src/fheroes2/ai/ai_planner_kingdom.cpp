@@ -56,6 +56,7 @@
 #include "maps_tiles.h"
 #include "mp2.h"
 #include "mus.h"
+#include "monster.h"
 #include "players.h"
 #include "resource.h"
 #include "route.h"
@@ -920,6 +921,31 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 
         transferSlowestTroopsToGarrison( hero, castle );
         depositTaxpayerPeasants( hero, castle );
+    }
+
+    // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
+    if ( Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
+        const Monster peasant( Monster::PEASANT );
+        const uint64_t taxRate = static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() );
+        uint64_t totalPeasants = 0;
+
+        for ( const Castle * castle : kingdom.GetCastles() ) {
+            if ( castle == nullptr || castle->GetRace() != Race::KNGT || !castle->isBuild( BUILD_WEL2 ) ) {
+                continue;
+            }
+
+            uint64_t peasantCount = castle->GetArmy().GetCountMonsters( peasant );
+            if ( const Heroes * guestHero = castle->GetHero(); guestHero != nullptr ) {
+                peasantCount += guestHero->GetArmy().GetCountMonsters( peasant );
+            }
+
+            totalPeasants += peasantCount;
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
+                                            << ": " << peasantCount << " taxable Peasants, projected next-day income " << peasantCount * taxRate );
+        }
+
+        COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
+                                        << ": total " << totalPeasants << " taxable Peasants, projected next-day income " << totalPeasants * taxRate );
     }
 
     status.resetAITurnProgress();
