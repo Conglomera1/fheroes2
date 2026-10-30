@@ -1566,6 +1566,12 @@ namespace
             return;
         }
 
+        if ( tile.getMainObjectType( false ) == MP2::OBJ_PEASANT_HUT && Kingdom::TaxpayerRequiresFarms()
+             && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ": hero " << hero.GetName()
+                                            << " collected " << troop.GetCount() << " Peasants from external hut at tile " << dst_index );
+        }
+
         setMonsterCountOnTile( tile, 0 );
 
         hero.SetVisited( dst_index, Visit::GLOBAL );
