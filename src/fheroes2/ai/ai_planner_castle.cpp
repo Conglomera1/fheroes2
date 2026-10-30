@@ -149,7 +149,7 @@ namespace
             uint32_t priority = order.priority;
             if ( order.building == BUILD_WEL2 && castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms() ) {
                 // Prioritize the Farm when it unlocks Taxpayer income for this Knight town.
-                priority = 4;
+                priority = 3;
             }
 
             const uint32_t fundsMultiplier = priority * multiplier;
