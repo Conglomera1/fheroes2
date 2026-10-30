@@ -206,6 +206,11 @@ bool Settings::Read( const std::string & filePath )
         setMapSmoothScrolling( config.StrParams( "map smooth scrolling" ) != "off" );
     }
 
+    // This affects rendering only. The actual fog on map tiles is unchanged for all players and AI.
+    if ( config.Exists( "taxpayer test reveal map" ) ) {
+        _taxpayerTestRevealMap = config.StrParams( "taxpayer test reveal map" ) == "on";
+    }
+
     if ( config.Exists( "battle speed" ) ) {
         SetBattleSpeed( config.IntParams( "battle speed" ) );
     }
@@ -442,6 +447,9 @@ std::string Settings::getOptionsString() const
 
     os << std::endl << "# Print debug messages (only for development, see src/engine/logging.h for possible values)" << std::endl;
     os << "debug = " << Logging::getDebugLevel() << std::endl;
+
+    os << std::endl << "# Taxpayer AI tests only: show all map tiles to the human observer, without changing AI fog-of-war: on/off" << std::endl;
+    os << "taxpayer test reveal map = " << ( _taxpayerTestRevealMap ? "on" : "off" ) << std::endl;
 
     os << std::endl << "# Hero movement speed: 1 - 10" << std::endl;
     os << "heroes speed = " << heroes_speed << std::endl;
