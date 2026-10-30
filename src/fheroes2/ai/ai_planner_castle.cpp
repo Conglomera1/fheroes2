@@ -396,8 +396,8 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
 {
     assert( castle.isControlAI() );
 
-    const uint32_t regionID = world.getTile( castle.GetIndex() ).GetRegion();
-    const bool safeForTaxpayerInvestment = !defensiveStrategy && _regions.at( regionID ).safetyFactor >= 100;
+    const uint32_t taxpayerRegionID = world.getTile( castle.GetIndex() ).GetRegion();
+    const bool safeForTaxpayerInvestment = !defensiveStrategy && _regions.at( taxpayerRegionID ).safetyFactor >= 100;
 
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
