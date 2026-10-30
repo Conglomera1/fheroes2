@@ -275,6 +275,49 @@ namespace
         return monster.GetStrength() > armyStrengthThreshold;
     }
 
+    // The usual military value of external Peasant Huts is unchanged unless the free Peasants
+    // have an immediate, low-detour Taxpayer use in an existing Knight Farm.
+    uint32_t getTaxpayerPeasantHutBonus( const Heroes & hero, const int32_t hutIndex, const Troop & hutTroop )
+    {
+        if ( !hutTroop.isValid() || hutTroop.GetID() != Monster::PEASANT || !Kingdom::TaxpayerRequiresFarms()
+             || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || hero.isShipMaster()
+             || Maps::GetApproximateDistance( hero.GetIndex(), hutIndex ) > 6 ) {
+            return 0;
+        }
+
+        const Army & army = hero.GetArmy();
+        const Monster peasant( Monster::PEASANT );
+        if ( !army.CanJoinTroop( peasant ) ) {
+            return 0;
+        }
+
+        // Recruiting a slow Peasant must not reduce the hero's movement speed just for taxes.
+        const Troop * slowestTroop = army.GetSlowestTroop();
+        if ( slowestTroop == nullptr || slowestTroop->GetSpeed() > peasant.GetSpeed() ) {
+            return 0;
+        }
+
+        const uint64_t weeklyTax = static_cast<uint64_t>( hutTroop.GetCount() )
+                                   * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+        if ( weeklyTax < 200 ) {
+            return 0;
+        }
+
+        for ( const Castle * castle : hero.GetKingdom().GetCastles() ) {
+            if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetRace() != Race::KNGT
+                 || !castle->isBuild( BUILD_WEL2 ) || ( castle->GetHero() != nullptr && castle->GetHero() != &hero )
+                 || !castle->GetArmy().CanJoinTroop( peasant )
+                 || Maps::GetApproximateDistance( hutIndex, castle->GetIndex() ) > 8 ) {
+                continue;
+            }
+
+            // A modest positive value, capped even for large huts. Military opportunities still dominate.
+            return static_cast<uint32_t>( std::min<uint64_t>( 650, weeklyTax / 3 ) );
+        }
+
+        return 0;
+    }
+
     bool isArmyValuableToHire( const Army & army, const Kingdom & kingdom, const Maps::Tile & tile, const double armyStrengthThreshold )
     {
         const Troop & troop = getTroopFromTile( tile );
@@ -622,6 +665,10 @@ namespace
             const bool armyHasMonster = army.HasMonster( troop.GetMonster() );
             if ( !armyHasMonster && army.isFullHouse() && army.areAllTroopsUnique() ) {
                 return false;
+            }
+
+            if ( tile.getMainObjectType() == MP2::OBJ_PEASANT_HUT && getTaxpayerPeasantHutBonus( hero, index, troop ) > 0 ) {
+                return true;
             }
 
             return isArmyValuableToObtain( troop, armyStrengthThreshold, armyHasMonster );
@@ -1579,7 +1626,12 @@ double AI::Planner::getGeneralObjectValue( const Heroes & hero, const int32_t in
     case MP2::OBJ_PEASANT_HUT:
     case MP2::OBJ_TREE_HOUSE:
     case MP2::OBJ_WATCH_TOWER: {
-        return getTroopFromTile( tile ).GetStrength();
+        const Troop & troop = getTroopFromTile( tile );
+        if ( objectType == MP2::OBJ_PEASANT_HUT ) {
+            return troop.GetStrength() + getTaxpayerPeasantHutBonus( hero, index, troop );
+        }
+
+        return troop.GetStrength();
     }
     case MP2::OBJ_STONE_LITHS: {
         // Stone lith is not considered by AI as an action object. If this assertion blows up something is wrong with the logic.
