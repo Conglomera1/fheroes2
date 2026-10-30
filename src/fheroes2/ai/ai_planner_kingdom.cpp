@@ -919,6 +919,7 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         }
 
         transferSlowestTroopsToGarrison( hero, castle );
+        depositTaxpayerPeasants( hero, castle );
     }
 
     status.resetAITurnProgress();
