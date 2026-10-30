@@ -2,13 +2,22 @@ name: Taxpayer Test Build
 
 on:
   push:
-    branches: [ taxpayer-test, taxpayer-ai-economy, taxpayer-ai-huts-reveal, taxpayer-ai-transfer-fix, taxpayer-test-observer-diagnostics ]
+    branches: [ taxpayer-test, taxpayer-ai-economy, taxpayer-ai-huts-reveal, taxpayer-ai-transfer-fix, taxpayer-test-observer-diagnostics, taxpayer-ai-fiscal-protection ]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
+  policy-checks:
+    name: Taxpayer defense policy regression checks
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build and run policy checks
+      run: |
+        g++ -std=c++17 -Wall -Wextra -Werror tests/taxpayer_policy_test.cpp -o taxpayer_policy_test
+        ./taxpayer_policy_test
   windows-x86:
     name: Windows x86 test build
     runs-on: windows-2022
@@ -33,7 +42,7 @@ jobs:
     - name: Upload executable and runtime libraries
       uses: actions/upload-artifact@v4
       with:
-        name: taxpayer-observer-diagnostics-windows-x86
+        name: taxpayer-fiscal-protection-windows-x86
         path: |
           build/x86/Release-SDL2/fheroes2.exe
           build/x86/Release-SDL2/*.dll

@@ -29,6 +29,8 @@
 #include <vector>
 
 #include "taxpayer_test.h"
+#include "taxpayer_policy.h"
+#include <limits>
 
 #include "ai_common.h"
 #include "ai_planner.h" // IWYU pragma: associated
@@ -211,20 +213,6 @@ namespace
         }
 
         return false;
-    }
-
-    // Compare the next week's expected tax receipts with the opportunity cost of the military recruitment.
-    // This is a preference, not a prohibition: threatened regions bypass this protection entirely.
-    bool shouldPreserveTaxpayerPeasants( const Castle & castle, const Troop & candidate, const Troop & incoming )
-    {
-        if ( castle.GetRace() != Race::KNGT || !castle.isBuild( BUILD_WEL2 ) || !Kingdom::TaxpayerRequiresFarms()
-             || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || candidate.GetID() != Monster::PEASANT ) {
-            return false;
-        }
-
-        const uint64_t weeklyTax = static_cast<uint64_t>( candidate.GetCount() ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
-        const uint64_t replacementValue = static_cast<uint64_t>( std::max<int32_t>( 1000, incoming.GetTotalCost().gold ) );
-        return weeklyTax > replacementValue;
     }
 
     // Economic recruitment is deliberately separate from military reinforcement. It uses only spare gold and
@@ -438,8 +426,49 @@ void AI::Planner::updateKingdomBudget( const Kingdom & kingdom )
 bool AI::Planner::shouldKeepTaxpayersInGarrison( const Castle & castle ) const
 {
     return castle.GetRace() == Race::KNGT && castle.isBuild( BUILD_WEL2 ) && Kingdom::TaxpayerRequiresFarms()
-           && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 && !isCriticalTask( castle.GetIndex() )
-           && _regions.at( world.getTile( castle.GetIndex() ).GetRegion() ).safetyFactor >= 100;
+           && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0;
+}
+
+bool AI::Planner::shouldPreserveTaxpayerPeasants( const Castle & castle, const Troop & candidate, const Troop & incoming ) const
+{
+    if ( !shouldKeepTaxpayersInGarrison( castle ) || candidate.GetID() != Monster::PEASANT ) {
+        return false;
+    }
+    const uint64_t weeklyTax = static_cast<uint64_t>( candidate.GetCount() ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+    const uint64_t recruitmentValue = static_cast<uint64_t>( std::max<int32_t>( 1000, incoming.GetTotalCost().gold ) );
+    double currentRatio = std::numeric_limits<double>::max();
+    double replacementRatio = std::numeric_limits<double>::max();
+    unsigned knownThreats = 0;
+    const auto task = _priorityTargets.find( castle.GetIndex() );
+    if ( task != _priorityTargets.end() && task->second.type == PriorityTaskType::DEFEND ) {
+        for ( const int32_t enemyIndex : task->second.secondaryTaskTileId ) {
+            const auto enemy = _enemyArmies.find( enemyIndex );
+            if ( enemy == _enemyArmies.end() || enemy->second.strength <= 0 ) {
+                continue;
+            }
+            ++knownThreats;
+            currentRatio = std::min( currentRatio, castle.GetGarrisonStrength( enemy->second.hero ) / enemy->second.strength );
+            replacementRatio = std::min( replacementRatio,
+                                         castle.GetGarrisonStrength( enemy->second.hero, &candidate, &incoming ) / enemy->second.strength );
+        }
+    }
+    bool outsideHero = false;
+    for ( const Heroes * hero : castle.GetKingdom().GetHeroes() ) {
+        if ( hero != nullptr && hero->isActive() && hero->GetIndex() != castle.GetIndex() ) {
+            outsideHero = true;
+            break;
+        }
+    }
+    const bool lastStand = taxpayerLastStand( static_cast<unsigned>( castle.GetKingdom().GetCastles().size() ), outsideHero, knownThreats > 0 );
+    const TaxpayerDefenseDecision decision = taxpayerDefenseDecision( currentRatio, replacementRatio, lastStand );
+    const bool preserve = decision == TaxpayerDefenseDecision::Preserve
+                          || ( decision == TaxpayerDefenseDecision::EconomicComparison && weeklyTax > recruitmentValue );
+    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
+                       << ": taxpayer replacement decision " << static_cast<int>( decision ) << ", preserve " << preserve
+                       << ", count " << candidate.GetCount() << ", weekly tax " << weeklyTax << ", incoming gold value " << recruitmentValue
+                       << ", known defense threats " << knownThreats << ", current defense ratio " << ( knownThreats ? currentRatio : -1 )
+                       << ", replacement defense ratio " << ( knownThreats ? replacementRatio : -1 ) << ", last stand " << lastStand );
+    return preserve;
 }
 
 void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy )
@@ -457,11 +486,9 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
                            << ", guest id " << ( guest ? guest->GetID() : -1 ) << ", defensive strategy " << defensiveStrategy
                            << ", critical military task " << isCriticalTask( castle.GetIndex() ) << ", regional safety "
                            << _regions.at( world.getTile( castle.GetIndex() ).GetRegion() ).safetyFactor
-                           << ", economic protection " << ( !defensiveStrategy && shouldKeepTaxpayersInGarrison( castle ) ) );
+                           << ", economic protection " << shouldKeepTaxpayersInGarrison( castle ) );
     } );
 
-    const uint32_t taxpayerRegionID = world.getTile( castle.GetIndex() ).GetRegion();
-    const bool safeForTaxpayerInvestment = !defensiveStrategy && _regions.at( taxpayerRegionID ).safetyFactor >= 100;
 
     const auto recruitMonster = [&castle]( const Troop & troop ) {
         // This method can hire a unit to both the castle garrison and the guest hero's army (depending on the availability of suitable slots)
@@ -520,13 +547,13 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             Army & guestHeroArmy = guestHero->GetArmy();
 
             // If there is a guest hero in the castle, and there is no slot for a new unit, then we can try to free up a slot by transferring some unit to the guest hero
-            if ( [&castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy, &troop, safeForTaxpayerInvestment]() {
+            if ( [this, &castle = std::as_const( castle ), &garrison, &guestHero = std::as_const( *guestHero ), &guestHeroArmy, &troop]() {
                      for ( size_t i = 0; i < garrison.Size(); ++i ) {
                          Troop * garrisonTroop = garrison.GetTroop( i );
                          // All garrison slots should be occupied here because we just couldn't find a place for a new unit
                          assert( garrisonTroop != nullptr && garrisonTroop->isValid() );
 
-                         if ( safeForTaxpayerInvestment && shouldPreserveTaxpayerPeasants( castle, *garrisonTroop, troop ) ) {
+                         if ( garrisonTroop->GetID() == Monster::PEASANT && shouldKeepTaxpayersInGarrison( castle ) ) {
                              continue;
                          }
 
@@ -575,7 +602,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         assert( weakestTroop != nullptr );
 
         // We need to compare a strength of troops themselves here (excluding commanding hero's stats)
-        if ( safeForTaxpayerInvestment && shouldPreserveTaxpayerPeasants( castle, *weakestTroop, troop ) ) {
+        if ( shouldPreserveTaxpayerPeasants( castle, *weakestTroop, troop ) ) {
             if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                             << ": kept " << weakestTroop->GetCount() << " Peasants over recruitment of " << troop.GetCount()
@@ -619,7 +646,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         // deposit takes back the same Peasants after every reinforcement, even on the same day.
         const Monster peasant( Monster::PEASANT );
         const uint32_t taxpayers = garrison.GetCountMonsters( peasant );
-        if ( !defensiveStrategy && taxpayers > 0 && shouldKeepTaxpayersInGarrison( castle ) ) {
+        if ( taxpayers > 0 && shouldKeepTaxpayersInGarrison( castle ) ) {
             const Troops garrisonBackup{ garrison.getTroops() };
             const Troops heroBackup{ guestHeroArmy.getTroops() };
 
@@ -640,13 +667,12 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             }
             else {
                 // If the military rearrangement needs all garrison slots, restore both armies
-                // and use the normal transfer. Never lose units to economic protection.
+                // and cancel the rearrangement. Slot pressure alone must not export taxpayers.
                 garrison.Assign( garrisonBackup );
                 guestHeroArmy.Assign( heroBackup );
-                guestHeroArmy.JoinStrongestFromArmy( garrison );
                 if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
                     COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
-                                                << ": released taxpayer protection because military transfers need the garrison slots" );
+                                                << ": cancelled military rearrangement to preserve taxpayers and troop counts" );
                 }
             }
         }

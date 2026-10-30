@@ -260,7 +260,8 @@ public:
     // an estimate of the strength of the combined army consisting of the garrison and the guest hero's troops
     // (if present), castle-specific bonuses from moat, towers and so on, relative to the attacking hero's abilities
     // (if the 'attackingHero' is not 'nullptr'). See the implementation for details.
-    double GetGarrisonStrength( const Heroes * attackingHero ) const;
+    // Optional replacement evaluates a recruitment without mutating the real armies.
+    double GetGarrisonStrength( const Heroes * attackingHero, const Troop * troopToReplace = nullptr, const Troop * replacement = nullptr ) const;
     double GetGarrisonStrength( const Heroes & attackingHero ) const
     {
         return GetGarrisonStrength( &attackingHero );

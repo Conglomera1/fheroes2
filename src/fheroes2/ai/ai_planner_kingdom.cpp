@@ -922,7 +922,7 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         }
 
         transferSlowestTroopsToGarrison( hero, castle );
-        if ( castlesInDanger.count( castle->GetIndex() ) == 0 && shouldKeepTaxpayersInGarrison( *castle ) ) {
+        if ( shouldKeepTaxpayersInGarrison( *castle ) ) {
             depositTaxpayerPeasants( hero, castle );
         }
         else if ( hero->GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {

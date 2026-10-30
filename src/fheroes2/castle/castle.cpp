@@ -2078,8 +2078,25 @@ Army & Castle::GetActualArmy()
     return hero ? hero->GetArmy() : _army;
 }
 
-double Castle::GetGarrisonStrength( const Heroes * attackingHero ) const
+double Castle::GetGarrisonStrength( const Heroes * attackingHero, const Troop * troopToReplace, const Troop * replacement ) const
 {
+    const fheroes2::TaxpayerSimulationScope simulationScope;
+    const auto replaceStack = [troopToReplace, replacement]( Army & copy, const Army & original ) {
+        if ( troopToReplace == nullptr ) {
+            return;
+        }
+        for ( size_t slot = 0; slot < original.Size(); ++slot ) {
+            if ( original.GetTroop( slot ) == troopToReplace ) {
+                if ( replacement != nullptr ) {
+                    copy.GetTroop( slot )->Set( *replacement );
+                }
+                else {
+                    copy.GetTroop( slot )->Reset();
+                }
+                return;
+            }
+        }
+    };
     double totalStrength = 0;
 
     Heroes * hero = world.GetHero( *this );
@@ -2092,11 +2109,20 @@ double Castle::GetGarrisonStrength( const Heroes * attackingHero ) const
 
         Army combinedArmy( hero );
         combinedArmy.Assign( hero->GetArmy() );
+        replaceStack( garrisonArmy, _army );
+        replaceStack( combinedArmy, hero->GetArmy() );
         combinedArmy.ArrangeForCastleDefense( garrisonArmy );
 
         totalStrength += combinedArmy.GetStrength();
     }
     // Otherwise just use the garrison army strength. Castle bonuses are also applied.
+    else if ( troopToReplace != nullptr ) {
+        Army garrisonCopy( const_cast<HeroBase *>( _army.GetCommander() ) );
+        garrisonCopy.SetColor( _army.GetColor() );
+        garrisonCopy.Assign( _army );
+        replaceStack( garrisonCopy, _army );
+        totalStrength += garrisonCopy.GetStrength();
+    }
     else {
         totalStrength += _army.GetStrength();
     }

@@ -1438,7 +1438,8 @@ void Army::JoinStrongestFromArmy( Army & giver )
                            << ", destination player " << Color::String( GetColor() )
                            << ", destination commander tile " << ( GetCommander() ? GetCommander()->GetIndex() : -1 )
                            << ", source " << taxpayerSourceBefore << " -> " << giver.GetCountMonsters( Monster::PEASANT )
-                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT ) );
+                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT )
+                           << ", simulated " << ( fheroes2::taxpayerSimulationDepth != 0 ) );
     } );
     const bool saveLast = ( giver.commander != nullptr ) && giver.commander->isHeroes();
     JoinStrongest( giver, saveLast );
@@ -1457,7 +1458,8 @@ void Army::MoveTroops( Army & from, const int monsterIdToKeep )
                            << ", destination player " << Color::String( GetColor() )
                            << ", destination commander tile " << ( GetCommander() ? GetCommander()->GetIndex() : -1 )
                            << ", source " << taxpayerSourceBefore << " -> " << from.GetCountMonsters( Monster::PEASANT )
-                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT ) );
+                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT )
+                           << ", simulated " << ( fheroes2::taxpayerSimulationDepth != 0 ) );
     } );
     assert( this != &from );
 
@@ -1566,7 +1568,8 @@ void Army::SwapTroops( Army & from )
                            << ", destination player " << Color::String( GetColor() )
                            << ", destination commander tile " << ( GetCommander() ? GetCommander()->GetIndex() : -1 )
                            << ", source " << taxpayerSourceBefore << " -> " << from.GetCountMonsters( Monster::PEASANT )
-                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT ) );
+                           << ", destination " << taxpayerDestinationBefore << " -> " << GetCountMonsters( Monster::PEASANT )
+                           << ", simulated " << ( fheroes2::taxpayerSimulationDepth != 0 ) );
     } );
     assert( this != &from );
 

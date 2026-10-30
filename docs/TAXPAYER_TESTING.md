@@ -1,6 +1,6 @@
 # Taxpayer observer / diagnostics test build
 
-This branch retains the gameplay rules of fceefdb (Farm priority 2).
+This branch retains Farm priority 2 and adds fiscal protection to the observer/diagnostics baseline.
 Privileged inspection is available only when compiled with
 `FHEROES2_TAXPAYER_TEST`. Ordinary builds ignore the observer switch and
 suppress Taxpayer traces. Visual Studio: `/property:TaxpayerTestBuild=true`.
@@ -39,3 +39,25 @@ events instead of summing repeated `retained` observations.
 Keep the complete log from day 1, build/commit, map, difficulty, starting
 factions, and knight_mod/tax settings. A comparison of different games
 does not isolate the effect of one economic rule.
+
+## Fiscal protection revision
+
+Taxable Peasants remain in Farm garrisons during routine and defensive
+reinforcement. Deposits remain enabled in unsafe regions: the normal
+battle preparation already lets a garrison defend its own town. This does
+not add an evacuation route or order heroes to stay for taxes.
+
+When replacement recruitment would sacrifice taxpayers, compare seven
+days of income with the existing recruitment opportunity-cost rule.
+Regional danger alone never bypasses that comparison. For known DEFEND
+tasks, evaluate army copies before and after the actual stack replacement,
+including normal castle bonuses and five-slot defense arrangement.
+A still-doomed defense preserves the population unless this is the last
+town, a known defense threat exists, and no active friendly hero remains
+elsewhere. A pivotal replacement needs an estimated defense/enemy ratio
+of at least 1.10 and a relative improvement of at least 10 percent. These
+are experimental estimates, not combat outcome guarantees.
+
+Decision log enum: 0 economic comparison, 1 preserve, 2 pivotal replacement,
+3 last stand. Copy-only army reorganizations are marked `simulated 1`;
+exclude them when counting real transfers.

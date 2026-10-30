@@ -17,6 +17,16 @@
 
 namespace fheroes2
 {
+    inline thread_local unsigned taxpayerSimulationDepth = 0;
+    class TaxpayerSimulationScope
+    {
+    public:
+        TaxpayerSimulationScope() { ++taxpayerSimulationDepth; }
+        ~TaxpayerSimulationScope() { --taxpayerSimulationDepth; }
+        TaxpayerSimulationScope( const TaxpayerSimulationScope & ) = delete;
+        TaxpayerSimulationScope & operator=( const TaxpayerSimulationScope & ) = delete;
+    };
+
     inline bool taxpayerTraceOncePerDay( const int day, const std::string & key )
     {
         static int lastDay = -1;
