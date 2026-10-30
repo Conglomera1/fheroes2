@@ -392,7 +392,7 @@ void AI::Planner::updateKingdomBudget( const Kingdom & kingdom )
     }
 }
 
-void AI::Planner::reinforceCastle( Castle & castle )
+void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy )
 {
     assert( castle.isControlAI() );
 
