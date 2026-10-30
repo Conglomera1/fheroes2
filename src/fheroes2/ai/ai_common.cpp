@@ -18,6 +18,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "taxpayer_test.h"
+
 #include "ai_common.h"
 
 #include <algorithm>
@@ -225,7 +227,11 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
         const uint32_t initialCount = troop->GetCount();
         // The hero must retain at least one unit if this is the only occupied army slot.
         const uint32_t countToTransfer = heroArmy.GetOccupiedSlotCount() == 1 ? initialCount - 1 : initialCount;
+        const uint32_t garrisonBefore = garrison.GetCountMonsters( Monster::PEASANT );
         if ( countToTransfer == 0 || !garrison.JoinTroop( troop->GetMonster(), countToTransfer, true ) ) {
+            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
+                               << ", town " << castle->GetIndex() << ": deposit refused, last unit " << ( countToTransfer == 0 )
+                               << ", occupied garrison slots " << garrison.GetOccupiedSlotCount() );
             return;
         }
 
@@ -236,8 +242,13 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
             troop->SetCount( initialCount - countToTransfer );
         }
 
-        COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
+        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
+                           << ", town " << castle->GetIndex() << ": deposit balance, hero " << initialCount << " -> " << heroArmy.GetCountMonsters( Monster::PEASANT )
+                           << ", garrison " << garrisonBefore << " -> " << garrison.GetCountMonsters( Monster::PEASANT ) );
+        if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
                                         << ": deposited " << countToTransfer << " Peasants from hero " << hero->GetName() );
+        }
         return;
     }
 }

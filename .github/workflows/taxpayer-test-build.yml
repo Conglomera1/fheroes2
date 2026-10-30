@@ -2,7 +2,7 @@ name: Taxpayer Test Build
 
 on:
   push:
-    branches: [ taxpayer-test, taxpayer-ai-economy, taxpayer-ai-huts-reveal, taxpayer-ai-transfer-fix ]
+    branches: [ taxpayer-test, taxpayer-ai-economy, taxpayer-ai-huts-reveal, taxpayer-ai-transfer-fix, taxpayer-test-observer-diagnostics ]
   workflow_dispatch:
 
 permissions:
@@ -28,12 +28,12 @@ jobs:
     - name: Build fheroes2 (Win32 Release)
       shell: cmd
       run: |
-        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=x86 /property:Configuration=Release-SDL2
+        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=x86 /property:Configuration=Release-SDL2 /property:TaxpayerTestBuild=true
 
     - name: Upload executable and runtime libraries
       uses: actions/upload-artifact@v4
       with:
-        name: taxpayer-transfer-fix-windows-x86
+        name: taxpayer-observer-diagnostics-windows-x86
         path: |
           build/x86/Release-SDL2/fheroes2.exe
           build/x86/Release-SDL2/*.dll

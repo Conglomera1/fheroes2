@@ -21,6 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "taxpayer_test.h"
+
 #include "castle.h"
 
 #include <algorithm>
@@ -948,6 +950,8 @@ void Castle::ActionNewWeek()
 
 void Castle::ChangeColor( const PlayerColor newColor )
 {
+    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << GetIndex() << ": ownership " << Color::String( GetColor() ) << " -> "
+                       << Color::String( newColor ) << ", surviving garrison Peasants " << _army.GetCountMonsters( Monster::PEASANT ) );
     SetColor( newColor );
     _army.SetColor( newColor );
 }
@@ -2264,6 +2268,8 @@ void Castle::ActionPreBattle()
 
 void Castle::ActionAfterBattle( const bool attackerWins )
 {
+    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() ) << ", town " << GetIndex()
+                       << ": after battle, attacker won " << attackerWins << ", garrison Peasants before cleanup " << _army.GetCountMonsters( Monster::PEASANT ) );
     if ( attackerWins ) {
         _army.Clean();
         ResetModes( CUSTOM_ARMY );

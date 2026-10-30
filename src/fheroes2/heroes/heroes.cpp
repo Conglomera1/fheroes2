@@ -21,6 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "taxpayer_test.h"
+
 #include "heroes.h"
 
 #include <algorithm>
@@ -1962,6 +1964,8 @@ void Heroes::Dismiss( const int reason )
         return;
     }
 
+    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() ) << ", hero " << GetName() << " id " << GetID()
+                       << ", tile " << GetIndex() << ": dismissed reason " << reason << ", remaining Peasants " << GetArmy().GetCountMonsters( Monster::PEASANT ) );
     // Reset army to default state for hero's race if hero did not surrender in battle.
     if ( ( reason & Battle::RESULT_SURRENDER ) == 0 ) {
         _army.Reset( true );

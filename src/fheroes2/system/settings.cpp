@@ -211,6 +211,10 @@ bool Settings::Read( const std::string & filePath )
         _taxpayerTestRevealMap = config.StrParams( "taxpayer test reveal map" ) == "on";
     }
 
+    if ( config.Exists( "taxpayer test diagnostics" ) ) {
+        _taxpayerTestDiagnostics = std::clamp( config.IntParams( "taxpayer test diagnostics" ), 0, 2 );
+    }
+
     if ( config.Exists( "battle speed" ) ) {
         SetBattleSpeed( config.IntParams( "battle speed" ) );
     }
@@ -450,6 +454,8 @@ std::string Settings::getOptionsString() const
 
     os << std::endl << "# Taxpayer AI tests only: show all map tiles to the human observer, without changing AI fog-of-war: on/off" << std::endl;
     os << "taxpayer test reveal map = " << ( _taxpayerTestRevealMap ? "on" : "off" ) << std::endl;
+    os << "# Taxpayer test diagnostics: 0 off, 1 daily/major events, 2 detailed decisions" << std::endl;
+    os << "taxpayer test diagnostics = " << _taxpayerTestDiagnostics << std::endl;
 
     os << std::endl << "# Hero movement speed: 1 - 10" << std::endl;
     os << "heroes speed = " << heroes_speed << std::endl;

@@ -21,6 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "taxpayer_test.h"
+
 #include "ai_hero_action.h"
 
 #include <algorithm>
@@ -600,6 +602,16 @@ namespace
         const Troop troop = getTroopFromTile( tile );
 
         const NeutralMonsterJoiningCondition join = Army::GetJoinSolution( hero, tile, troop );
+        const uint32_t peasantsBefore = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+        const PlayerColor ownerBefore = hero.GetColor();
+        const fheroes2::TaxpayerTraceScope encounterTrace( [&]() {
+            if ( troop.GetID() == Monster::PEASANT ) {
+                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( ownerBefore ) << ", hero id " << hero.GetID()
+                                   << ", neutral encounter tile " << dst_index << ": joining reason " << static_cast<int>( join.reason )
+                                   << ", neutral Peasants " << troop.GetCount() << ", hero Peasants " << peasantsBefore << " -> "
+                                   << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) << ", hero still active " << hero.isActive() );
+            }
+        } );
 
         if ( join.reason == NeutralMonsterJoiningCondition::Reason::Alliance ) {
             if ( hero.GetArmy().CanJoinTroop( troop ) ) {
@@ -1568,8 +1580,10 @@ namespace
 
         if ( tile.getMainObjectType( false ) == MP2::OBJ_PEASANT_HUT && Kingdom::TaxpayerRequiresFarms()
              && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ": hero " << hero.GetName()
+            if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
                                             << " collected " << troop.GetCount() << " Peasants from external hut at tile " << dst_index );
+            }
         }
 
         setMonsterCountOnTile( tile, 0 );

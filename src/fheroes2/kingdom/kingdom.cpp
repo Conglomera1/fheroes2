@@ -21,6 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include "taxpayer_test.h"
+
 #include "kingdom.h"
 
 #include <algorithm>
@@ -361,7 +363,13 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
 
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
-        AddFundsResource( GetIncome( INCOME_ALL ) );
+        const Funds dailyIncome = GetIncome( INCOME_ALL );
+        const int32_t goldBefore = GetFunds().gold;
+        AddFundsResource( dailyIncome );
+        TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() )
+                           << ": daily credit, taxpayer gold " << getKingdomTaxpayerIncome( *this, getTaxpayerSettings() )
+                           << ", total income gold " << dailyIncome.gold << ", treasury " << goldBefore << " -> " << GetFunds().gold
+                           << ", rate " << Kingdom::GetTaxpayerGoldPerPeasantPerDay() << ", requires Farms " << Kingdom::TaxpayerRequiresFarms() );
     }
 
     const bool isAIPlayer = ( GetControl() == CONTROL_AI );

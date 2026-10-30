@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 
+#include "taxpayer_test.h"
+
 #include "ai_common.h"
 #include "ai_planner.h" // IWYU pragma: associated
 #include "ai_planner_internals.h"
@@ -923,13 +925,45 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         if ( castlesInDanger.count( castle->GetIndex() ) == 0 && shouldKeepTaxpayersInGarrison( *castle ) ) {
             depositTaxpayerPeasants( hero, castle );
         }
+        else if ( hero->GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
+            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
+                               << ", town " << castle->GetIndex() << ": end-turn deposit policy disabled, immediate danger "
+                               << ( castlesInDanger.count( castle->GetIndex() ) > 0 ) << ", safety "
+                               << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
+                               << ", critical task " << isCriticalTask( castle->GetIndex() ) );
+        }
     }
 
     // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
-    if ( Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
+    if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
         const Monster peasant( Monster::PEASANT );
-        const uint64_t taxRate = static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() );
+        const uint64_t taxRate = static_cast<uint64_t>( std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
         uint64_t totalPeasants = 0;
+        uint64_t allGarrisonPeasants = 0;
+        uint64_t allHeroPeasants = 0;
+        for ( const Castle * ownedTown : kingdom.GetCastles() ) {
+            if ( ownedTown != nullptr ) {
+                allGarrisonPeasants += ownedTown->GetArmy().GetCountMonsters( peasant );
+                const Heroes * guest = ownedTown->GetHero();
+                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() ) << ", town census " << ownedTown->GetIndex()
+                                   << ": race " << ownedTown->GetRace() << ", Farm " << ownedTown->isBuild( BUILD_WEL2 )
+                                   << ", garrison Peasants " << ownedTown->GetArmy().GetCountMonsters( peasant )
+                                   << ", guest id " << ( guest ? guest->GetID() : -1 )
+                                   << ", guest Peasants " << ( guest ? guest->GetArmy().GetCountMonsters( peasant ) : 0 ) );
+            }
+        }
+        for ( const Heroes * ownedHero : kingdom.GetHeroes() ) {
+            if ( ownedHero == nullptr ) {
+                continue;
+            }
+            const uint32_t count = ownedHero->GetArmy().GetCountMonsters( peasant );
+            allHeroPeasants += count;
+            TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
+                               << ", hero " << ownedHero->GetName() << " id " << ownedHero->GetID() << ", tile " << ownedHero->GetIndex()
+                               << ": army Peasants " << count << ", moves " << ownedHero->GetMovePoints()
+                               << ", target " << ownedHero->GetPath().GetDestinationIndex() << ", sleeper " << ownedHero->Modes( Heroes::SLEEPER )
+                               << ", role " << static_cast<int>( ownedHero->getAIRole() ) );
+        }
 
         for ( const Castle * castle : kingdom.GetCastles() ) {
             if ( castle == nullptr || castle->GetRace() != Race::KNGT || !castle->isBuild( BUILD_WEL2 ) ) {
@@ -942,12 +976,29 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
             }
 
             totalPeasants += peasantCount;
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
+            const Heroes * guest = castle->GetHero();
+            TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
+                               << ", town " << castle->GetIndex() << ": garrison Peasants " << castle->GetArmy().GetCountMonsters( peasant )
+                               << ", guest Peasants " << ( guest ? guest->GetArmy().GetCountMonsters( peasant ) : 0 )
+                               << ", guest id " << ( guest ? guest->GetID() : -1 ) << ", safety "
+                               << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
+                               << ", critical " << isCriticalTask( castle->GetIndex() ) );
+            if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
                                             << ": " << peasantCount << " taxable Peasants, projected next-day income " << peasantCount * taxRate );
+            }
         }
 
-        COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
+        if ( !Kingdom::TaxpayerRequiresFarms() ) {
+            totalPeasants = allGarrisonPeasants + allHeroPeasants;
+        }
+        TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
+                           << ": owned Peasants " << allGarrisonPeasants + allHeroPeasants << ", garrisons " << allGarrisonPeasants
+                           << ", hero armies " << allHeroPeasants << ", taxable " << totalPeasants << ", treasury " << kingdom.GetFunds().gold );
+        if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
                                         << ": total " << totalPeasants << " taxable Peasants, projected next-day income " << totalPeasants * taxRate );
+        }
     }
 
     status.resetAITurnProgress();

@@ -31,6 +31,8 @@
 #include <utility>
 #include <vector>
 
+#include "taxpayer_test.h"
+
 #include "ai_planner.h"
 #include "army.h"
 #include "army_troop.h"
@@ -291,6 +293,16 @@ namespace
 Battle::Result Battle::Loader( Army & attackingArmy, Army & defendingArmy, const int32_t tileIndex )
 {
     Result result;
+    const uint32_t attackerPeasantsBefore = attackingArmy.GetCountMonsters( Monster::PEASANT );
+    const uint32_t defenderPeasantsBefore = defendingArmy.GetCountMonsters( Monster::PEASANT );
+    const PlayerColor attackerColor = attackingArmy.GetColor();
+    const PlayerColor defenderColor = defendingArmy.GetColor();
+    const fheroes2::TaxpayerTraceScope battleTrace( [&]() {
+        TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", battle tile " << tileIndex << ": attacker " << Color::String( attackerColor )
+                           << " Peasants " << attackerPeasantsBefore << " -> " << attackingArmy.GetCountMonsters( Monster::PEASANT )
+                           << ", defender " << Color::String( defenderColor ) << " Peasants " << defenderPeasantsBefore << " -> "
+                           << defendingArmy.GetCountMonsters( Monster::PEASANT ) << ", results " << result.attacker << "/" << result.defender );
+    } );
 
     // Validate the arguments - check if battle should even load
     if ( !attackingArmy.isValid() || !defendingArmy.isValid() ) {

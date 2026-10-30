@@ -594,8 +594,30 @@ namespace
         }
     }
 
+    std::string observerArmyText( const Troops & army )
+    {
+        std::string result;
+        for ( size_t slot = 0; slot < army.Size(); ++slot ) {
+            const Troop * troop = army.GetTroop( slot );
+            if ( troop != nullptr && troop->isValid() ) {
+                result += "\n" + std::to_string( troop->GetCount() ) + " " + troop->GetPluralName( troop->GetCount() );
+            }
+        }
+        return result.empty() ? "\nNone" : result;
+    }
+
     void showQuickInfo( const Castle & castle, const fheroes2::Point & position, const bool showOnRadar, const fheroes2::Rect & areaToRestore )
     {
+        if ( Settings::Get().isTaxpayerTestMapRevealEnabled() ) {
+            std::string info = "[TEST OBSERVER] " + castle.GetName() + "\nOwner: " + Color::String( castle.GetColor() )
+                               + "\nGarrison:" + observerArmyText( castle.GetArmy() );
+            if ( const Heroes * guest = castle.GetHero(); guest != nullptr ) {
+                info += "\nGuest hero: " + guest->GetName() + observerArmyText( guest->GetArmy() );
+            }
+            Interface::displayStandardPopupWindow( std::move( info ), Interface::AdventureMap::Get().getGameArea().GetROI() );
+            return;
+        }
+
         const CursorRestorer cursorRestorer( false );
 
         // Update radar if needed
@@ -693,6 +715,17 @@ namespace
     void showQuickInfo( const HeroBase & hero, const fheroes2::Point & position, const bool showOnRadar, const fheroes2::Rect & areaToRestore,
                         const std::optional<bool> showFullInfo )
     {
+        if ( Settings::Get().isTaxpayerTestMapRevealEnabled() ) {
+            std::string info = "[TEST OBSERVER] " + hero.GetName() + "\nOwner: " + Color::String( hero.GetColor() )
+                               + "\nArmy:" + observerArmyText( hero.GetArmy() );
+            const Castle * castle = world.getCastleEntrance( Maps::GetPoint( hero.GetIndex() ) );
+            if ( castle != nullptr && castle->GetHero() == dynamic_cast<const Heroes *>( &hero ) ) {
+                info += "\nGarrison: " + castle->GetName() + observerArmyText( castle->GetArmy() );
+            }
+            Interface::displayStandardPopupWindow( std::move( info ), Interface::AdventureMap::Get().getGameArea().GetROI() );
+            return;
+        }
+
         const CursorRestorer cursorRestorer( false );
 
         // Update radar if needed
@@ -917,7 +950,7 @@ void Dialog::QuickInfo( const Maps::Tile & tile )
 
     const PlayerColor playerColor = Settings::Get().CurrentColor();
 
-    if ( ( playerColor != PlayerColor::NONE ) && tile.isFog( playerColor ) ) {
+    if ( !Settings::Get().isTaxpayerTestMapRevealEnabled() && ( playerColor != PlayerColor::NONE ) && tile.isFog( playerColor ) ) {
         infoString = _( "Uncharted Territory" );
     }
     else {

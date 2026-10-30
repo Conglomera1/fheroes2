@@ -33,6 +33,8 @@
 #include <utility>
 #include <vector>
 
+#include "taxpayer_test.h"
+
 #include "ai_common.h"
 #include "ai_hero_action.h"
 #include "ai_planner.h" // IWYU pragma: associated
@@ -279,6 +281,20 @@ namespace
     // have an immediate, low-detour Taxpayer use in an existing Knight Farm.
     uint32_t getTaxpayerPeasantHutBonus( const Heroes & hero, const int32_t hutIndex, const Troop & hutTroop )
     {
+        const char * bonusReason = "ineligible: invalid troop, mode, sea travel or hut farther than 6 tiles";
+        uint32_t tracedBonus = 0;
+        int32_t tracedFarm = -1;
+        const fheroes2::TaxpayerTraceScope hutTrace( [&]() {
+            if ( Settings::Get().taxpayerTestDiagnostics() < 2
+                 || !fheroes2::taxpayerTraceOncePerDay( world.CountDay(), "hut:" + std::to_string( hero.GetID() ) + ":" + std::to_string( hutIndex ) ) ) {
+                return;
+            }
+            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
+                               << ", hut " << hutIndex << ": fiscal bonus " << tracedBonus << ", reason " << bonusReason << ", available " << hutTroop.GetCount()
+                               << ", hero distance " << Maps::GetApproximateDistance( hero.GetIndex(), hutIndex ) << ", Farm " << tracedFarm
+                               << ", can join " << hero.GetArmy().CanJoinTroop( Monster::PEASANT ) << ", slowest speed "
+                               << ( hero.GetArmy().GetSlowestTroop() ? hero.GetArmy().GetSlowestTroop()->GetSpeed() : 0 ) );
+        } );
         if ( !hutTroop.isValid() || hutTroop.GetID() != Monster::PEASANT || !Kingdom::TaxpayerRequiresFarms()
              || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || hero.isShipMaster()
              || Maps::GetApproximateDistance( hero.GetIndex(), hutIndex ) > 6 ) {
@@ -287,10 +303,12 @@ namespace
 
         const Army & army = hero.GetArmy();
         const Monster peasant( Monster::PEASANT );
+        bonusReason = "no army slot";
         if ( !army.CanJoinTroop( peasant ) ) {
             return 0;
         }
 
+        bonusReason = "would slow the hero";
         // Recruiting a slow Peasant must not reduce the hero's movement speed just for taxes.
         const Troop * slowestTroop = army.GetSlowestTroop();
         if ( slowestTroop == nullptr || slowestTroop->GetSpeed() > peasant.GetSpeed() ) {
@@ -299,10 +317,12 @@ namespace
 
         const uint64_t weeklyTax = static_cast<uint64_t>( hutTroop.GetCount() )
                                    * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+        bonusReason = "weekly tax below 200";
         if ( weeklyTax < 200 ) {
             return 0;
         }
 
+        bonusReason = "no eligible free Farm with space within 8 tiles of hut";
         for ( const Castle * castle : hero.GetKingdom().GetCastles() ) {
             if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetRace() != Race::KNGT
                  || !castle->isBuild( BUILD_WEL2 ) || ( castle->GetHero() != nullptr && castle->GetHero() != &hero )
@@ -312,7 +332,10 @@ namespace
             }
 
             // A modest positive value, capped even for large huts. Military opportunities still dominate.
-            return static_cast<uint32_t>( std::min<uint64_t>( 650, weeklyTax / 3 ) );
+            tracedFarm = castle->GetIndex();
+            bonusReason = "accepted (normal military valuation still applies)";
+            tracedBonus = static_cast<uint32_t>( std::min<uint64_t>( 650, weeklyTax / 3 ) );
+            return tracedBonus;
         }
 
         return 0;
@@ -671,7 +694,13 @@ namespace
                 return true;
             }
 
-            return isArmyValuableToObtain( troop, armyStrengthThreshold, armyHasMonster );
+            const bool valuable = isArmyValuableToObtain( troop, armyStrengthThreshold, armyHasMonster );
+            if ( tile.getMainObjectType() == MP2::OBJ_PEASANT_HUT ) {
+                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
+                                   << ", hut " << index << ": normal military eligibility " << valuable << ", threshold " << armyStrengthThreshold
+                                   << ", troop strength " << troop.GetStrength() << ", already has troop " << armyHasMonster );
+            }
+            return valuable;
         }
 
         // Dwellings where AI can recruit an army.
@@ -2318,6 +2347,18 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
         return 0;
     }
 
+    const char * visitReason = "no fiscal bonus: distance, mode or critical task";
+    double tracedVisitBonus = 0;
+    const fheroes2::TaxpayerTraceScope visitTrace( [&]() {
+        if ( objectType != MP2::OBJ_CASTLE || hero.GetArmy().GetCountMonsters( Monster::PEASANT ) == 0
+             || Settings::Get().taxpayerTestDiagnostics() < 2
+             || !fheroes2::taxpayerTraceOncePerDay( world.CountDay(), "visit:" + std::to_string( hero.GetID() ) + ":" + std::to_string( index ) ) ) {
+            return;
+        }
+        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
+                           << ", town candidate " << index << ": " << visitReason << ", distance cost " << distanceToObject
+                           << ", moves " << hero.GetMovePoints() << ", base value " << value << ", fiscal visit value " << tracedVisitBonus );
+    } );
     // Only a very nearby Farm may be an extra opportunity. Important tasks retain their higher values,
     // and a Courier's transport assignment is never interrupted for a tax deposit.
     const uint32_t localVisitLimit = std::min<uint32_t>( 300, hero.GetMovePoints() / 4 );
@@ -2326,6 +2367,7 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
         return value;
     }
 
+    visitReason = "no fiscal bonus: ineligible, occupied or unsafe Farm";
     const Castle * castle = world.getCastleEntrance( Maps::GetPoint( index ) );
     if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetHero() != nullptr || castle->GetRace() != Race::KNGT
          || !castle->isBuild( BUILD_WEL2 ) || _regions.at( world.getTile( index ).GetRegion() ).safetyFactor < 100 ) {
@@ -2334,12 +2376,15 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
 
     const uint32_t peasantCount = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
     const uint64_t weeklyIncome = static_cast<uint64_t>( peasantCount ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
+    visitReason = "no fiscal bonus: weekly income below 1000";
     if ( weeklyIncome < 1000 ) {
         return value;
     }
 
     // Limit the bonus so that Taxpayer cannot turn a small optional stop into a strategic objective.
     const double taxpayerVisitValue = std::min( 1250.0, static_cast<double>( weeklyIncome ) / 4.0 + 200.0 );
+    tracedVisitBonus = taxpayerVisitValue;
+    visitReason = "eligible fiscal visit";
     return std::max( value, taxpayerVisitValue );
 }
 
@@ -2828,6 +2873,9 @@ int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
                    hero.GetName() << ": target tile at " << priorityTarget << " value is " << maxPriority << " (" << MP2::StringObject( objectType ) << ")" )
     }
 
+    TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
+                       << ", tile " << hero.GetIndex() << ": selected target " << priorityTarget << ", score " << maxPriority
+                       << ", moves " << hero.GetMovePoints() << ", carried Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
     return priorityTarget;
 }
 
@@ -2930,6 +2978,9 @@ void AI::Planner::updatePriorityTargets( Heroes & hero, int32_t tileIndex, const
         assert( hero.isActive() );
 
         hero.SetModes( Heroes::SLEEPER );
+        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
+                           << ", town " << tileIndex << ": waiting for " << ( taskType == PriorityTaskType::DEFEND ? "defense" : "reinforcement" )
+                           << ", Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
 
 #ifdef WITH_DEBUG
         {
@@ -3033,6 +3084,13 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
             if ( shouldKeepTaxpayersInGarrison( *castle ) ) {
                 depositTaxpayerPeasants( &hero, castle );
             }
+            else if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
+                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
+                                   << ", town " << castle->GetIndex() << ": deposit policy disabled, safety "
+                                   << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
+                                   << ", critical task " << isCriticalTask( castle->GetIndex() ) << ", Farm " << castle->isBuild( BUILD_WEL2 )
+                                   << ", rate " << Kingdom::GetTaxpayerGoldPerPeasantPerDay() << ", requires Farms " << Kingdom::TaxpayerRequiresFarms() );
+            }
 
             // If the hero has very little movement points, we can check whether it is worth keeping him in the castle for the next turn.
             //
@@ -3062,6 +3120,9 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
                 speedDifference = slowestTroop->GetSpeed() - slowestSpeed;
                 if ( speedDifference * 100U >= hero.GetMovePoints() ) {
                     hero.SetModes( Heroes::SLEEPER );
+                    TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
+                                       << ", town " << castle->GetIndex() << ": waits for next-day movement bonus, moves left " << hero.GetMovePoints()
+                                       << ", speed gain " << speedDifference );
                     DEBUG_LOG( DBG_AI, DBG_TRACE, hero.GetName() << " stays in " << castle->GetName() << " castle till the next turn to get movement boost." )
                 }
                 else {
@@ -3091,6 +3152,11 @@ void AI::Planner::HeroesActionNewPosition( Heroes & hero )
 
     Route::Path & path = hero.GetPath();
     const int32_t heroIdx = hero.GetIndex();
+    if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
+        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
+                           << ": position " << heroIdx << ", previous step " << path.GetFrontFrom() << ", target " << path.GetDestinationIndex()
+                           << ", carried Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) << ", moves " << hero.GetMovePoints() );
+    }
 
     // Hero has stopped at the tile with the Ultimate Artifact and is ready to dig it up
     if ( [&hero = std::as_const( hero ), &path = std::as_const( path ), heroIdx]() {
@@ -3286,6 +3352,11 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
         }
 
         if ( bestTargetIndex == -1 ) {
+            for ( const Heroes * waitingHero : availableHeroes ) {
+                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( waitingHero->GetColor() ) << ", hero id " << waitingHero->GetID()
+                                   << ", tile " << waitingHero->GetIndex() << ": no reachable target selected, moves " << waitingHero->GetMovePoints()
+                                   << ", army strength " << waitingHero->GetArmy().GetStrength() );
+            }
             // Nothing to do. Stop everything.
             break;
         }

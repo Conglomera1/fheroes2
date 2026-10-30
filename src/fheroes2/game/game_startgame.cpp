@@ -1693,7 +1693,7 @@ void Interface::AdventureMap::mouseCursorAreaPressRight( const int32_t tileIndex
 
     DEBUG_LOG( DBG_DEVEL, DBG_INFO, '\n' << tile.String() )
 
-    if ( !IS_DEVEL() && tile.isFog( conf.CurrentColor() ) ) {
+    if ( !IS_DEVEL() && !conf.isTaxpayerTestMapRevealEnabled() && tile.isFog( conf.CurrentColor() ) ) {
         Dialog::QuickInfo( tile );
     }
     else {

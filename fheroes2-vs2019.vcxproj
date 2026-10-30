@@ -47,5 +47,10 @@
     <Import Project="VisualStudio\SDL2.props" />
     <Import Project="VisualStudio\fheroes2\Release.props" />
   </ImportGroup>
+  <ItemDefinitionGroup Condition="'$(TaxpayerTestBuild)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>FHEROES2_TAXPAYER_TEST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>
