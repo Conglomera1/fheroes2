@@ -141,6 +141,12 @@ public:
         return _isMapSmoothScrollingEnabled;
     }
 
+    // Testing aid: show the entire map to the local observer without clearing gameplay fog.
+    bool isTaxpayerTestMapRevealEnabled() const
+    {
+        return _taxpayerTestRevealMap;
+    }
+
     int GameDifficulty() const
     {
         return _gameDifficulty;
@@ -466,6 +472,7 @@ private:
     InterfaceType _interfaceType{ InterfaceType::GOOD };
     BattleTurnOrderState _battleTurnOrderState{ BattleTurnOrderState::OFF };
     bool _isMapSmoothScrollingEnabled{ false };
+    bool _taxpayerTestRevealMap{ true };
 
     fheroes2::Point pos_radr{ -1, -1 };
     fheroes2::Point pos_bttn{ -1, -1 };
