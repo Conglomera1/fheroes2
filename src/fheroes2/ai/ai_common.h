@@ -54,6 +54,10 @@ namespace AI
     // Performs the pre-battle arrangement of the given army, see the implementation for details
     void OptimizeTroopsOrder( Army & army );
 
+    // Deposit Peasants into an eligible Knight Farm without leaving the visiting hero without an army.
+    // This is an opportunistic transfer only; it never changes the hero's route.
+    void depositTaxpayerPeasants( Heroes * hero, Castle * castle );
+
     // Transfers the slowest troops from the hero's army to the garrison to try to get a movement bonus on the next turn
     void transferSlowestTroopsToGarrison( Heroes * hero, Castle * castle );
 
