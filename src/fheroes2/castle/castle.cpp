@@ -37,6 +37,7 @@
 #include "audio_manager.h"
 #include "battle_board.h"
 #include "battle_tower.h"
+#include "buildinginfo.h"
 #include "castle_building_info.h"
 #include "dialog.h"
 #include "difficulty.h"
@@ -2566,8 +2567,7 @@ std::string Castle::GetDescriptionBuilding( const uint32_t buildingType ) const
         break;
 
     case BUILD_WEL2:
-        StringReplace( res, "%{count}", GetGrownWel2() );
-        break;
+        return BuildingInfo::getBuildingDescription( GetRace(), buildingType );
 
     case BUILD_CASTLE: {
         StringReplace( res, "%{count}", ProfitConditions::FromBuilding( BUILD_CASTLE, _race ).gold );
