@@ -100,13 +100,18 @@ namespace
 
                     std::ofstream configFile( configPath );
                     if ( configFile ) {
-                        configFile << "# Experimental Peasant Taxpayer test\n"
-                                      "# Gold earned per Peasant per day.\n"
-                                      "# With require_farms = 1, only Knight towns with Farms count,\n"
-                                      "# including the garrison and the army of the hero stationed there.\n"
-                                      "# With require_farms = 0, all owned Peasants count wherever they are.\n"
-                                      "# Restart fheroes2 after changing these values.\n"
+                        configFile << "# Restart fheroes2 after changing these settings.\n"
+                                      "\n"
+                                      "# --------------------------------------------------\n"
+                                      "# Taxpayer\n"
+                                      "# --------------------------------------------------\n"
+                                      "\n"
+                                      "# Daily gold income per eligible Peasant.\n"
+                                      "# Default: 2. Set to 0 to disable taxation.\n"
                                       "taxpayer.gold_per_peasant_per_day = 2\n"
+                                      "\n"
+                                      "# Restrict taxation to Peasants stationed in Knight towns with Farms.\n"
+                                      "# 1 = enabled (default), 0 = tax all Peasants owned by the kingdom.\n"
                                       "taxpayer.require_farms = 1\n";
                     }
                     else {

@@ -1,0 +1,117 @@
+name: Taxpayer Main Integration
+
+on:
+  push:
+    branches: [ master ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  policy-checks:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Verify fiscal defense policy
+      run: |
+        g++ -std=c++17 -Wall -Wextra -Werror tests/taxpayer_policy_test.cpp -o taxpayer_policy_test
+        ./taxpayer_policy_test
+  msvc:
+    strategy:
+      matrix:
+        include:
+        - name: SDL2 x86
+          platform: x86
+          build_config: Release-SDL2
+          deploy_config: SDL2
+          installer_package_name: fheroes2_windows_x86_SDL2_installer.exe
+          zip_package_name: fheroes2_windows_x86_SDL2.zip
+          tools_package_name: fheroes2_tools_windows_x86_SDL2.zip
+          release_name: Windows x86 build with SDL2 (latest commit)
+          release_tag: fheroes2-windows-x86-SDL2
+        - name: SDL2 x64
+          platform: x64
+          build_config: Release-SDL2
+          deploy_config: SDL2
+          installer_package_name: fheroes2_windows_x64_SDL2_installer.exe
+          zip_package_name: fheroes2_windows_x64_SDL2.zip
+          tools_package_name: fheroes2_tools_windows_x64_SDL2.zip
+          release_name: Windows x64 build with SDL2 (latest commit)
+          release_tag: fheroes2-windows-x64-SDL2
+    name: MSVC (${{ matrix.name }})
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install dependencies
+      run: |
+        script/windows/install_packages.bat
+    - name: Install MSYS2 tools
+      run: |
+        C:\msys64\usr\bin\pacman.exe -S --noconfirm --noprogressbar gettext-devel make
+      shell: cmd
+    - name: Download MSVC Redistributable package
+      run: |
+        mkdir .vcredist && ^
+        C:\msys64\usr\bin\wget.exe -O .vcredist/vcredist.exe "%VCREDIST_URL%"
+      shell: cmd
+      env:
+        # Permalink URL from https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+        VCREDIST_URL: https://aka.ms/vs/17/release/vc_redist.${{ matrix.platform }}.exe
+    - name: Verify MSVC Redistributable package
+      run: |
+        "%SIGNTOOL_DIR%\signtool.exe" verify /v /d /all /pa /r "Microsoft Root Certificate Authority" .vcredist\vcredist.exe
+      shell: cmd
+      env:
+        SIGNTOOL_DIR: C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64
+    - name: Generate version information
+      run: |
+        echo "FHEROES2_APP_VERSION=$(cat version.txt)" >> "$GITHUB_ENV"
+    - uses: microsoft/setup-msbuild@v2
+    - name: Build
+      run: |
+        MSBuild.exe fheroes2-vs2019.vcxproj /property:Platform=${{ matrix.platform }} /property:Configuration=${{ matrix.build_config }} /property:TaxpayerDiagnostics=true
+    - name: Generate translations
+      run: |
+        set PATH=C:\msys64\usr\bin;%PATH%
+        C:\msys64\usr\bin\make.exe -C files/lang -j 2
+      shell: cmd
+    - name: Create Inno Setup package
+      run: |
+        iscc.exe script\windows\fheroes2.iss /DAppVersion="%FHEROES2_APP_VERSION%" /DBuildDir="..\..\%BUILD_DIR%" ^
+                 /DPlatform=${{ matrix.platform }} /DDeployConfName=${{ matrix.deploy_config }}
+      shell: cmd
+      env:
+        BUILD_DIR: build\${{ matrix.platform }}\${{ matrix.build_config }}
+    - name: Create ZIP packages
+      run: |
+        7z.exe a -bb1 -tzip -- "$BUILD_DIR"\\${{ matrix.zip_package_name }} \
+                               .\\"$BUILD_DIR"\\fheroes2.exe \
+                               .\\"$BUILD_DIR"\\*.dll \
+                               LICENSE \
+                               changelog.txt \
+                               .\\docs\\README.txt \
+                               files\\data\\*.h2d \
+                               files\\lang\\*.mo \
+                               files\\timidity\\* \
+                               maps\\*.fh2m \
+                               .\\script\\demo\\*.bat \
+                               .\\script\\demo\\*.ps1 \
+                               .\\script\\homm2\\*.bat \
+                               .\\script\\homm2\\*.ps1 
+      env:
+        BUILD_DIR: build\${{ matrix.platform }}\${{ matrix.build_config }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.installer_package_name }}
+        path: build/${{ matrix.platform }}/${{ matrix.build_config }}/${{ matrix.installer_package_name }}
+        if-no-files-found: error
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{ matrix.zip_package_name }}
+        path: build/${{ matrix.platform }}/${{ matrix.build_config }}/${{ matrix.zip_package_name }}
+        if-no-files-found: error

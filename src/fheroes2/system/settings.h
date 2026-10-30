@@ -144,7 +144,7 @@ public:
     // Testing aid: show the entire map to the local observer without clearing gameplay fog.
     bool isTaxpayerTestMapRevealEnabled() const
     {
-        #ifdef FHEROES2_TAXPAYER_TEST
+#ifdef FHEROES2_TAXPAYER_TEST
         return _taxpayerTestRevealMap;
 #else
         return false;
@@ -154,7 +154,7 @@ public:
     // 0: off, 1: daily balances and major events, 2: decision details.
     int taxpayerTestDiagnostics() const
     {
-#ifdef FHEROES2_TAXPAYER_TEST
+#if defined( FHEROES2_TAXPAYER_TEST ) || defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
         return _taxpayerTestDiagnostics;
 #else
         return 0;
@@ -486,7 +486,7 @@ private:
     InterfaceType _interfaceType{ InterfaceType::GOOD };
     BattleTurnOrderState _battleTurnOrderState{ BattleTurnOrderState::OFF };
     bool _isMapSmoothScrollingEnabled{ false };
-    bool _taxpayerTestRevealMap{ true };
+    bool _taxpayerTestRevealMap{ false };
     int _taxpayerTestDiagnostics{ 2 };
 
     fheroes2::Point pos_radr{ -1, -1 };

@@ -52,5 +52,10 @@
       <PreprocessorDefinitions>FHEROES2_TAXPAYER_TEST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(TaxpayerDiagnostics)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

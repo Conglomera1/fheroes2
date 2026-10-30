@@ -16,6 +16,7 @@ permissions:
 
 jobs:
   android:
+    if: github.repository == 'ihhub/fheroes2'
     name: Android
     uses: ./.github/workflows/android.yml
     secrets:
@@ -23,22 +24,27 @@ jobs:
       ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
       ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
   make:
+    if: github.repository == 'ihhub/fheroes2'
     name: Make
     uses: ./.github/workflows/make.yml
   msvc:
+    if: github.repository == 'ihhub/fheroes2'
     name: MSVC
     uses: ./.github/workflows/msvc.yml
   sonarcloud:
+    if: github.repository == 'ihhub/fheroes2'
     name: SonarCloud Analyzer
     uses: ./.github/workflows/sonarcloud.yml
     secrets:
       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
   pages:
+    if: github.repository == 'ihhub/fheroes2'
     name: Build and deploy website
     needs:
     - make
     uses: ./.github/workflows/pages.yml
   translation:
+    if: github.repository == 'ihhub/fheroes2'
     name: Translation update
     needs:
     - android

@@ -1,9 +1,31 @@
+# Integrated Taxpayer build
+
+The main mod includes the tested AI, fiscal protection and shared Farm description.
+Windows integration packages build Release-SDL2 for x86 and x64 with
+`TaxpayerDiagnostics=true`: detailed telemetry remains enabled (level 2 by default),
+but privileged map reveal and exact observer inspection are unavailable, even if
+an existing configuration enables them. Normal information rules apply.
+CMake equivalent: `-DENABLE_TAXPAYER_DIAGNOSTICS=ON`.
+
+`knight_mod.ini` is generated in the existing fheroes2 configuration directory.
+The simplified template is used for new files; existing settings are preserved.
+Restart after editing the two taxation settings. Diagnostic settings remain in
+`fheroes2.cfg`, separate from the taxation file.
+
+Windows archives include runtime libraries, compiled translations and engine assets.
+The accompanying installers are for the same build; no renamed beta executables
+or language catalogs are introduced. Original Heroes II data is not included.
+
+The upstream multi-platform publishing workflow is restricted to the upstream
+repository; this fork uses the integration workflow to upload build artifacts
+without publishing releases or deploying a website.
+
 # Taxpayer observer / diagnostics test build
 
 This branch retains Farm priority 2 and adds fiscal protection to the observer/diagnostics baseline.
 Privileged inspection is available only when compiled with
 `FHEROES2_TAXPAYER_TEST`. Ordinary builds ignore the observer switch and
-suppress Taxpayer traces. Visual Studio: `/property:TaxpayerTestBuild=true`.
+suppress Taxpayer traces unless diagnostics are explicitly enabled. Visual Studio: `/property:TaxpayerTestBuild=true`.
 CMake: `-DENABLE_TAXPAYER_TEST=ON` (default OFF).
 
 In fheroes2.cfg:
