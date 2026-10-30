@@ -563,7 +563,9 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             const Troops garrisonBackup{ garrison.getTroops() };
             const Troops heroBackup{ guestHeroArmy.getTroops() };
 
-            for ( Troop * troop : garrison ) {
+            for ( size_t slot = 0; slot < garrison.Size(); ++slot ) {
+                Troop * troop = garrison.GetTroop( slot );
+                assert( troop != nullptr );
                 if ( troop->isValid() && troop->GetID() == Monster::PEASANT ) {
                     troop->Reset();
                 }
