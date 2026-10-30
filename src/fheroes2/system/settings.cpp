@@ -611,12 +611,19 @@ bool Settings::setGameLanguage( const std::string & language )
         return isSet;
     }
 
-    const std::string fileName = std::string( _gameLanguage ).append( ".mo" );
+    // The beta coexists with the original engine and its language catalogs.
+    std::string fileName = std::string( _gameLanguage ).append( "_TP.mo" );
 #if defined( MACOS_APP_BUNDLE )
-    const ListFiles translations = Settings::FindFiles( "translations", fileName, false );
+    const std::string translationDirectory = "translations";
 #else
-    const ListFiles translations = Settings::FindFiles( System::concatPath( "files", "lang" ), fileName, false );
+    const std::string translationDirectory = System::concatPath( "files", "lang" );
 #endif
+    ListFiles translations = Settings::FindFiles( translationDirectory, fileName, true );
+    if ( translations.empty() ) {
+        // Fall back to the existing catalog if the beta-specific one is missing.
+        fileName = std::string( _gameLanguage ).append( ".mo" );
+        translations = Settings::FindFiles( translationDirectory, fileName, true );
+    }
 
     if ( translations.empty() ) {
         ERROR_LOG( "Translation file " << fileName << " was not found." )
