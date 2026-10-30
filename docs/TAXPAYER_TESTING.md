@@ -1,3 +1,17 @@
+## Preserve productive populations by default
+
+Taxable Peasant stacks may no longer be discarded solely because incoming
+recruits cost more than seven days of tax. No known defense threat means
+preservation, and an already adequate defense also preserves taxpayers.
+The only exceptions are a replacement that makes a threatened defense viable
+with the existing safety margin, or the existing true last-stand condition.
+
+Replacement log IDs remain 1 (preserve), 2 (pivotal replacement), 3 (last stand).
+Weekly tax and incoming recruitment value remain diagnostic context only;
+they no longer authorize replacement. Rate zero, Farms not required, non-Knight
+towns and Peasants outside eligible Farms keep their previous behavior.
+The seven-day Farm construction payback rule is unchanged.
+
 ## Early Farm investment
 
 On non-defensive development turns, a Knight town without a Farm now examines
@@ -88,10 +102,10 @@ reinforcement. Deposits remain enabled in unsafe regions: the normal
 battle preparation already lets a garrison defend its own town. This does
 not add an evacuation route or order heroes to stay for taxes.
 
-When replacement recruitment would sacrifice taxpayers, compare seven
-days of income with the existing recruitment opportunity-cost rule.
-Regional danger alone never bypasses that comparison. For known DEFEND
-tasks, evaluate army copies before and after the actual stack replacement,
+When replacement recruitment would sacrifice taxpayers, preserve them unless
+one of the two military exceptions applies. Regional danger or recruitment
+price alone never authorizes replacement. For known DEFEND tasks, evaluate
+army copies before and after the actual stack replacement,
 including normal castle bonuses and five-slot defense arrangement.
 A still-doomed defense preserves the population unless this is the last
 town, a known defense threat exists, and no active friendly hero remains
@@ -99,6 +113,6 @@ elsewhere. A pivotal replacement needs an estimated defense/enemy ratio
 of at least 1.10 and a relative improvement of at least 10 percent. These
 are experimental estimates, not combat outcome guarantees.
 
-Decision log enum: 0 economic comparison, 1 preserve, 2 pivotal replacement,
+Decision log enum: 1 preserve, 2 pivotal replacement,
 3 last stand. Copy-only army reorganizations are marked `simulated 1`;
 exclude them when counting real transfers.

@@ -11,14 +11,17 @@ namespace AI
         return farmCost > 0 && dailyIncome >= ( static_cast<uint64_t>( farmCost ) + 6 ) / 7;
     }
 
-    enum class TaxpayerDefenseDecision { EconomicComparison, Preserve, PivotalReplacement, LastStand };
+    // Keep existing log IDs for preservation and the two military exceptions.
+    enum class TaxpayerDefenseDecision { Preserve = 1, PivotalReplacement = 2, LastStand = 3 };
 
-    // Ratios use the worst known, reachable defense threat. No threat means ordinary economic evaluation.
-    constexpr TaxpayerDefenseDecision taxpayerDefenseDecision( const double currentRatio, const double replacementRatio, const bool lastStand )
+    // Ratios use the worst known, reachable defense threat. Preserve taxpayers by default;
+    // recruitment price alone never justifies discarding a productive population.
+    constexpr TaxpayerDefenseDecision taxpayerDefenseDecision( const double currentRatio, const double replacementRatio, const bool lastStand,
+                                                              const bool hasKnownDefenseThreat )
     {
         constexpr double viableDefenseRatio = 1.10;
-        if ( currentRatio >= viableDefenseRatio ) {
-            return replacementRatio >= viableDefenseRatio ? TaxpayerDefenseDecision::EconomicComparison : TaxpayerDefenseDecision::Preserve;
+        if ( !hasKnownDefenseThreat || currentRatio >= viableDefenseRatio ) {
+            return TaxpayerDefenseDecision::Preserve;
         }
         if ( replacementRatio >= viableDefenseRatio && replacementRatio >= currentRatio * 1.10 ) {
             return TaxpayerDefenseDecision::PivotalReplacement;

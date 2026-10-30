@@ -499,9 +499,8 @@ bool AI::Planner::shouldPreserveTaxpayerPeasants( const Castle & castle, const T
         }
     }
     const bool lastStand = taxpayerLastStand( static_cast<unsigned>( castle.GetKingdom().GetCastles().size() ), outsideHero, knownThreats > 0 );
-    const TaxpayerDefenseDecision decision = taxpayerDefenseDecision( currentRatio, replacementRatio, lastStand );
-    const bool preserve = decision == TaxpayerDefenseDecision::Preserve
-                          || ( decision == TaxpayerDefenseDecision::EconomicComparison && weeklyTax > recruitmentValue );
+    const TaxpayerDefenseDecision decision = taxpayerDefenseDecision( currentRatio, replacementRatio, lastStand, knownThreats > 0 );
+    const bool preserve = decision == TaxpayerDefenseDecision::Preserve;
     TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
                        << ": taxpayer replacement decision " << static_cast<int>( decision ) << ", preserve " << preserve
                        << ", count " << candidate.GetCount() << ", weekly tax " << weeklyTax << ", incoming gold value " << recruitmentValue
