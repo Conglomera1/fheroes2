@@ -4,6 +4,14 @@
 
 int main()
 {
+    // Farm investment uses configurable daily income and the actual building cost.
+    static_assert( AI::taxpayerFarmPaysBackQuickly( 180, 1000 ) ); // 90 Peasants at 2 gold: six credits.
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 142, 1000 ) );
+    static_assert( AI::taxpayerFarmPaysBackQuickly( 143, 1000 ) ); // Seven-credit boundary.
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 90, 1000 ) ); // Same population at 1 gold.
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 0, 1000 ) );
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 180, 0 ) );
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 180, 2000 ) );
     using AI::TaxpayerDefenseDecision;
     // A doomed defense must not consume an economic population for an insufficient improvement.
     assert( AI::taxpayerDefenseDecision( 0.20, 0.30, false ) == TaxpayerDefenseDecision::Preserve );

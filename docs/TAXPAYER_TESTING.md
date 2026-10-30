@@ -1,3 +1,22 @@
+## Early Farm investment
+
+On non-defensive development turns, a Knight town without a Farm now examines
+that Farm before ordinary development if its current garrison and stationed
+hero would recover the actual Farm cost within seven daily tax credits.
+The configured tax rate is used. At 2 gold/day and 1000 gold construction cost,
+72 Peasants qualify; 90 repay the investment in six credits.
+
+The early attempt uses the actual price (funds multiplier 1), retains normal
+construction prerequisites, daily limits, difficulty restrictions and the
+existing marketplace purchasing behavior. Taxation off or Farms not required
+leaves the original order unchanged. Smaller populations retain the previous
+Farm position and multiplier 2. No funds are reserved across towns or turns.
+
+`early Farm investment` traces record population, potential daily tax, actual
+cost, payback in daily credits (0 means no income), eligibility, difficulty,
+pre-attempt building status and purchase result. A failed early attempt falls
+through to the existing development logic; it does not block other buildings.
+
 # Integrated Taxpayer build
 
 The main mod includes the tested AI, fiscal protection and shared Farm description.

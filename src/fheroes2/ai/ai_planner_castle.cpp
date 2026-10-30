@@ -273,10 +273,49 @@ namespace
         }
     }
 
+    bool buildQuickPaybackFarm( Castle & castle )
+    {
+        if ( castle.GetRace() != Race::KNGT || castle.isBuild( BUILD_WEL2 ) ) {
+            return false;
+        }
+
+        const int32_t rate = Kingdom::GetTaxpayerGoldPerPeasantPerDay();
+        if ( !Kingdom::TaxpayerRequiresFarms() || rate <= 0 ) {
+            return false;
+        }
+
+        const Heroes * guest = castle.GetHero();
+        const uint64_t peasants = static_cast<uint64_t>( castle.GetArmy().GetCountMonsters( Monster::PEASANT ) )
+                                  + ( guest ? guest->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
+        const uint64_t dailyIncome = peasants * static_cast<uint64_t>( rate );
+        const uint32_t farmCost = PaymentConditions::BuyBuilding( castle.GetRace(), BUILD_WEL2 ).gold;
+        const bool quickPayback = AI::taxpayerFarmPaysBackQuickly( dailyIncome, farmCost );
+        const uint64_t paybackDays = dailyIncome > 0 ? farmCost / dailyIncome + ( farmCost % dailyIncome != 0 ) : 0;
+        const BuildingStatus status = castle.CheckBuyBuilding( BUILD_WEL2 );
+        const bool difficultyAllows = Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), BUILD_WEL2 );
+        const bool built = quickPayback && difficultyAllows && AI::BuildIfPossible( castle, BUILD_WEL2 );
+
+        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
+                           << ": early Farm investment, Peasants " << peasants << ", daily tax " << dailyIncome << ", cost " << farmCost
+                           << ", payback days " << paybackDays << ", quick payback " << quickPayback << ", difficulty allows " << difficultyAllows
+                           << ", status " << taxpayerBuildingStatus( status ) << ", funds multiplier 1, built " << built );
+        if ( built && Settings::Get().taxpayerTestDiagnostics() >= 2 ) {
+            COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
+                                         << ": building id " << static_cast<uint32_t>( BUILD_WEL2 ) << " BUILT" );
+        }
+        return built;
+    }
+
     bool CastleDevelopment( Castle & castle, int safetyFactor, int spellLevel )
     {
         if ( !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() ) ) {
             return false;
+        }
+
+        // Defensive turns never enter this development path. Keep all building prerequisites,
+        // but examine a rapidly profitable Farm before ordinary development and budget multipliers.
+        if ( buildQuickPaybackFarm( castle ) ) {
+            return true;
         }
 
         if ( castle.isCastle() && !castle.isBuild( BUILD_WELL ) && world.CountDay() > 6 ) {
