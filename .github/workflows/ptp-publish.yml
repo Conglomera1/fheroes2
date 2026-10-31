@@ -1,0 +1,23 @@
+name: Publish PTP 1.0b
+on:
+  push:
+    branches: [ptp-1.0b-publication]
+    paths:
+      - '.github/workflows/ptp-publish.yml'
+      - 'distribution/fheroes2_PTP-1.0b.zip'
+permissions:
+  contents: write
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Verify exact user archive
+      run: |
+        echo "fd8626bdc0ccbdab25370f946bd54a5d806d13e2a29da9c58f53f1d01b6e8b3e  distribution/fheroes2_PTP-1.0b.zip" | sha256sum -c -
+        python3 -m zipfile -t distribution/fheroes2_PTP-1.0b.zip
+    - name: Publish beta release
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        gh release create ptp-1.0b distribution/fheroes2_PTP-1.0b.zip --target 69086a2c3c774f7eb742671ee122826f75644cde --title "PTP 1.0b - Peasant Taxpayer" --prerelease --notes-file distribution/release-notes.md
