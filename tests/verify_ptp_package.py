@@ -32,7 +32,7 @@ def read_catalog(data):
 def verify(package, architecture):
     executable = f"fheroes2TP{architecture}.exe"
     locales = {p.stem for p in Path("files/lang").glob("*.po")}
-    expected = {executable, "README_PTP_1.0b.txt", "LICENSE"}
+    expected = {executable, "files/data/resurrection_TP.h2d"}
     expected.update(f"files/lang/{locale}_TP.mo" for locale in locales)
     with zipfile.ZipFile(package) as archive:
         names = [name for name in archive.namelist() if not name.endswith("/")]
@@ -51,8 +51,7 @@ def verify(package, architecture):
         farm = b"Each Peasant working at the farm yields %{tax_rate} gold in tax per day."
         assert french[farm] != farm
         assert b"%{tax_rate}" in french[farm]
-        assert archive.read("README_PTP_1.0b.txt") == Path("docs/README_PTP_1.0b.txt").read_bytes()
-        assert archive.read("LICENSE") == Path("LICENSE").read_bytes()
+        assert archive.read("files/data/resurrection_TP.h2d") == Path("files/data/resurrection.h2d").read_bytes()
     print(f"Verified {package}: {architecture}, {len(locales)} renamed catalogs, no original files overwritten.")
 
 

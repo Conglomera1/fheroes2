@@ -34,7 +34,7 @@ jobs:
       run: |
         set PATH=C:\msys64\usr\bin;%PATH%
         C:\msys64\usr\bin\make.exe -C files/lang -j 2
-    - name: Package renamed executable and catalogs
+    - name: Package renamed executable, catalogs and resources
       shell: pwsh
       run: |
         $packageRoot = 'ptp-package'
@@ -43,8 +43,8 @@ jobs:
         Get-ChildItem 'files/lang/*.mo' | ForEach-Object {
           Copy-Item $_.FullName "$packageRoot/files/lang/$($_.BaseName)_TP.mo"
         }
-        Copy-Item 'docs/README_PTP_1.0b.txt' "$packageRoot/README_PTP_1.0b.txt"
-        Copy-Item 'LICENSE' "$packageRoot/LICENSE"
+        New-Item -ItemType Directory -Force "$packageRoot/files/data" | Out-Null
+        Copy-Item 'files/data/resurrection.h2d' "$packageRoot/files/data/resurrection_TP.h2d"
         Push-Location $packageRoot
         7z.exe a -tzip '../PTP-1.0b-Windows-${{ matrix.platform }}.zip' './*'
         if ($LASTEXITCODE -ne 0) { throw 'ZIP packaging failed' }
@@ -56,4 +56,33 @@ jobs:
       with:
         name: PTP-1.0b-Windows-${{ matrix.platform }}
         path: PTP-1.0b-Windows-${{ matrix.platform }}.zip
+        if-no-files-found: error
+
+  bundle:
+    needs: windows
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/download-artifact@v4
+      with:
+        pattern: PTP-1.0b-Windows-*
+        path: packages
+        merge-multiple: true
+    - name: Assemble distribution
+      run: |
+        python3 - <<'PYTHON'
+        from pathlib import Path
+        import zipfile
+        with zipfile.ZipFile('PTP 1.0b.zip', 'w', zipfile.ZIP_STORED) as z:
+            z.write('docs/README_PTP_1.0b.txt', 'Readme.txt')
+            z.write('LICENSE', 'LICENCE')
+            z.write('script/windows/uninstalltp.bat', 'uninstalltp.bat')
+            for arch in ('x86', 'x64'):
+                name = f'PTP-1.0b-Windows-{arch}.zip'
+                z.write(Path('packages') / name, name)
+        PYTHON
+    - uses: actions/upload-artifact@v4
+      with:
+        name: PTP-1.0b-complete
+        path: PTP 1.0b.zip
         if-no-files-found: error

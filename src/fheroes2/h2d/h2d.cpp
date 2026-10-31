@@ -116,7 +116,7 @@ namespace fheroes2::h2d
 {
     H2DInitializer::H2DInitializer()
     {
-        const std::string fileName{ "resurrection.h2d" };
+        const std::string fileName{ "resurrection_TP.h2d" };
 
         std::string filePath;
         if ( !getH2DFilePath( fileName, filePath ) ) {

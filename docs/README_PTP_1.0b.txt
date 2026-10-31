@@ -76,15 +76,32 @@ How do I install the Windows version?
 1. Choose the package matching your existing fheroes2
    installation: x86 for 32-bit, or x64 for 64-bit.
 2. Extract its contents into your fheroes2 installation folder,
-   keeping the folder structure, including files/lang.
+   keeping the folder structure, including files/lang and files/data.
 3. Launch fheroes2TPx86.exe or fheroes2TPx64.exe.
 
 Need a build for another platform? Feel free to ask!
 
-The PTP executable and translation files use separate names, so
+The PTP executable, translations and resurrection_TP.h2d resource
+use separate names, so
 your original executable and language files stay in place. Both
 executables still use the usual fheroes2 user settings and save
 folders.
+
+How do I uninstall?
+-------------------
+
+1. Copy uninstalltp.bat into your fheroes2 installation folder,
+   run it and follow the instructions. It deletes itself when done.
+
+2. To uninstall manually, delete:
+   - fheroes2TPx86.exe and/or fheroes2TPx64.exe.
+   - The files ending in _TP.mo inside files/lang.
+   - files/data/resurrection_TP.h2d.
+   - knight_mod.ini from %APPDATA%\fheroes2.
+   - uninstalltp.bat.
+
+Your original fheroes2 executable, translations, resources and
+saves stay in place.
 
 ----------------------------------------------------------------
                              SETUP
@@ -160,7 +177,7 @@ YhyJasne for the annoying but often thoughtful questions.
 PTP is an unofficial community mod for fheroes2.
 
 fheroes2 and this modification are distributed under the GNU GPL,
-version 2 or later. See LICENSE for the full terms. Source:
+version 2 or later. See LICENCE for the full terms. Source:
 https://github.com/Conglomera1/fheroes2/tree/ptp-1.0b-windows
 
 Heroes of Might and Magic II and its original assets belong to
