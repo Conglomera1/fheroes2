@@ -1,0 +1,19 @@
+name: Update PTP release screenshots
+on:
+  push:
+    branches: [ptp-1.0b-publication]
+    paths:
+      - '.github/workflows/ptp-release-screenshots.yml'
+      - 'distribution/release-with-screenshots.md'
+      - 'distribution/screenshots/**'
+permissions:
+  contents: write
+jobs:
+  update-description:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Update release description
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh release edit ptp-1.0b --notes-file distribution/release-with-screenshots.md
