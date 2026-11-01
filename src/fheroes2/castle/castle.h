@@ -37,6 +37,7 @@
 #include "army.h"
 #include "bitmodes.h"
 #include "captain.h"
+#include "conscription.h"
 #include "color.h"
 #include "mageguild.h"
 #include "math_base.h"
@@ -51,6 +52,7 @@ class OStreamBase;
 class HeroBase;
 class Heroes;
 class Troop;
+class ArmyTroop;
 
 struct Funds;
 
@@ -84,6 +86,8 @@ enum BuildingType : uint32_t
     BUILD_CASTLE = 0x00000800,
     BUILD_CAPTAIN = 0x00001000,
     BUILD_SHRINE = 0x00002000,
+    // Race-specific slot: Shrine for Necromancer, Training Grounds for Knight.
+    BUILD_TRAINING_GROUNDS = BUILD_SHRINE,
     BUILD_MAGEGUILD1 = 0x00004000,
     BUILD_MAGEGUILD2 = 0x00008000,
     BUILD_MAGEGUILD3 = 0x00010000,
@@ -325,6 +329,12 @@ public:
     }
 
     bool BuyBuilding( const uint32_t buildingType );
+    bool hasTrainingGrounds() const { return _race == Race::KNGT && isBuild( BUILD_TRAINING_GROUNDS ); }
+    Funds getBuildingCost( uint32_t buildingType ) const;
+    std::array<uint64_t, 3> previewConscription( uint32_t count ) const;
+    std::string conscriptionPreviewText( uint32_t count ) const;
+    std::string conscriptionError( const ArmyTroop & troop ) const;
+    bool conscript( ArmyTroop & troop );
 
     BuildingStatus CheckBuyBuilding( const uint32_t build ) const;
     static BuildingStatus GetAllBuildingStatus( const Castle & castle );
@@ -438,6 +448,9 @@ private:
 
     MageGuild _mageGuild;
     std::array<uint32_t, maxNumOfDwellings> _dwelling{ 0 };
+    Conscription::State _conscription;
+    uint32_t _conscriptionWeek = 0;
+    uint32_t _conscriptionThisWeek = 0;
     Army _army{ &_captain };
 };
 

@@ -228,13 +228,24 @@ BuildingInfo::BuildingInfo( const Castle & c, const BuildingType b )
         _buildingType = ( version == GameVersion::PRICE_OF_LOYALTY || version == GameVersion::RESURRECTION ) ? BUILD_SHRINE : BUILD_NOTHING;
     }
 
+    if ( castle.GetRace() == Race::KNGT && b == BUILD_WEL2 && castle.isBuild( BUILD_WEL2 ) )
+        _buildingType = BUILD_TRAINING_GROUNDS;
     _status = castle.CheckBuyBuilding( _buildingType );
 
     // generate description
     if ( _status == BuildingStatus::BUILD_DISABLE || _status == BuildingStatus::SHIPYARD_NOT_ALLOWED )
         description = GetConditionDescription();
     else {
-        description = getBuildingDescription( castle.GetRace(), _buildingType );
+        if ( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ) {
+            description = "Convert the Farm into Training Grounds to enable Peasant conscription. The Farm's growth bonus will be lost.";
+            if ( Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 )
+                description += " Peasants stationed here will no longer pay taxes.";
+        }
+        else {
+            description = getBuildingDescription( castle.GetRace(), _buildingType );
+            if ( _buildingType == BUILD_WEL2 && castle.hasTrainingGrounds() )
+                description = "Restore the Farm and disable conscription.\n\n" + description;
+        }
     }
 
     // fix area for captain
@@ -360,7 +371,7 @@ void BuildingInfo::Redraw() const
     }
 
     fheroes2::Display & display = fheroes2::Display::instance();
-    const int index = fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( _buildingType ) );
+    const int index = fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : _buildingType ) );
 
     const fheroes2::Sprite & buildingFrame = Assets::getImage( ICN::BLDGXTRA, 0 );
     fheroes2::Blit( buildingFrame, display, area.x, area.y );
@@ -477,7 +488,7 @@ bool BuildingInfo::DialogBuyBuilding( bool buttons ) const
         requirementHeight = requirementTitle.height() + requirementText.height( fheroes2::boxAreaWidthPx ) + elementOffset;
     }
 
-    Resource::BoxSprite rbs( PaymentConditions::BuyBuilding( castle.GetRace(), _buildingType ), fheroes2::boxAreaWidthPx );
+    Resource::BoxSprite rbs( castle.getBuildingCost( _buildingType ), fheroes2::boxAreaWidthPx );
 
     const fheroes2::Sprite & buildingFrame = Assets::getImage( ICN::BLDGXTRA, 0 );
 
@@ -493,7 +504,7 @@ bool BuildingInfo::DialogBuyBuilding( bool buttons ) const
     fheroes2::Blit( buildingFrame, display, pos.x, pos.y );
 
     const fheroes2::Sprite & buildingImage
-        = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( _buildingType ) ) );
+        = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : _buildingType ) ) );
     pos.x = dialogRoi.x + ( dialogRoi.width - buildingImage.width() ) / 2;
     pos.y += 1;
     fheroes2::Blit( buildingImage, display, pos.x, pos.y );

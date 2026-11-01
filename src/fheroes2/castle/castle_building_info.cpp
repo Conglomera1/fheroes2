@@ -805,6 +805,8 @@ namespace fheroes2
 {
     std::vector<Rect> getCastleBuildingArea( const int race, const BuildingType buildingId )
     {
+        if ( race == Race::KNGT && buildingId == BUILD_TRAINING_GROUNDS )
+            return getKnightBuildingArea( BUILD_WEL2 );
         if ( buildingId == BUILD_NOTHING ) {
             // Special case which we should ignore.
             return {};
@@ -835,6 +837,7 @@ namespace fheroes2
 
     const char * getBuildingName( const int race, const BuildingType buildingId )
     {
+        if ( race == Race::KNGT && buildingId == BUILD_TRAINING_GROUNDS ) return "Training Grounds";
         if ( buildingId == BUILD_NOTHING ) {
             // Special case which we should ignore.
             return "";
@@ -1096,6 +1099,8 @@ namespace fheroes2
 
     BuildingType getBuildingRequirement( const int race, const BuildingType building )
     {
+        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS )
+            return static_cast<BuildingType>( BUILD_WEL2 | DWELLING_MONSTER2 | DWELLING_MONSTER3 | DWELLING_MONSTER4 );
         uint32_t requirement = 0;
 
         switch ( building ) {

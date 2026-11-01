@@ -32,6 +32,8 @@
 #include <vector>
 
 #include "army_troop.h"
+#include "castle.h"
+#include "resource.h"
 #include "battle.h"
 #include "battle_cell.h"
 #include "cursor.h"
@@ -512,7 +514,7 @@ namespace
     }
 }
 
-int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const int32_t windowOffsetY )
+int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const int32_t windowOffsetY, const Castle * conscriptionCastle )
 {
     // Unit cannot be dismissed or upgraded during combat
     assert( !troop.isBattle() || !( flags & BUTTONS ) || !( flags & ( UPGRADE | DISMISS ) ) );
@@ -591,6 +593,20 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
 
     std::unique_ptr<fheroes2::Button> buttonUpgrade;
     std::unique_ptr<fheroes2::Button> buttonDismiss;
+    std::unique_ptr<fheroes2::ButtonSprite> buttonConscript;
+    std::string conscriptionPreview;
+    const auto drawConscriptionPreview = [&]() {
+        if ( !conscriptionPreview.empty() )
+            fheroes2::Text( conscriptionPreview, fheroes2::FontType::smallWhite() ).draw( pos_rt.x + 276, pos_rt.y + 156, 220, display );
+    };
+    if ( ( flags & CONSCRIPT ) && conscriptionCastle ) {
+        conscriptionPreview = conscriptionCastle->conscriptionPreviewText( troop.GetCount() );
+        fheroes2::Sprite released, pressed;
+        fheroes2::makeButtonSprites( released, pressed, "CONSCRIPT", { 110, 25 }, isEvilInterface, viewarmy );
+        buttonConscript = std::make_unique<fheroes2::ButtonSprite>( pos_rt.x + 280, pos_rt.y + 192, std::move( released ), std::move( pressed ) );
+        drawConscriptionPreview();
+        buttonConscript->draw();
+    }
 
     const int exitButtonIcnID = isEvilInterface ? ICN::BUTTON_SMALL_EXIT_EVIL : ICN::BUTTON_SMALL_EXIT_GOOD;
     const int32_t exitWidth = Assets::getImage( exitButtonIcnID, 0 ).width();
@@ -623,6 +639,7 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
     display.render( restorer.rect() );
 
     while ( le.HandleEvents( Game::isDelayNeeded( { Game::DelayType::CASTLE_UNIT_DELAY } ) ) ) {
+        if ( buttonConscript ) buttonConscript->drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonConscript->area() ) );
         if ( buttonUpgrade ) {
             buttonUpgrade->drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonUpgrade->area() ) );
         }
@@ -632,6 +649,26 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
         }
 
         buttonExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonExit.area() ) );
+
+        if ( buttonConscript && le.MouseClickLeft( buttonConscript->area() ) ) {
+            const std::string error = conscriptionCastle->conscriptionError( static_cast<const ArmyTroop &>( troop ) );
+            const uint64_t gold = uint64_t{ troop.GetCount() } * Conscription::settings().goldPerPeasant;
+            if ( gold > 2147483647 ) {
+                fheroes2::showStandardTextMessage( "Conscription", error, Dialog::OK );
+            }
+            else {
+                const std::string text = error.empty() ? conscriptionPreview + "\n\nThese troops must then be recruited at their normal cost. Proceed?" : error;
+                const int answer = fheroes2::showResourceMessage( fheroes2::Text( "Conscription", fheroes2::FontType::normalYellow() ),
+                    fheroes2::Text( text, fheroes2::FontType::normalWhite() ), error.empty() ? Dialog::YES | Dialog::NO : Dialog::OK,
+                    Funds( Resource::GOLD, static_cast<uint32_t>( gold ) ) );
+                if ( error.empty() && answer == Dialog::YES ) {
+                    result = Dialog::CONSCRIPT;
+                    break;
+                }
+            }
+        }
+        if ( buttonConscript && le.isMouseRightButtonPressedInArea( buttonConscript->area() ) )
+            fheroes2::showStandardTextMessage( "Conscript", conscriptionPreview, Dialog::ZERO );
 
         if ( buttonUpgrade && ( le.MouseClickLeft( buttonUpgrade->area() ) || Game::HotKeyPressEvent( Game::HotKeyEvent::ARMY_UPGRADE_TROOP ) ) ) {
             // If this assertion blows up then you are executing this code for a monster which has no upgrades.
@@ -695,6 +732,8 @@ int Dialog::ArmyInfo( const Troop & troop, int flags, bool isReflected, const in
             }
 
             DrawMonsterInfo( pos_rt.getPosition(), troop );
+            drawConscriptionPreview();
+            if ( buttonConscript ) buttonConscript->draw();
             DrawMonster( monsterAnimation, troop, monsterOffset, isReflected, true, dialogRoi );
             // TODO: Remove these extra shadow drawings once the dialog has been reworked and proper restorers are in place.
             if ( buttonUpgrade ) {

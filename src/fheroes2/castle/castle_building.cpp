@@ -472,6 +472,8 @@ CastleDialog::BuildingsRenderQueue::BuildingsRenderQueue( const Castle & castle,
             area = area + top;
         }
 
+        if ( castleRace == Race::KNGT && buildingId == BUILD_WEL2 )
+            emplace_back( BUILD_TRAINING_GROUNDS, areas );
         emplace_back( buildingId, std::move( areas ) );
     }
 }

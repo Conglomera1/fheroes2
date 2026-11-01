@@ -595,8 +595,11 @@ void Settings::setCurrentMapInfo( Maps::FileInfo fi )
     players.Init( _currentMapInfo );
 }
 
-bool Settings::setGameLanguage( const std::string & language )
+bool Settings::setGameLanguage( const std::string & requestedLanguage )
 {
+    // This player prototype is intentionally English-only.
+    const std::string language;
+    (void)requestedLanguage;
     fheroes2::updateAlphabet( language );
 
     _gameLanguage = language;

@@ -692,7 +692,7 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
             return ConstructionDialogResult::Build;
         }
         if ( le.isMouseCursorPosInArea( buildingWel2.GetArea() ) && buildingWel2.QueueEventProcessing( buttonExit ) ) {
-            dwellingTobuild = BUILD_WEL2;
+            dwellingTobuild = buildingWel2.getBuilding();
             return ConstructionDialogResult::Build;
         }
         if ( le.isMouseCursorPosInArea( buildingSpec.GetArea() ) && buildingSpec.QueueEventProcessing( buttonExit ) ) {

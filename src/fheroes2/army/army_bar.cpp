@@ -579,7 +579,13 @@ bool ArmyBar::ActionBarLeftMouseDoubleClick( ArmyTroop & troop )
             }
         }
 
-        switch ( Dialog::ArmyInfo( troop, flags, false, _troopWindowOffsetY ) ) {
+        Castle * conscriptionCastle = read_only ? nullptr : const_cast<Castle *>( _army->inCastle() );
+        if ( conscriptionCastle && conscriptionCastle->hasTrainingGrounds() && troop.GetID() == Monster::PEASANT )
+            flags |= Dialog::CONSCRIPT;
+        switch ( Dialog::ArmyInfo( troop, flags, false, _troopWindowOffsetY, conscriptionCastle ) ) {
+        case Dialog::CONSCRIPT:
+            if ( conscriptionCastle ) conscriptionCastle->conscript( troop );
+            break;
         case Dialog::UPGRADE:
             // If this assertion blows up then you are executing this code for a monster which has no upgrades.
             assert( troop.isAllowUpgrade() );

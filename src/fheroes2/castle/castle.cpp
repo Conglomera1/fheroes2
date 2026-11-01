@@ -1145,7 +1145,7 @@ BuildingStatus Castle::CheckBuyBuilding( const uint32_t build ) const
         return BuildingStatus::ALREADY_BUILT;
     }
 
-    if ( _disabledBuildings & build ) {
+    if ( ( _disabledBuildings & build ) || ( _race == Race::KNGT && build == BUILD_TRAINING_GROUNDS && isBuildingDisabled( BUILD_WEL2 ) ) ) {
         return BuildingStatus::BUILD_DISABLE;
     }
 
@@ -1157,7 +1157,7 @@ BuildingStatus Castle::CheckBuyBuilding( const uint32_t build ) const
         }
         break;
     case BUILD_SHRINE:
-        if ( Race::NECR != GetRace() || ( Settings::Get().getCurrentMapInfo().version == GameVersion::SUCCESSION_WARS ) ) {
+        if ( GetRace() != Race::KNGT && ( Race::NECR != GetRace() || Settings::Get().getCurrentMapInfo().version == GameVersion::SUCCESSION_WARS ) ) {
             return BuildingStatus::BUILD_DISABLE;
         }
         break;
@@ -1231,7 +1231,7 @@ BuildingStatus Castle::CheckBuyBuilding( const uint32_t build ) const
         }
     }
 
-    if ( !GetKingdom().AllowPayment( PaymentConditions::BuyBuilding( _race, build ) ) ) {
+    if ( !GetKingdom().AllowPayment( getBuildingCost( build ) ) ) {
         return BuildingStatus::LACK_RESOURCES;
     }
 
@@ -1268,7 +1268,13 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
         return false;
     }
 
-    GetKingdom().OddFundsResource( PaymentConditions::BuyBuilding( _race, buildingType ) );
+    GetKingdom().OddFundsResource( getBuildingCost( buildingType ) );
+    if ( _race == Race::KNGT ) {
+        if ( buildingType == BUILD_TRAINING_GROUNDS )
+            _constructedBuildings &= ~BUILD_WEL2;
+        else if ( buildingType == BUILD_WEL2 )
+            _constructedBuildings &= ~BUILD_TRAINING_GROUNDS;
+    }
 
     _constructedBuildings |= buildingType;
 
@@ -1455,6 +1461,8 @@ int Castle::GetICNBoat( const int race )
 
 int Castle::GetICNBuilding( const uint32_t buildingType, const int race )
 {
+    if ( race == Race::KNGT && buildingType == BUILD_TRAINING_GROUNDS )
+        return GetICNBuilding( BUILD_WEL2, race );
     if ( Race::BARB == race ) {
         switch ( buildingType ) {
         case BUILD_CASTLE:
@@ -2454,7 +2462,9 @@ OStreamBase & operator<<( OStreamBase & stream, const Castle & castle )
         stream << _dwelling;
     }
 
-    return stream << castle._army;
+    stream << castle._army;
+    Conscription::writeState( stream, castle._conscription );
+    return stream << castle._conscriptionWeek << castle._conscriptionThisWeek;
 }
 
 IStreamBase & operator>>( IStreamBase & stream, Castle & castle )
@@ -2488,7 +2498,12 @@ IStreamBase & operator>>( IStreamBase & stream, Castle & castle )
 
     stream >> castle._army;
     castle._army.SetCommander( &castle._captain );
-
+    castle._conscription = {};
+    castle._conscriptionWeek = castle._conscriptionThisWeek = 0;
+    if ( Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_CONSCRIPTION ) {
+        Conscription::readState( stream, castle._conscription );
+        stream >> castle._conscriptionWeek >> castle._conscriptionThisWeek;
+    }
     return stream;
 }
 
@@ -2559,6 +2574,10 @@ IStreamBase & operator>>( IStreamBase & stream, AllCastles & castles )
 
 std::string Castle::GetDescriptionBuilding( const uint32_t buildingType ) const
 {
+    if ( _race == Race::KNGT && buildingType == BUILD_TRAINING_GROUNDS )
+        return "Allows Peasants in the garrison or a visiting hero's army to be conscripted for "
+               + std::to_string( Conscription::settings().goldPerPeasant )
+               + " gold each. Trained troops enter this town's recruitment pools and must be purchased normally.";
     std::string res = fheroes2::getBuildingDescription( GetRace(), static_cast<BuildingType>( buildingType ) );
 
     switch ( buildingType ) {

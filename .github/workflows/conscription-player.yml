@@ -1,0 +1,51 @@
+name: Conscription Player Prototype x86
+on:
+  push:
+    branches: [conscription-player-prototype]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify conscription cycle and existing Taxpayer policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror tests/conscription_test.cpp -o /tmp/conscription_test
+          /tmp/conscription_test
+          g++ -std=c++17 -Wall -Wextra -Werror -ffunction-sections -fdata-sections tests/conscription_save_test.cpp src/engine/serialize.cpp -Wl,--gc-sections -o /tmp/conscription_save_test
+          /tmp/conscription_save_test
+          g++ -std=c++17 -Wall -Wextra -Werror tests/taxpayer_policy_test.cpp -o /tmp/taxpayer_test
+          /tmp/taxpayer_test
+  windows:
+    needs: checks
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        shell: cmd
+        run: script\windows\install_packages.bat
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build English player executable
+        shell: cmd
+        run: MSBuild.exe fheroes2-vs2019.vcxproj /m /property:Platform=x86 /property:Configuration=Release-SDL2 /property:TaxpayerDiagnostics=false /property:TaxpayerTestBuild=false
+      - name: Package minimal prototype and verify architecture
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/files/data | Out-Null
+          Copy-Item build/x86/Release-SDL2/fheroes2.exe package/fheroes2Conscription.exe
+          Copy-Item files/data/resurrection.h2d package/files/data/resurrection.h2d
+          $binary = [System.IO.File]::ReadAllBytes("$pwd/package/fheroes2Conscription.exe")
+          $pe = [BitConverter]::ToInt32($binary, 0x3c)
+          if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne 0x14c) { throw 'Expected x86 executable' }
+          $files = @(Get-ChildItem package -Recurse -File)
+          if ($files.Count -ne 2) { throw 'Unexpected package contents' }
+          Compress-Archive -Path package/* -DestinationPath Conscription-player-x86.zip
+          Get-FileHash Conscription-player-x86.zip -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Conscription-player-x86
+          path: Conscription-player-x86.zip
+          if-no-files-found: error

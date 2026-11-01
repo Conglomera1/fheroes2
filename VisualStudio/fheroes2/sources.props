@@ -71,6 +71,7 @@
     <ClCompile Include="src\fheroes2\castle\buildinginfo.cpp" />
     <ClCompile Include="src\fheroes2\castle\captain.cpp" />
     <ClCompile Include="src\fheroes2\castle\castle.cpp" />
+    <ClCompile Include="src\fheroes2\castle\conscription.cpp" />
     <ClCompile Include="src\fheroes2\castle\castle_building.cpp" />
     <ClCompile Include="src\fheroes2\castle\castle_building_info.cpp" />
     <ClCompile Include="src\fheroes2\castle\castle_dialog.cpp" />
