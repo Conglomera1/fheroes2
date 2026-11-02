@@ -68,15 +68,12 @@ namespace
         if ( !training ) return base;
         static const fheroes2::Sprite preview = [&base] {
             fheroes2::Sprite result( base );
-            fheroes2::Image original;
+            fheroes2::Image thumbnail;
             std::string path;
-            if ( !Settings::findFile( "files/data", "training_grounds.png", path ) || !fheroes2::Load( path, original ) ) return result;
-            const auto roi = fheroes2::GetActiveROI( original );
-            if ( roi.width <= 0 || roi.height <= 0 ) return result;
-            fheroes2::Image yard( 120, 30 );
-            yard.reset();
-            fheroes2::Resize( original, roi.x, roi.y, roi.width, roi.height, yard, 0, 0, 120, 30 );
-            fheroes2::Blit( yard, result, ( result.width() - yard.width() ) / 2, result.height() - yard.height() );
+            if ( Settings::findFile( "files/data", "build_training_grounds.png", path ) && fheroes2::Load( path, thumbnail )
+                 && thumbnail.width() == base.width() && thumbnail.height() == base.height() ) {
+                fheroes2::Blit( thumbnail, result, 0, 0 );
+            }
             return result;
         }();
         return preview;

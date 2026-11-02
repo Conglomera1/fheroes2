@@ -38,11 +38,12 @@ jobs:
           Copy-Item build/x86/Release-SDL2/fheroes2.exe package/fheroes2Conscription.exe
           Copy-Item files/data/resurrection.h2d package/files/data/resurrection.h2d
           Copy-Item files/data/training_grounds.png package/files/data/training_grounds.png
+          Copy-Item files/data/build_training_grounds.png package/files/data/build_training_grounds.png
           $binary = [System.IO.File]::ReadAllBytes("$pwd/package/fheroes2Conscription.exe")
           $pe = [BitConverter]::ToInt32($binary, 0x3c)
           if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne 0x14c) { throw 'Expected x86 executable' }
           $files = @(Get-ChildItem package -Recurse -File)
-          if ($files.Count -ne 3) { throw 'Unexpected package contents' }
+          if ($files.Count -ne 4) { throw 'Unexpected package contents' }
           Compress-Archive -Path package/* -DestinationPath Conscription-player-x86.zip
           Get-FileHash Conscription-player-x86.zip -Algorithm SHA256
       - uses: actions/upload-artifact@v4
