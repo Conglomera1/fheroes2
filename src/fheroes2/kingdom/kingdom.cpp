@@ -391,6 +391,7 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
         if ( displayEventDialog )
             displayEventDialog( event, fundsUpdate );
     }
+    Castle::processDailyConscription( *this );
 }
 
 void Kingdom::ActionNewWeek()

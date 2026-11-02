@@ -32,6 +32,7 @@
 #include "game_delays.h"
 #include "icn.h"
 #include "image.h"
+#include "image_tool.h"
 #include "maps_fileinfo.h"
 #include "math_base.h"
 #include "race.h"
@@ -220,6 +221,29 @@ namespace
         }
 
         const fheroes2::Rect roi = CastleGetMaxArea( castle, offset );
+
+        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS ) {
+            static const fheroes2::Image training = [] {
+                fheroes2::Image original;
+                std::string path;
+                if ( !Settings::findFile( "files/data", "training_grounds.png", path ) || !fheroes2::Load( path, original ) )
+                    return fheroes2::Image{};
+                const auto area = fheroes2::GetActiveROI( original );
+                fheroes2::Image result( 114, 26 );
+                result.reset();
+                if ( area.width > 0 && area.height > 0 )
+                    fheroes2::Resize( original, area.x, area.y, area.width, area.height, result, 0, 0, 114, 26 );
+                return result;
+            }();
+            if ( !training.empty() ) {
+                const auto & farm = Assets::getImage( icn, 0 );
+                const fheroes2::Rect bounds{ offset.x + farm.x(), offset.y + farm.y(), training.width(), training.height() };
+                const auto visible = roi ^ bounds;
+                fheroes2::AlphaBlit( training, visible.x - bounds.x, visible.y - bounds.y, fheroes2::Display::instance(), visible.x, visible.y,
+                                    visible.width, visible.height, alpha );
+                return;
+            }
+        }
 
         // Building main sprite.
         fheroes2::drawCastleDialogBuilding( icn, index, castle, offset, roi, alpha );

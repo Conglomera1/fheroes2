@@ -580,8 +580,6 @@ bool ArmyBar::ActionBarLeftMouseDoubleClick( ArmyTroop & troop )
         }
 
         Castle * conscriptionCastle = read_only ? nullptr : const_cast<Castle *>( _army->inCastle() );
-        if ( conscriptionCastle && conscriptionCastle->hasTrainingGrounds() && troop.GetID() == Monster::PEASANT )
-            flags |= Dialog::CONSCRIPT;
         switch ( Dialog::ArmyInfo( troop, flags, false, _troopWindowOffsetY, conscriptionCastle ) ) {
         case Dialog::CONSCRIPT:
             if ( conscriptionCastle ) conscriptionCastle->conscript( troop );

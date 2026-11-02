@@ -335,6 +335,9 @@ public:
     std::string conscriptionPreviewText( uint32_t count ) const;
     std::string conscriptionError( const ArmyTroop & troop ) const;
     bool conscript( ArmyTroop & troop );
+    static void processDailyConscription( Kingdom & kingdom );
+    std::string dailyConscriptionDescription() const;
+    Conscription::TownDay conscriptionDaySnapshot() const;
 
     BuildingStatus CheckBuyBuilding( const uint32_t build ) const;
     static BuildingStatus GetAllBuildingStatus( const Castle & castle );

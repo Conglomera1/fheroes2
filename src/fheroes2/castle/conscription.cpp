@@ -53,7 +53,8 @@ const Conscription::Settings & Conscription::settings()
                 if ( !headerWritten ) {
                     additions << "\n# Conscription prototype. Restart after editing.\n"
                                  "# Ratios: quotas per cycle; at least one must be positive.\n"
-                                 "# weekly_limit: Peasants per town per week, 0 = unlimited.\n";
+                                 "# daily_limit: mandatory formations per town per day (0 disables training).\n"
+                                 "# Garrison first; hut formations also pay the normal Peasant recruitment cost.\n";
                     headerWritten = true;
                 }
                 additions << key << " = " << fallback << '\n';
@@ -65,7 +66,7 @@ const Conscription::Settings & Conscription::settings()
                           static_cast<uint32_t>( read( "conscription.pikemen", 5, 10000 ) ),
                           static_cast<uint32_t>( read( "conscription.swordsmen", 4, 10000 ) ) };
         if ( result.quotas == Quotas{} ) result.quotas = { 8, 5, 4 };
-        result.weeklyLimit = read( "conscription.weekly_limit", 0, 1000000 );
+        result.dailyLimit = read( "conscription.daily_limit", 3, 10000 );
         result.trainingGold = read( "training_grounds.gold", 2000, 1000000 );
         result.trainingWood = read( "training_grounds.wood", 10, 1000000 );
         result.trainingOre = read( "training_grounds.ore", 10, 1000000 );
@@ -150,18 +151,85 @@ std::string Castle::conscriptionError( const ArmyTroop & troop ) const
 
 bool Castle::conscript( ArmyTroop & troop )
 {
-    if ( !conscriptionError( troop ).empty() ) return false;
-    const uint32_t count = troop.GetCount();
+    // The old manual action must never bypass the daily formation schedule.
+    static_cast<void>( troop );
+    return false;
+}
+
+void Castle::processDailyConscription( Kingdom & kingdom )
+{
+    if ( world.CountDay() <= 1 ) return;
     const auto & config = Conscription::settings();
-    const auto recruits = Conscription::advance( _conscription, count, config.quotas );
-    GetKingdom().OddFundsResource( Funds( Resource::GOLD, count * config.goldPerPeasant ) );
-    for ( size_t i = 0; i < 3; ++i )
-        _dwelling[i + 1] += static_cast<uint32_t>( recruits[i] );
-    if ( _conscriptionWeek != world.CountWeek() ) {
-        _conscriptionWeek = world.CountWeek();
-        _conscriptionThisWeek = 0;
+    std::vector<Castle *> towns;
+    std::vector<Conscription::TownDay> snapshots;
+    for ( Castle * town : kingdom.GetCastles() ) {
+        if ( !town->hasTrainingGrounds() ) continue;
+        towns.push_back( town );
+        snapshots.push_back( town->conscriptionDaySnapshot() );
     }
-    _conscriptionThisWeek += count;
-    troop.Reset();
-    return true;
+    int64_t gold = kingdom.GetFunds().gold;
+    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold );
+    kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ) );
+    for ( size_t n = 0; n < towns.size(); ++n ) {
+        Castle & town = *towns[n];
+        const auto & snapshot = snapshots[n];
+        uint32_t remaining = snapshot.fromGarrison;
+        for ( size_t i = 0; i < town._army.Size() && remaining; ++i ) {
+            Troop * troop = town._army.GetTroop( i );
+            if ( troop->GetID() != Monster::PEASANT ) continue;
+            const uint32_t taken = std::min( remaining, troop->GetCount() );
+            remaining -= taken;
+            if ( taken == troop->GetCount() ) troop->Reset();
+            else troop->SetCount( troop->GetCount() - taken );
+        }
+        town._dwelling[0] -= snapshot.fromHut;
+        town._conscription = snapshot.state;
+        for ( size_t i = 0; i < 3; ++i ) town._dwelling[i + 1] = static_cast<uint32_t>( snapshot.pools[i] );
+    }
+}
+
+Conscription::TownDay Castle::conscriptionDaySnapshot() const
+{
+    Conscription::TownDay result;
+    result.state = _conscription;
+    for ( size_t i = 0; i < _army.Size(); ++i ) {
+        const auto * troop = _army.GetTroop( i );
+        if ( troop->GetID() == Monster::PEASANT ) result.garrison += troop->GetCount();
+    }
+    result.hut = isBuild( DWELLING_MONSTER1 ) ? _dwelling[0] : 0;
+    for ( size_t i = 0; i < 3; ++i ) result.pools[i] = _dwelling[i + 1];
+    return result;
+}
+
+std::string Castle::dailyConscriptionDescription() const
+{
+    const auto & config = Conscription::settings();
+    std::string description = "Trains up to " + std::to_string( config.dailyLimit ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
+        + std::to_string( config.goldPerPeasant ) + " gold each. If needed, additional Peasants are conscripted directly from the Thatched Hut for "
+        + std::to_string( config.goldPerPeasant + Monster( Monster::PEASANT ).GetCost().gold )
+        + " gold each.\n\nTrained troops enter this town's recruitment pools and must be purchased normally.";
+    std::vector<Conscription::TownDay> snapshots;
+    size_t selected = 0;
+    for ( const Castle * town : GetKingdom().GetCastles() ) {
+        if ( !town->hasTrainingGrounds() ) continue;
+        if ( town == this ) selected = snapshots.size();
+        snapshots.push_back( town->conscriptionDaySnapshot() );
+    }
+    if ( snapshots.empty() ) return description;
+    // Next week's special growth is not known yet. Do not present it as a firm forecast.
+    if ( world.CountDay() % 7 == 0 )
+        return description + "\n\nTomorrow's training depends on the new week's population changes.";
+    int64_t gold = int64_t{ GetKingdom().GetFunds().gold } + GetKingdom().GetIncome( Kingdom::INCOME_ALL ).gold;
+    const auto before = snapshots[selected].pools;
+    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold );
+    std::string forecast;
+    const uint32_t dwellings[] = { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
+    for ( size_t i = 0; i < 3; ++i ) {
+        const uint32_t count = static_cast<uint32_t>( snapshots[selected].pools[i] - before[i] );
+        if ( !count ) continue;
+        if ( !forecast.empty() ) forecast += ", ";
+        forecast += std::to_string( count ) + " " + Monster( _race, GetActualDwelling( dwellings[i] ) ).GetPluralName( count );
+    }
+    return description + "\n\nExpected tomorrow: " + ( forecast.empty() ? "no troops" : forecast )
+        + ".\nBased on current troops and funds, including daily income; events and intervening actions may change this.";
 }

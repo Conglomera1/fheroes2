@@ -578,7 +578,8 @@ uint32_t Castle::CountBuildings() const
     }
 
     return CountBits( _constructedBuildings
-                      & ( BUILD_THIEVESGUILD | tavern | BUILD_SHIPYARD | BUILD_WELL | BUILD_STATUE | BUILD_LEFTTURRET | BUILD_RIGHTTURRET | BUILD_MARKETPLACE | BUILD_WEL2
+                      & ( BUILD_THIEVESGUILD | tavern | ( _race == Race::KNGT ? static_cast<uint32_t>( BUILD_TRAINING_GROUNDS ) : 0U )
+                          | BUILD_SHIPYARD | BUILD_WELL | BUILD_STATUE | BUILD_LEFTTURRET | BUILD_RIGHTTURRET | BUILD_MARKETPLACE | BUILD_WEL2
                           | BUILD_MOAT | BUILD_SPEC | BUILD_CAPTAIN | BUILD_CASTLE | BUILD_MAGEGUILD1 | DWELLING_MONSTER1 | DWELLING_MONSTER2 | DWELLING_MONSTER3
                           | DWELLING_MONSTER4 | DWELLING_MONSTER5 | DWELLING_MONSTER6 ) );
 }
@@ -2575,9 +2576,7 @@ IStreamBase & operator>>( IStreamBase & stream, AllCastles & castles )
 std::string Castle::GetDescriptionBuilding( const uint32_t buildingType ) const
 {
     if ( _race == Race::KNGT && buildingType == BUILD_TRAINING_GROUNDS )
-        return "Allows Peasants in the garrison or a visiting hero's army to be conscripted for "
-               + std::to_string( Conscription::settings().goldPerPeasant )
-               + " gold each. Trained troops enter this town's recruitment pools and must be purchased normally.";
+        return dailyConscriptionDescription();
     std::string res = fheroes2::getBuildingDescription( GetRace(), static_cast<BuildingType>( buildingType ) );
 
     switch ( buildingType ) {
