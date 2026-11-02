@@ -1142,6 +1142,8 @@ uint32_t Castle::getMonstersInDwelling( const uint32_t buildingType ) const
 
 BuildingStatus Castle::CheckBuyBuilding( const uint32_t build ) const
 {
+    if ( _race == Race::KNGT && build == BUILD_TRAINING_GROUNDS && !Conscription::settings().enabled )
+        return BuildingStatus::BUILD_DISABLE;
     if ( build & _constructedBuildings ) {
         return BuildingStatus::ALREADY_BUILT;
     }

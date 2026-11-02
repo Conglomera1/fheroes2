@@ -53,6 +53,7 @@ const Conscription::Settings & Conscription::settings()
                 if ( !headerWritten ) {
                     additions << "\n# Conscription prototype. Restart after editing.\n"
                                  "# Ratios: quotas per cycle; at least one must be positive.\n"
+                                 "# enabled: 1 enables training and TG construction, 0 disables both.\n"
                                  "# daily_limit: mandatory formations per town per day (0 disables training).\n"
                                  "# Garrison first; hut formations also pay the normal Peasant recruitment cost.\n";
                     headerWritten = true;
@@ -61,6 +62,7 @@ const Conscription::Settings & Conscription::settings()
             }
             return fallback;
         };
+        result.enabled = read( "conscription.enabled", 1, 1 ) != 0;
         result.goldPerPeasant = read( "conscription.gold_per_peasant", 100, 1000000 );
         result.quotas = { static_cast<uint32_t>( read( "conscription.archers", 8, 10000 ) ),
                           static_cast<uint32_t>( read( "conscription.pikemen", 5, 10000 ) ),
@@ -204,7 +206,8 @@ Conscription::TownDay Castle::conscriptionDaySnapshot() const
 std::string Castle::dailyConscriptionDescription() const
 {
     const auto & config = Conscription::settings();
-    std::string description = "Trains up to " + std::to_string( config.dailyLimit ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
+    if ( !config.enabled ) return "Conscription is disabled in knight_mod.ini.";
+    std::string description = "Automatically trains up to " + std::to_string( config.dailyLimit ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
         + std::to_string( config.goldPerPeasant ) + " gold each. If needed, additional Peasants are conscripted directly from the Thatched Hut for "
         + std::to_string( config.goldPerPeasant + Monster( Monster::PEASANT ).GetCost().gold )
         + " gold each.\n\nTrained troops enter this town's recruitment pools and must be purchased normally.";
@@ -214,11 +217,13 @@ std::string Castle::dailyConscriptionDescription() const
         if ( !town->hasTrainingGrounds() ) continue;
         if ( town == this ) selected = snapshots.size();
         snapshots.push_back( town->conscriptionDaySnapshot() );
+        if ( world.CountDay() % 7 == 0 && town->isBuild( DWELLING_MONSTER1 ) ) {
+            // Forecast normal weekly growth; exceptional weeks may change the actual result.
+            snapshots.back().hut += Monster( Monster::PEASANT ).GetGrown()
+                + ( town->isBuild( BUILD_WELL ) ? GetGrownWell() : 0 );
+        }
     }
-    if ( snapshots.empty() ) return description;
-    // Next week's special growth is not known yet. Do not present it as a firm forecast.
-    if ( world.CountDay() % 7 == 0 )
-        return description + "\n\nTomorrow's training depends on the new week's population changes.";
+    if ( !config.enabled || snapshots.empty() ) return description;
     int64_t gold = int64_t{ GetKingdom().GetFunds().gold } + GetKingdom().GetIncome( Kingdom::INCOME_ALL ).gold;
     const auto before = snapshots[selected].pools;
     Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold );
@@ -227,9 +232,8 @@ std::string Castle::dailyConscriptionDescription() const
     for ( size_t i = 0; i < 3; ++i ) {
         const uint32_t count = static_cast<uint32_t>( snapshots[selected].pools[i] - before[i] );
         if ( !count ) continue;
-        if ( !forecast.empty() ) forecast += ", ";
+        if ( !forecast.empty() ) forecast += "\n";
         forecast += std::to_string( count ) + " " + Monster( _race, GetActualDwelling( dwellings[i] ) ).GetPluralName( count );
     }
-    return description + "\n\nExpected tomorrow: " + ( forecast.empty() ? "no troops" : forecast )
-        + ".\nBased on current troops and funds, including daily income; events and intervening actions may change this.";
+    return description + "\n\nExpected Tomorrow:\n" + ( forecast.empty() ? "No troops" : forecast );
 }

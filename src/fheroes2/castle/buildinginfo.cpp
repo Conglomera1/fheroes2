@@ -37,6 +37,7 @@
 #include "game_assets.h"
 #include "game_static.h"
 #include "icn.h"
+#include "image_tool.h"
 #include "kingdom.h"
 #include "localevent.h"
 #include "m82.h"
@@ -59,6 +60,28 @@
 
 namespace
 {
+    const fheroes2::Sprite & buildingPreview( const Castle & castle, const uint32_t building )
+    {
+        const bool training = castle.GetRace() == Race::KNGT && building == BUILD_TRAINING_GROUNDS;
+        const auto & base = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ),
+            fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( training ? BUILD_WEL2 : building ) ) );
+        if ( !training ) return base;
+        static const fheroes2::Sprite preview = [&base] {
+            fheroes2::Sprite result( base );
+            fheroes2::Image original;
+            std::string path;
+            if ( !Settings::findFile( "files/data", "training_grounds.png", path ) || !fheroes2::Load( path, original ) ) return result;
+            const auto roi = fheroes2::GetActiveROI( original );
+            if ( roi.width <= 0 || roi.height <= 0 ) return result;
+            fheroes2::Image yard( 120, 30 );
+            yard.reset();
+            fheroes2::Resize( original, roi.x, roi.y, roi.width, roi.height, yard, 0, 0, 120, 30 );
+            fheroes2::Blit( yard, result, ( result.width() - yard.width() ) / 2, result.height() - yard.height() );
+            return result;
+        }();
+        return preview;
+    }
+
     fheroes2::Point GetFlagOffset( int race )
     {
         switch ( race ) {
@@ -371,7 +394,6 @@ void BuildingInfo::Redraw() const
     }
 
     fheroes2::Display & display = fheroes2::Display::instance();
-    const int index = fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : _buildingType ) );
 
     const fheroes2::Sprite & buildingFrame = Assets::getImage( ICN::BLDGXTRA, 0 );
     fheroes2::Blit( buildingFrame, display, area.x, area.y );
@@ -391,7 +413,7 @@ void BuildingInfo::Redraw() const
         return;
     }
 
-    fheroes2::Blit( Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), index ), display, area.x + 1, area.y + 1 );
+    fheroes2::Blit( buildingPreview( castle, _buildingType ), display, area.x + 1, area.y + 1 );
 
     // indicator
     if ( _status == BuildingStatus::ALREADY_BUILT ) {
@@ -503,8 +525,7 @@ bool BuildingInfo::DialogBuyBuilding( bool buttons ) const
     fheroes2::Display & display = fheroes2::Display::instance();
     fheroes2::Blit( buildingFrame, display, pos.x, pos.y );
 
-    const fheroes2::Sprite & buildingImage
-        = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ), fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : _buildingType ) ) );
+    const fheroes2::Sprite & buildingImage = buildingPreview( castle, _buildingType );
     pos.x = dialogRoi.x + ( dialogRoi.width - buildingImage.width() ) / 2;
     pos.y += 1;
     fheroes2::Blit( buildingImage, display, pos.x, pos.y );
