@@ -54,7 +54,7 @@ const Conscription::Settings & Conscription::settings()
                     additions << "\n# Conscription prototype. Restart after editing.\n"
                                  "# Ratios: quotas per cycle; at least one must be positive.\n"
                                  "# enabled: 1 enables training and TG construction, 0 disables both.\n"
-                                 "# daily_limit: mandatory formations per town per day (0 disables training).\n"
+                                 "# odd_day_limit and even_day_limit alternate daily formations by game day.\n"
                                  "# Garrison first; hut formations also pay the normal Peasant recruitment cost.\n";
                     headerWritten = true;
                 }
@@ -68,7 +68,9 @@ const Conscription::Settings & Conscription::settings()
                           static_cast<uint32_t>( read( "conscription.pikemen", 5, 10000 ) ),
                           static_cast<uint32_t>( read( "conscription.swordsmen", 4, 10000 ) ) };
         if ( result.quotas == Quotas{} ) result.quotas = { 8, 5, 4 };
-        result.dailyLimit = read( "conscription.daily_limit", 3, 10000 );
+        result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
+        result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
+        result.dailyLimit = std::max( result.oddDayLimit, result.evenDayLimit );
         result.trainingGold = read( "training_grounds.gold", 2000, 1000000 );
         result.trainingWood = read( "training_grounds.wood", 10, 1000000 );
         result.trainingOre = read( "training_grounds.ore", 10, 1000000 );
@@ -170,7 +172,7 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         snapshots.push_back( town->conscriptionDaySnapshot() );
     }
     int64_t gold = kingdom.GetFunds().gold;
-    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold );
+    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold, world.CountDay() );
     kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ) );
     for ( size_t n = 0; n < towns.size(); ++n ) {
         Castle & town = *towns[n];
@@ -207,7 +209,7 @@ std::string Castle::dailyConscriptionDescription() const
 {
     const auto & config = Conscription::settings();
     if ( !config.enabled ) return "Conscription is disabled in knight_mod.ini.";
-    std::string description = "Automatically trains up to " + std::to_string( config.dailyLimit ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
+    std::string description = "Automatically trains up to " + std::to_string( std::max( config.oddDayLimit, config.evenDayLimit ) ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
         + std::to_string( config.goldPerPeasant ) + " gold each. If needed, additional Peasants are conscripted directly from the Thatched Hut for "
         + std::to_string( config.goldPerPeasant + Monster( Monster::PEASANT ).GetCost().gold )
         + " gold each.\n\nTrained troops enter this town's recruitment pools and must be purchased normally.";
@@ -226,7 +228,7 @@ std::string Castle::dailyConscriptionDescription() const
     if ( !config.enabled || snapshots.empty() ) return description;
     int64_t gold = int64_t{ GetKingdom().GetFunds().gold } + GetKingdom().GetIncome( Kingdom::INCOME_ALL ).gold;
     const auto before = snapshots[selected].pools;
-    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold );
+    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold, world.CountDay() + 1 );
     std::string forecast;
     const uint32_t dwellings[] = { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
     for ( size_t i = 0; i < 3; ++i ) {

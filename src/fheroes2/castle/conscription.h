@@ -104,6 +104,8 @@ namespace Conscription
         Quotas quotas{ 8, 5, 4 };
         uint32_t weeklyLimit = 0; // Legacy save compatibility; no longer used.
         uint32_t dailyLimit = 3;
+        uint32_t oddDayLimit = 2;
+        uint32_t evenDayLimit = 3;
         bool enabled = true;
         int32_t trainingGold = 2000, trainingWood = 10, trainingOre = 10;
         int32_t farmGold = 1500, farmWood = 0, farmOre = 0;
@@ -120,10 +122,16 @@ namespace Conscription
     };
 
     // Pure scheduler shared by real turns and forecasts. Input order is the interface order.
-    inline void scheduleDay( std::vector<TownDay> & towns, int64_t & gold, const Settings & config, const uint32_t peasantCost )
+    inline uint32_t dailyLimitForDay( const Settings & config, const uint32_t day )
+    {
+        return day % 2 == 0 ? config.evenDayLimit : config.oddDayLimit;
+    }
+
+    inline void scheduleDay( std::vector<TownDay> & towns, int64_t & gold, const Settings & config, const uint32_t peasantCost, const uint32_t day = 0 )
     {
         if ( !config.enabled ) return;
-        for ( uint32_t pass = 0; pass < config.dailyLimit; ++pass ) {
+        const uint32_t limit = day == 0 ? config.dailyLimit : dailyLimitForDay( config, day );
+        for ( uint32_t pass = 0; pass < limit; ++pass ) {
             bool progress = false;
             for ( auto & town : towns ) {
                 if ( !town.garrison && !town.hut ) continue;

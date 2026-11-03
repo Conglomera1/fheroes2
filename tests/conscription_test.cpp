@@ -67,6 +67,16 @@ int main()
     state = {};
     assert( (advance( state,17,Quotas{} ) == std::array<uint64_t,3>{8,5,4}) );
     Settings config;
+    assert( dailyLimitForDay( config, 1 ) == 2 );
+    assert( dailyLimitForDay( config, 2 ) == 3 );
+    assert( 4 * dailyLimitForDay( config, 1 ) + 3 * dailyLimitForDay( config, 2 ) == 17 );
+    std::vector<TownDay> alternating( 1 );
+    alternating[0].garrison = 20;
+    int64_t alternatingGold = 5000;
+    scheduleDay( alternating, alternatingGold, config, 20, 7 );
+    assert( alternating[0].state.total == 2 );
+    scheduleDay( alternating, alternatingGold, config, 20, 8 );
+    assert( alternating[0].state.total == 5 );
     std::vector<TownDay> towns( 3 );
     for ( auto & town : towns ) town.garrison = 20;
     int64_t gold = 400;
