@@ -124,7 +124,8 @@ namespace Conscription
     // Pure scheduler shared by real turns and forecasts. Input order is the interface order.
     inline uint32_t dailyLimitForDay( const Settings & config, const uint32_t day )
     {
-        return day % 2 == 0 ? config.evenDayLimit : config.oddDayLimit;
+        const uint32_t calendarDay = ( day - 1 ) % 7 + 1;
+        return calendarDay % 2 == 0 ? config.evenDayLimit : config.oddDayLimit;
     }
 
     inline void scheduleDay( std::vector<TownDay> & towns, int64_t & gold, const Settings & config, const uint32_t peasantCost, const uint32_t day = 0 )

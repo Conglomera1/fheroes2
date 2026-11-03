@@ -76,7 +76,9 @@ int main()
     scheduleDay( alternating, alternatingGold, config, 20, 7 );
     assert( alternating[0].state.total == 2 );
     scheduleDay( alternating, alternatingGold, config, 20, 8 );
-    assert( alternating[0].state.total == 5 );
+    assert( alternating[0].state.total == 4 );
+    scheduleDay( alternating, alternatingGold, config, 20, 9 );
+    assert( alternating[0].state.total == 7 );
     std::vector<TownDay> towns( 3 );
     for ( auto & town : towns ) town.garrison = 20;
     int64_t gold = 400;
