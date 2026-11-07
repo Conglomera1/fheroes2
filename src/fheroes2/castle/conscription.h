@@ -21,6 +21,7 @@
 #pragma once
 
 #include <array>
+#include <algorithm>
 #include <cstdint>
 #include <cstddef>
 #include <numeric>
@@ -29,6 +30,7 @@
 
 namespace Conscription
 {
+    constexpr uint32_t successScale = 1000000;
     using Quotas = std::array<uint32_t, 3>;
     struct State
     {
@@ -36,6 +38,7 @@ namespace Conscription
         Quotas quotas{ 8, 5, 4 };
         Quotas used{};
         uint32_t next = 0;
+        uint32_t lossRemainder = 0;
     };
 
     // Shared by preview and execution. A changed ratio takes effect only at a cycle boundary.
@@ -79,9 +82,10 @@ namespace Conscription
         for ( const auto value : state.quotas ) stream << value;
         for ( const auto value : state.used ) stream << value;
         stream << state.next;
+        stream << state.lossRemainder;
     }
 
-    template<class Stream> void readState( Stream & stream, State & state )
+    template<class Stream> void readState( Stream & stream, State & state, const bool hasLossRemainder = true )
     {
         uint32_t high = 0, low = 0;
         stream >> high >> low;
@@ -89,7 +93,9 @@ namespace Conscription
         for ( auto & value : state.quotas ) stream >> value;
         for ( auto & value : state.used ) stream >> value;
         stream >> state.next;
-        bool valid = state.next < 3;
+        state.lossRemainder = 0;
+        if ( hasLossRemainder ) stream >> state.lossRemainder;
+        bool valid = state.next < 3 && state.lossRemainder < successScale;
         uint64_t remaining = 0;
         for ( std::size_t i = 0; i < 3; ++i ) {
             valid = valid && state.quotas[i] <= 10000 && state.used[i] <= state.quotas[i];
@@ -107,7 +113,9 @@ namespace Conscription
         uint32_t oddDayLimit = 2;
         uint32_t evenDayLimit = 3;
         bool enabled = true;
-        int32_t trainingGold = 2000, trainingWood = 10, trainingOre = 10;
+        uint32_t successRate = successScale;
+        uint32_t requiredBuildings = 0;
+        int32_t trainingGold = 2500, trainingWood = 10, trainingOre = 10;
         int32_t farmGold = 1500, farmWood = 0, farmOre = 0;
     };
     const Settings & settings();
@@ -119,6 +127,7 @@ namespace Conscription
         uint64_t hut = 0;
         std::array<uint64_t, 3> pools{};
         uint32_t fromGarrison = 0, fromHut = 0;
+        uint32_t failed = 0;
     };
 
     // Pure scheduler shared by real turns and forecasts. Input order is the interface order.
@@ -139,7 +148,11 @@ namespace Conscription
                 const uint64_t cost = uint64_t{ config.goldPerPeasant } + ( town.garrison ? 0 : peasantCost );
                 if ( gold < 0 || cost > static_cast<uint64_t>( gold ) || town.state.total == std::numeric_limits<uint64_t>::max() ) continue;
                 auto next = town.state;
-                const auto recruits = advance( next, 1, config.quotas );
+                next.lossRemainder += successScale - std::min( config.successRate, successScale );
+                const bool failed = next.lossRemainder >= successScale;
+                std::array<uint64_t, 3> recruits{};
+                if ( failed ) next.lossRemainder -= successScale;
+                else recruits = advance( next, 1, config.quotas );
                 bool fits = true;
                 for ( size_t i = 0; i < 3; ++i ) fits = fits && town.pools[i] + recruits[i] <= std::numeric_limits<uint32_t>::max();
                 if ( !fits ) continue;
@@ -147,6 +160,7 @@ namespace Conscription
                 if ( town.garrison ) { --town.garrison; ++town.fromGarrison; }
                 else { --town.hut; ++town.fromHut; }
                 town.state = next;
+                town.failed += failed;
                 for ( size_t i = 0; i < 3; ++i ) town.pools[i] += recruits[i];
                 progress = true;
             }

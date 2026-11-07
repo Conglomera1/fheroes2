@@ -116,5 +116,43 @@ int main()
     towns[0].pools[0] = std::numeric_limits<uint32_t>::max();
     scheduleDay( towns, gold, config, 20 );
     assert( towns[0].state.total == 0 && towns[0].garrison == 8 );
+    // Deterministic losses, even when the INI changes daily limits or is restarted.
+    config = {};
+    config.dailyLimit = 1;
+    config.successRate = 850000;
+    towns = std::vector<TownDay>( 1 );
+    towns[0].garrison = 20;
+    gold = 2000;
+    for ( uint32_t attempt = 1; attempt <= 20; ++attempt ) {
+        const auto successes = towns[0].state.total;
+        scheduleDay( towns, gold, config, 20 );
+        const bool failed = attempt == 7 || attempt == 14 || attempt == 20;
+        assert( towns[0].state.total == successes + !failed );
+    }
+    assert( gold == 0 && towns[0].garrison == 0 && towns[0].failed == 3 );
+    assert( towns[0].state.total == 17 && towns[0].state.lossRemainder == 0 );
+    assert( towns[0].pools == ( std::array<uint64_t,3>{8,5,4} ) );
+    // Lack of funds must not advance either counter. Preview copies stay isolated.
+    towns[0].garrison = 10;
+    const auto savedState = towns[0].state;
+    scheduleDay( towns, gold, config, 20 );
+    assert( towns[0].state.lossRemainder == savedState.lossRemainder && towns[0].garrison == 10 );
+    auto previewTowns = towns;
+    gold = 100;
+    scheduleDay( previewTowns, gold, config, 20 );
+    assert( towns[0].state.lossRemainder == 0 && previewTowns[0].state.lossRemainder == 150000 );
+    // Zero success still consumes and charges for hut Peasants, without recruits.
+    config.successRate = 0;
+    towns = std::vector<TownDay>( 1 );
+    towns[0].hut = 1;
+    gold = 120;
+    scheduleDay( towns, gold, config, 20 );
+    assert( gold == 0 && towns[0].hut == 0 && towns[0].failed == 1 && towns[0].state.total == 0 );
+    // The scheduler also caps an out-of-range success setting defensively.
+    config.successRate = successScale + 1;
+    towns[0].garrison = 1;
+    gold = 100;
+    scheduleDay( towns, gold, config, 20 );
+    assert( towns[0].state.total == 1 );
     std::cout << "Conscription cycle and daily scheduler checks passed\n";
 }

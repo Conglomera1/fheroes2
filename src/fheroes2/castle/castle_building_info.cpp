@@ -19,6 +19,7 @@
  ***************************************************************************/
 
 #include "castle_building_info.h"
+#include "conscription.h"
 
 #include <cassert>
 #include <cstdint>
@@ -1100,7 +1101,7 @@ namespace fheroes2
     BuildingType getBuildingRequirement( const int race, const BuildingType building )
     {
         if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS )
-            return static_cast<BuildingType>( BUILD_WEL2 | DWELLING_MONSTER2 | DWELLING_MONSTER3 | DWELLING_MONSTER4 );
+            return static_cast<BuildingType>( Conscription::settings().requiredBuildings );
         uint32_t requirement = 0;
 
         switch ( building ) {
@@ -1358,7 +1359,14 @@ namespace fheroes2
     {
         // prepare requirement build string
         std::string requirement;
-        const uint32_t requirementBuildingIds = fheroes2::getBuildingRequirement( race, building );
+        uint32_t requirementBuildingIds = fheroes2::getBuildingRequirement( race, building );
+        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS ) {
+            // Show the requested infantry upgrade once, rather than listing
+            // both its base dwelling and its upgrade in the same dialog.
+            for ( uint32_t upgrade = DWELLING_UPGRADE2; upgrade <= DWELLING_UPGRADE4; upgrade <<= 1 ) {
+                if ( requirementBuildingIds & upgrade ) requirementBuildingIds &= ~( upgrade >> 5 );
+            }
+        }
         const char sep = '\n';
 
         for ( uint32_t itr = 0x00000001; itr; itr <<= 1 )

@@ -2504,7 +2504,7 @@ IStreamBase & operator>>( IStreamBase & stream, Castle & castle )
     castle._conscription = {};
     castle._conscriptionWeek = castle._conscriptionThisWeek = 0;
     if ( Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_CONSCRIPTION ) {
-        Conscription::readState( stream, castle._conscription );
+        Conscription::readState( stream, castle._conscription, Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_TRAINING_LOSSES );
         stream >> castle._conscriptionWeek >> castle._conscriptionThisWeek;
     }
     return stream;

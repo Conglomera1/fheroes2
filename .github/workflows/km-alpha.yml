@@ -1,0 +1,65 @@
+name: Knight Mod Alpha Player Packages
+on:
+  push:
+    branches: [knight-mod-alpha-player]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify training, legacy saves and Taxpayer policy
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror tests/conscription_test.cpp -o /tmp/conscription_test
+          /tmp/conscription_test
+          g++ -std=c++17 -Wall -Wextra -Werror -ffunction-sections -fdata-sections tests/conscription_save_test.cpp src/engine/serialize.cpp -Wl,--gc-sections -o /tmp/conscription_save_test
+          /tmp/conscription_save_test
+          g++ -std=c++17 -Wall -Wextra -Werror tests/taxpayer_policy_test.cpp -o /tmp/taxpayer_test
+          /tmp/taxpayer_test
+  windows:
+    needs: checks
+    runs-on: windows-2022
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: x86
+            machine: 332
+          - platform: x64
+            machine: 34404
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        shell: cmd
+        run: script\windows\install_packages.bat
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build player executable
+        shell: cmd
+        run: MSBuild.exe fheroes2-vs2019.vcxproj /m /property:Platform=${{ matrix.platform }} /property:Configuration=Release-SDL2 /property:TaxpayerDiagnostics=false /property:TaxpayerTestBuild=false
+      - name: Package and verify player files
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/files/data | Out-Null
+          Copy-Item build/${{ matrix.platform }}/Release-SDL2/fheroes2.exe package/fheroes2KM.exe
+          Copy-Item files/data/resurrection.h2d package/files/data/resurrectionKM.h2d
+          Copy-Item files/data/training_grounds.png package/files/data/training_grounds.png
+          Copy-Item files/data/build_training_grounds.png package/files/data/build_training_grounds.png
+          Copy-Item packaging/km/Readme.txt package/Readme.txt
+          Copy-Item packaging/km/Uninstall_KM.bat package/Uninstall_KM.bat
+          Copy-Item LICENSE package/LICENCE
+          $binary = [System.IO.File]::ReadAllBytes("$pwd/package/fheroes2KM.exe")
+          $pe = [BitConverter]::ToInt32($binary, 0x3c)
+          if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne ${{ matrix.machine }}) { throw 'Wrong executable architecture' }
+          if ([Text.Encoding]::ASCII.GetString($binary) -notmatch 'resurrectionKM.h2d') { throw 'Missing KM data filename' }
+          $files = @(Get-ChildItem package -Recurse -File)
+          if ($files.Count -ne 7) { throw 'Unexpected package contents' }
+          Compress-Archive -Path package/* -DestinationPath KM-Alpha-Windows-${{ matrix.platform }}.zip
+          Get-FileHash KM-Alpha-Windows-${{ matrix.platform }}.zip -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KM-Alpha-Windows-${{ matrix.platform }}
+          path: KM-Alpha-Windows-${{ matrix.platform }}.zip
+          if-no-files-found: error

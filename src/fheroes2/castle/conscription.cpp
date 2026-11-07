@@ -21,8 +21,10 @@
 #include "conscription.h"
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <limits>
+#include <sstream>
 #include <string>
 
 #include "army_troop.h"
@@ -45,38 +47,92 @@ const Conscription::Settings & Conscription::settings()
         TinyConfig config( '=', '#' );
         config.Load( path );
         std::ofstream additions( path, std::ios::app );
-        bool headerWritten = false;
+        std::string comments;
+        const auto section = [&]( const char * title ) {
+            comments += std::string( "\n# " ) + title + '\n';
+        };
         const auto read = [&]( const char * key, const int32_t fallback, const int32_t maximum ) {
-            if ( config.Exists( key ) )
+            if ( config.Exists( key ) ) {
+                comments.clear();
                 return std::clamp( config.IntParams( key ), 0, maximum );
+            }
             if ( additions ) {
-                if ( !headerWritten ) {
-                    additions << "\n# Conscription prototype. Restart after editing.\n"
-                                 "# Ratios: quotas per cycle; at least one must be positive.\n"
-                                 "# enabled: 1 enables training and TG construction, 0 disables both.\n"
-                                 "# odd_day_limit and even_day_limit alternate daily formations by game day.\n"
-                                 "# Garrison first; hut formations also pay the normal Peasant recruitment cost.\n";
-                    headerWritten = true;
-                }
+                additions << comments;
                 additions << key << " = " << fallback << '\n';
             }
+            comments.clear();
             return fallback;
         };
+        section( "Conscription" );
+        section( "Enable conscription and Training Grounds construction: 0 = no, 1 = yes." );
         result.enabled = read( "conscription.enabled", 1, 1 ) != 0;
+        section( "Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price." );
         result.goldPerPeasant = read( "conscription.gold_per_peasant", 100, 1000000 );
+        section( "Maximum attempts per town. Odd: days 1, 3, 5, 7. Even: days 2, 4, 6." );
+        result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
+        result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
+        result.dailyLimit = std::max( result.oddDayLimit, result.evenDayLimit );
+        section( "Proportion of conscripted Peasants who complete their training." );
+        comments += "# 1.0 = all, 0.9 = 90%. Failed conscripts are lost and still paid for.\n";
+        if ( config.Exists( "conscription.peasant_success_ratio" ) ) {
+            const std::string text = config.StrParams( "conscription.peasant_success_ratio" );
+            try {
+                size_t consumed = 0;
+                const double ratio = std::stod( text, &consumed );
+                if ( consumed == text.size() && std::isfinite( ratio ) )
+                    result.successRate = static_cast<uint32_t>( std::llround( std::clamp( ratio, 0.0, 1.0 ) * successScale ) );
+            }
+            catch ( const std::exception & ) {
+                // Invalid values keep the default 100% success rate.
+            }
+        }
+        else if ( additions ) additions << comments << "conscription.peasant_success_ratio = 1.0\n";
+        comments.clear();
+        section( "Troops per full cycle of successful training. Each town keeps its own progress." );
         result.quotas = { static_cast<uint32_t>( read( "conscription.archers", 8, 10000 ) ),
                           static_cast<uint32_t>( read( "conscription.pikemen", 5, 10000 ) ),
                           static_cast<uint32_t>( read( "conscription.swordsmen", 4, 10000 ) ) };
         if ( result.quotas == Quotas{} ) result.quotas = { 8, 5, 4 };
-        result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
-        result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
-        result.dailyLimit = std::max( result.oddDayLimit, result.evenDayLimit );
-        result.trainingGold = read( "training_grounds.gold", 2000, 1000000 );
+        section( "Farm to Training Grounds" );
+        result.trainingGold = read( "training_grounds.gold", 2500, 1000000 );
         result.trainingWood = read( "training_grounds.wood", 10, 1000000 );
         result.trainingOre = read( "training_grounds.ore", 10, 1000000 );
+        section( "Training Grounds back to Farm" );
         result.farmGold = read( "farm_reconversion.gold", 1500, 1000000 );
         result.farmWood = read( "farm_reconversion.wood", 0, 1000000 );
         result.farmOre = read( "farm_reconversion.ore", 0, 1000000 );
+        section( "Training Grounds requirements" );
+        comments += "# The Farm, Archery Range, Blacksmith and Armory are always required.\n";
+        result.requiredBuildings = BUILD_WEL2 | DWELLING_MONSTER2 | DWELLING_MONSTER3 | DWELLING_MONSTER4;
+        const auto require = [&]( const char * key, const BuildingType building, const int fallback = 0 ) {
+            if ( read( key, fallback, 1 ) ) result.requiredBuildings |= building;
+        };
+        section( "Command. 0 = no, 1 = yes" );
+        require( "training_grounds.require_captains_quarters", BUILD_CAPTAIN, 1 );
+        section( "Infantry upgrades. 0 = no, 1 = yes" );
+        require( "training_grounds.require_upgraded_archery_range", DWELLING_UPGRADE2 );
+        require( "training_grounds.require_upgraded_blacksmith", DWELLING_UPGRADE3 );
+        require( "training_grounds.require_upgraded_armory", DWELLING_UPGRADE4 );
+        section( "Cavalry and Paladins. 0 = no, 1 = yes (base or upgraded), 2 = upgraded only" );
+        const int cavalry = read( "training_grounds.require_jousting_arena", 0, 2 );
+        if ( cavalry ) result.requiredBuildings |= cavalry == 2 ? DWELLING_UPGRADE5 : DWELLING_MONSTER5;
+        const int cathedral = read( "training_grounds.require_cathedral", 0, 2 );
+        if ( cathedral ) result.requiredBuildings |= cathedral == 2 ? DWELLING_UPGRADE6 : DWELLING_MONSTER6;
+        section( "Castle defenses. 0 = no, 1 = yes" );
+        require( "training_grounds.require_moat", BUILD_MOAT );
+        require( "training_grounds.require_left_turret", BUILD_LEFTTURRET );
+        require( "training_grounds.require_right_turret", BUILD_RIGHTTURRET );
+        require( "training_grounds.require_fortifications", BUILD_SPEC );
+        section( "Non-military buildings" );
+        section( "Minimum Mage Guild level required: 1 to 5. Set to 0 to disable." );
+        const int mageGuild = read( "training_grounds.require_mage_guild", 0, 5 );
+        if ( mageGuild ) result.requiredBuildings |= BUILD_MAGEGUILD1 << ( mageGuild - 1 );
+        section( "Other buildings. 0 = no, 1 = yes" );
+        require( "training_grounds.require_well", BUILD_WELL );
+        require( "training_grounds.require_tavern", BUILD_TAVERN );
+        require( "training_grounds.require_statue", BUILD_STATUE );
+        require( "training_grounds.require_thieves_guild", BUILD_THIEVESGUILD );
+        require( "training_grounds.require_marketplace", BUILD_MARKETPLACE );
         return result;
     }();
     return value;
@@ -213,6 +269,13 @@ std::string Castle::dailyConscriptionDescription() const
         + std::to_string( config.goldPerPeasant ) + " gold each. If needed, additional Peasants are conscripted directly from the Thatched Hut for "
         + std::to_string( config.goldPerPeasant + Monster( Monster::PEASANT ).GetCost().gold )
         + " gold each.\n\nTrained troops enter this town's recruitment pools and must be purchased normally.";
+    if ( config.successRate < Conscription::successScale ) {
+        std::ostringstream percentage;
+        percentage.precision( 8 );
+        percentage << 100.0 * config.successRate / Conscription::successScale;
+        description += "\n\nTraining success: " + percentage.str()
+            + "%. Failed conscripts are lost and still paid for.";
+    }
     std::vector<Conscription::TownDay> snapshots;
     size_t selected = 0;
     for ( const Castle * town : GetKingdom().GetCastles() ) {
