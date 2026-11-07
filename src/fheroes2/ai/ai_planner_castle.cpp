@@ -53,6 +53,13 @@
 
 namespace
 {
+    // Farm construction in the legacy build orders must not implicitly dismantle
+    // Training Grounds. Reconversion needs a dedicated economic decision.
+    bool isLegacyFarmReconversion( const Castle & castle, const BuildingType building )
+    {
+        return building == BUILD_WEL2 && castle.hasTrainingGrounds();
+    }
+
     const char * taxpayerBuildingStatus( const BuildingStatus status )
     {
         switch ( status ) {
@@ -164,6 +171,10 @@ namespace
         const bool isGameCampaign = Game::isCampaign();
 
         for ( const BuildOrder & order : buildOrderList ) {
+            if ( isLegacyFarmReconversion( castle, order.building ) ) {
+                continue;
+            }
+
             if ( !Difficulty::allowAIToBuildCastleBuilding( gameDifficulty, isGameCampaign, order.building ) ) {
                 continue;
             }
@@ -190,7 +201,7 @@ namespace
                 TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
                                    << ": build candidate " << order.building << ", status " << taxpayerBuildingStatus( castle.CheckBuyBuilding( order.building ) )
                                    << ", prerequisite mask " << fheroes2::getBuildingRequirement( castle.GetRace(), order.building )
-                                   << ", cost " << PaymentConditions::BuyBuilding( castle.GetRace(), order.building ).String()
+                                   << ", cost " << castle.getBuildingCost( order.building ).String()
                                    << ", resources " << castle.GetKingdom().GetFunds().String() << ", multiplier " << fundsMultiplier );
             }
             bool built = false;
@@ -275,7 +286,7 @@ namespace
 
     bool buildQuickPaybackFarm( Castle & castle )
     {
-        if ( castle.GetRace() != Race::KNGT || castle.isBuild( BUILD_WEL2 ) ) {
+        if ( castle.GetRace() != Race::KNGT || castle.isBuild( BUILD_WEL2 ) || isLegacyFarmReconversion( castle, BUILD_WEL2 ) ) {
             return false;
         }
 
@@ -288,7 +299,7 @@ namespace
         const uint64_t peasants = static_cast<uint64_t>( castle.GetArmy().GetCountMonsters( Monster::PEASANT ) )
                                   + ( guest ? guest->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
         const uint64_t dailyIncome = peasants * static_cast<uint64_t>( rate );
-        const uint32_t farmCost = PaymentConditions::BuyBuilding( castle.GetRace(), BUILD_WEL2 ).gold;
+        const uint32_t farmCost = castle.getBuildingCost( BUILD_WEL2 ).gold;
         const bool quickPayback = AI::taxpayerFarmPaysBackQuickly( dailyIncome, farmCost );
         const uint64_t paybackDays = dailyIncome > 0 ? farmCost / dailyIncome + ( farmCost % dailyIncome != 0 ) : 0;
         const BuildingStatus status = castle.CheckBuyBuilding( BUILD_WEL2 );
@@ -435,9 +446,12 @@ void AI::Planner::updateKingdomBudget( const Kingdom & kingdom )
         const int race = castle->GetRace();
         const std::vector<BuildOrder> & buildOrder = GetBuildOrder( race );
         for ( const BuildOrder & order : buildOrder ) {
+            if ( isLegacyFarmReconversion( *castle, order.building ) ) {
+                continue;
+            }
             const BuildingStatus status = castle->CheckBuyBuilding( order.building );
             if ( status == BuildingStatus::LACK_RESOURCES ) {
-                Funds missing = PaymentConditions::BuyBuilding( race, order.building ) - kindgomFunds;
+                Funds missing = castle->getBuildingCost( order.building ) - kindgomFunds;
 
                 requirements = requirements.max( missing );
             }

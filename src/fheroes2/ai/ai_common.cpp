@@ -50,7 +50,6 @@
 #include "maps_tiles_helper.h"
 #include "monster.h"
 #include "mp2.h"
-#include "payment.h"
 #include "players.h"
 #include "puzzle.h"
 #include "resource.h"
@@ -61,7 +60,7 @@ bool AI::BuildIfPossible( Castle & castle, const BuildingType building )
 {
     switch ( castle.CheckBuyBuilding( building ) ) {
     case BuildingStatus::LACK_RESOURCES: {
-        const Funds payment = PaymentConditions::BuyBuilding( castle.GetRace(), building );
+        const Funds payment = castle.getBuildingCost( building );
 
         if ( !AI::tradeAtMarketplace( castle.GetKingdom(), payment ) ) {
             return false;
@@ -88,7 +87,7 @@ bool AI::BuildIfEnoughFunds( Castle & castle, const BuildingType building, const
     }
 
     const Kingdom & kingdom = castle.GetKingdom();
-    const Funds requiredFunds = PaymentConditions::BuyBuilding( castle.GetRace(), building ) * fundsMultiplier;
+    const Funds requiredFunds = castle.getBuildingCost( building ) * fundsMultiplier;
 
     // Perhaps the kingdom already has the necessary supply of resources
     if ( !kingdom.AllowPayment( requiredFunds ) ) {
