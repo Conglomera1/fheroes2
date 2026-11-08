@@ -138,3 +138,10 @@ unsupported income/terminal/route cases, planner input assembly and live executi
 remain explicit work. Search can exhaust the budget; the next block must preserve
 a verified ordinary fallback instead of granting extra proof evaluations. Obtain
 explicit go-ahead; Sol High recommended.
+
+## C3C2 follow-up
+
+Stability certificates and shared proof reservation are now implemented in
+`economy_stability.h`; see `README_economy_stability.md`. The original search
+remains an observation primitive. Its raw best plan is not execution authority.
+The optional reserve argument preserves the old zero-reserve behavior by default.

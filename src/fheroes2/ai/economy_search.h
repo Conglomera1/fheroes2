@@ -11,6 +11,13 @@ namespace AI::EconomySearch
     namespace R = EconomyRisk;
     struct Work { uint64_t merges = 16384; }; // Shared across searches in the same player turn.
     struct Merge { bool valid = false; G::Candidate candidate; std::string reason, key; };
+    inline std::string scheduleKey( const G::Candidate & candidate )
+    {
+        std::ostringstream key;
+        for ( const auto & a : candidate.actions ) key << a.day << ':' << a.town << ':' << static_cast<int>( a.kind ) << ':' << a.building
+            << ':' << a.pool << ':' << a.count << ':' << a.required << ':' << a.id << ':' << ( a.id ? a.project : 0 ) << ';';
+        return key.str();
+    }
     inline Merge combine( const G::Context & context, const std::vector<const G::Candidate *> & components, const uint64_t id )
     {
         Merge result; result.candidate.id = id;
@@ -79,10 +86,7 @@ namespace AI::EconomySearch
         P::Input input;
         if ( !G::materialize( context, result.candidate, input ) ) { result.reason = "invalid_materialized_identity"; return result; }
         // Schedule equivalence includes explicit identities; zero-ID steps are assigned identically by materialize.
-        std::ostringstream key;
-        for ( const auto & a : result.candidate.actions ) key << a.day << ':' << a.town << ':' << static_cast<int>( a.kind ) << ':' << a.building
-            << ':' << a.pool << ':' << a.count << ':' << a.required << ':' << a.id << ':' << ( a.id ? a.project : 0 ) << ';';
-        result.key = key.str(); result.valid = true; return result;
+        result.key = scheduleKey( result.candidate ); result.valid = true; return result;
     }
     struct Witness { uint64_t scenario; bool funded; uint32_t failedDay; uint64_t failedAction; std::string reason; size_t cancelled, required; std::optional<P::Resources> minimum; };
     struct Score
@@ -138,7 +142,7 @@ namespace AI::EconomySearch
         if ( a.score.immediateGold != b.score.immediateGold ) return a.score.immediateGold < b.score.immediateGold;
         return a.candidate.id < b.candidate.id;
     }
-    inline Result search( R::Session & evaluator, const G::Result & proposals, M::Budget & budget, Work & work )
+    inline Result search( R::Session & evaluator, const G::Result & proposals, M::Budget & budget, Work & work, const size_t reserveProjections = 0 )
     {
         Result result;
         const auto * context = evaluator.context();
@@ -189,7 +193,10 @@ namespace AI::EconomySearch
             const auto cached = schedules.find( merged.key );
             if ( cached != schedules.end() ) { ++result.counts.cacheHits; if ( active && !result.plans[cached->second].active ) result.plans[cached->second].members = members; result.plans[cached->second].active = result.plans[cached->second].active || active; return cached->second; }
             if ( result.plans.size() >= 256 ) { stopped = true; result.stop = "compact_plan_limit"; return {}; }
-            if ( budget.projections < evaluator.requiredProjections() ) { stopped = true; result.stop = "shared_projection_preflight_limit"; return {}; }
+            if ( budget.projections < evaluator.requiredProjections()
+                 || ( !protectedReference && budget.projections - evaluator.requiredProjections() < reserveProjections ) ) {
+                stopped = true; result.stop = reserveProjections ? "stability_projections_reserved" : "shared_projection_preflight_limit"; return {};
+            }
             auto evaluation = evaluator.evaluate( merged.candidate ); ++result.counts.evaluations;
             Plan plan; plan.candidate = std::move( merged.candidate ); plan.members = std::move( members ); plan.active = active;
             plan.ordinary = std::none_of( plan.candidate.actions.begin(), plan.candidate.actions.end(), []( const auto & a ) { return a.kind == P::Kind::Build && a.building == BUILD_TRAINING_GROUNDS; } );

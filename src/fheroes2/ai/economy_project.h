@@ -71,6 +71,8 @@ namespace AI::EconomyProject
         std::string reason;
         uint64_t failedAction = 0;
         uint32_t failedDay = 0;
+        std::optional<uint64_t> failedRecruitStock; // Exact stock at a rejected recruitment, for bounded counterfactual repair only.
+        std::optional<uint32_t> failedRecruitAffordable; // Exact maximum with all seven current balances; no funds granted.
         State end;
         EconomyBudget::Result budget;
         std::vector<Day> days;
@@ -273,8 +275,12 @@ namespace AI::EconomyProject
                     commitment.exclusive = { { "town:" + std::to_string( town.tile ) + "/build", day } };
                 }
                 else if ( action.kind == Kind::Recruit ) {
-                    if ( action.pool >= 6 || !action.count || !( town.mask & town.dwellings[action.pool].base )
-                         || stock( state, i, action.pool ) < action.count ) return stop( Status::Invalid, "recruit_stock_unavailable", action.id, day );
+                    if ( action.pool >= 6 || !action.count || !( town.mask & town.dwellings[action.pool].base ) )
+                        return stop( Status::Invalid, "recruit_stock_unavailable", action.id, day );
+                    if ( stock( state, i, action.pool ) < action.count ) {
+                        result.failedRecruitStock = stock( state, i, action.pool );
+                        return stop( Status::Invalid, "recruit_stock_unavailable", action.id, day );
+                    }
                     creature = &town.dwellings[action.pool].creature( town.mask );
                     if ( !creature->id || !EconomyBudget::validAmounts( creature->price ) ) return stop( Status::Incomplete, "unsupported_creature", action.id, day );
                     for ( size_t r = 0; r < 7; ++r ) {
@@ -287,7 +293,15 @@ namespace AI::EconomyProject
                 commitment.cost = price;
                 ledger.steps.push_back( commitment );
                 auto balance = funds( state.economy );
-                for ( size_t r = 0; r < 7; ++r ) if ( price[r] > balance[r] ) return stop( Status::Unfunded, "payment_unavailable", action.id, day );
+                for ( size_t r = 0; r < 7; ++r ) if ( price[r] > balance[r] ) {
+                    if ( creature ) {
+                        uint32_t affordable = action.count;
+                        for ( size_t resource = 0; resource < 7; ++resource ) if ( creature->price[resource] )
+                            affordable = static_cast<uint32_t>( std::min<int64_t>( affordable, balance[resource] / creature->price[resource] ) );
+                        result.failedRecruitAffordable = affordable;
+                    }
+                    return stop( Status::Unfunded, "payment_unavailable", action.id, day );
+                }
                 if ( building ) {
                     if ( building->newPool >= 0 && building->newPool < 6 ) stock( state, i, static_cast<size_t>( building->newPool ) ) = town.dwellings[static_cast<size_t>( building->newPool )].basic.growth;
                     if ( town.race == Race::KNGT && action.building == BUILD_TRAINING_GROUNDS ) town.mask &= ~BUILD_WEL2;
