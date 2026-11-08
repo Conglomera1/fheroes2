@@ -87,6 +87,9 @@ namespace AI::EconomyMilitary
             if ( !baseline_ ) baseline_ = trace( context_.base );
             result.baselineDefense = baseline_->defense;
             if ( !baseline_->financial.covered() ) {
+                // Preserve the actual failed payment for explicit, authorized recourse.
+                // No utility is available and no candidate is ranked against this baseline.
+                result.financial = baseline_->financial;
                 result.status = baseline_->limited ? Status::Limit : Status::Incomplete;
                 result.gaps = baseline_->gaps; result.gaps.insert( "baseline_unavailable" );
                 if ( !baseline_->financial.reason.empty() ) result.gaps.insert( baseline_->financial.reason );
