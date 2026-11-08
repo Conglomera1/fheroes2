@@ -40,7 +40,7 @@ for name, ini in profiles.items():
                 plans = [row for row in records if row["event"] == "SEARCH_PLAN"]
                 assert len(plans) == summary["evaluations"] and len(plans) <= 256
                 winner = next(row for row in plans if row["id"] == summary["best"])
-                assert winner["verified"] and winner["robust_utility"] > 0 and winner["D"] == []
+                assert winner["verified"] and winner["payments_protected"] and winner["additional_need_known"] and winner["robust_utility"] > 0 and winner["D"] == []
                 variants = [row for row in records if row["event"] == "SEARCH_VARIANT" and row["id"] == summary["best"]]
                 assert variants and all(row["funded"] and len(row["minimum_funds"]) == 7 for row in variants)
                 assert any(row["event"] == "SEARCH_SOURCE" for row in records)

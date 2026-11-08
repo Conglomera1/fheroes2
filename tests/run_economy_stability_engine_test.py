@@ -38,7 +38,10 @@ for name, ini in profiles.items():
                     assert summary["certified"] and not summary["actionable"] and summary["reserved"] == 64
                     assert summary["proof_evaluations"] + summary["search_evaluations"] + summary["projections_left"] + 1 == 256
                     plans = [row for row in records if row["event"] == "STABILITY_PLAN"]
-                    assert next(row for row in plans if row["index"] == summary["selected_index"])["verified"]
+                    winner = next(row for row in plans if row["index"] == summary["selected_index"])
+                    assert winner["verified"] and winner["payments_protected"]
+                    assert winner["reserve_reason"] == "all_retained_payments_funded_with_real_money"
+                    assert all(not row["verified"] or row["payments_protected"] for row in plans)
                     proofs = [row for row in records if row["event"] == "STABILITY_PROOF"]
                     if mode == "irrelevant":
                         assert proofs and not proofs[0]["accepted"] and proofs[0]["without_verified"]

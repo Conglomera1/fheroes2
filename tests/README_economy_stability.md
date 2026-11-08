@@ -116,3 +116,9 @@ Next proposed bounded work: C3C3, reserve/commitment refinement and remaining
 prerequisites before live planner assembly. Persistence, unsupported risk/route
 cases, last-town outcomes and strategic game validation remain explicit work.
 Obtain a new user go-ahead before starting it. Sol High recommended.
+
+## C3C3 follow-up
+
+Search and counterfactual scores now include exact reserve/funding evidence;
+see `README_economy_reserve.md`. A computed conditional envelope is never virtual
+cash or permission to execute. Live planner integration remains pending.

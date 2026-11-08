@@ -28,6 +28,7 @@ namespace AI::EconomyReserve
     inline Assessment assess( const R::Result & result )
     {
         Assessment out;
+        if ( result.variants.size() > 3 ) { out.reason = "variant_input_limit"; return out; }
         bool covered = result.status == R::Status::Scored && !result.variants.empty();
         std::set<uint64_t> ids;
         for ( const auto & variant : result.variants ) {
@@ -123,6 +124,11 @@ namespace AI::EconomyReserve
         for ( size_t r = 0; r < 7; ++r ) if ( audit.extraNeeded[r] > B::resourceMaximum - ledger.funds[r] ) {
             out.reason = "envelope_outside_resource_capacity"; return out;
         }
+        // Resource caps can discard an initial grant before a later deadline.
+        // Verify the candidate envelope against the same FIXED bound ledger;
+        // never assume a raw prefix deficit is sufficient under clipped income.
+        for ( size_t r = 0; r < 7; ++r ) ledger.funds[r] += audit.extraNeeded[r];
+        if ( !B::evaluate( ledger ).covered() ) { out.reason = "capped_flow_envelope_unresolved"; return out; }
         out.complete = true; out.sufficientAdditional = audit.extraNeeded;
         out.firstShortfallDay = audit.firstShortfallDay; out.firstShortfall = audit.firstShortfall;
         out.reason = out.conservative ? "maximum_fees_envelope_not_exact_minimum" : "fixed_flow_prefix_envelope";
@@ -142,14 +148,18 @@ namespace AI::EconomyReserve
         Refinement out; out.actual = assess( exact );
         // An excessive bound cannot veto a trajectory already financed exactly.
         if ( out.actual.protectedTrajectory ) { out.envelopeKnown = true; out.reason = "exact_replay_needs_no_additional_reserve"; return out; }
-        if ( exact.status == R::Status::Invalid || exact.status == R::Status::Limit || exact.variants.empty() ) {
+        if ( exact.status == R::Status::Invalid || exact.status == R::Status::Limit || exact.variants.empty() || exact.variants.size() > 3 ) {
             out.reason = "actual_result_unavailable_no_reserve_claim"; return out;
         }
         bool known = exact.status == R::Status::Exposed;
         std::set<uint64_t> ids;
+        const B::Input * common = nullptr;
         for ( const auto & variant : exact.variants ) {
             const auto found = supplied.find( variant.scenario );
             if ( !ids.insert( variant.scenario ).second || found == supplied.end() ) { known = false; continue; }
+            const auto & ledger = found->second.ledger;
+            if ( common && ( ledger.today != common->today || ledger.throughDay != common->throughDay || ledger.funds != common->funds ) ) known = false;
+            if ( !common ) common = &ledger;
             auto value = envelope( found->second ); known = known && value.complete;
             for ( size_t r = 0; r < 7; ++r ) out.sufficientAdditional[r] = std::max( out.sufficientAdditional[r], value.sufficientAdditional[r] );
             out.envelopes.emplace( variant.scenario, std::move( value ) );
