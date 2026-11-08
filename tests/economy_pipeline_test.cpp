@@ -65,5 +65,13 @@ int main()
     O::Work repeat; frame = I::assemble( context(), {}, { 42 }, true, {}, repeat.paths );
     const auto repeated = O::evaluate( frame, repeat, force, defend );
     assert( repeated.searched && repeated.selection.certified && repeat.evaluation.projections == work.evaluation.projections && repeat.search.merges == work.search.merges ); ++n;
+    auto future = context(); future.base.actions = { action( 7, 20, P::Kind::Recruit, 42, 1 ) }; future.base.actions[0].pool = 1;
+    O::Work futureWork; frame = I::assemble( future, {}, { 42 }, true, {}, futureWork.paths );
+    result = O::evaluate( frame, futureWork, force, defend );
+    assert( result.widened && result.frame.context.base.throughDay == 29 && result.preparation.session && result.frame.context.base.actions[0].id == 7 ); ++n;
+    auto beyond = context( 29 ); beyond.base.actions = { action( 7, 30, P::Kind::Recruit, 42, 1 ) }; beyond.base.actions[0].pool = 1;
+    O::Work beyondWork; frame = I::assemble( beyond, {}, { 42 }, true, {}, beyondWork.paths );
+    result = O::evaluate( frame, beyondWork, force, defend );
+    assert( result.status == O::Status::Held && !result.searched && result.proposals.longerHorizonNeeded ); ++n;
     std::cout << "PASS " << n << " observation-pipeline oracles (gating, shared budget, horizon, cached evidence and stationary use)\n";
 }

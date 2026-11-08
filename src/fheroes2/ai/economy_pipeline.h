@@ -40,12 +40,18 @@ namespace AI::EconomyPipeline
             out.proposals = G::generate( frame.context, work.generation ); ++out.generationPasses;
             if ( !out.proposals.valid ) { out.status = Status::Held; out.reason = "candidate_generation_invalid"; out.frame = std::move( frame ); return out; }
             const auto & input = frame.context.base;
-            if ( uint64_t{ input.start.economy.day } + 14 == input.throughDay && ( out.proposals.longerHorizonNeeded || frame.outsideHorizon ) ) {
+            const auto afterHorizon = [&]( const auto & actions ) {
+                return std::any_of( actions.begin(), actions.end(), [&]( const auto & a ) { return a.day > input.throughDay; } );
+            };
+            const bool datedContinuation = afterHorizon( input.actions ) || afterHorizon( frame.context.active );
+            if ( uint64_t{ input.start.economy.day } + 14 == input.throughDay && ( out.proposals.longerHorizonNeeded || frame.outsideHorizon || datedContinuation ) ) {
                 // Same captured state, INI, enemy knowledge and cached path evidence.
                 // Discard ALL old proposals; no old score is compared to a wider one.
                 frame = I::widen( frame, work.paths ); out.widened = true; continue;
             }
-            if ( frame.outsideHorizon ) { out.proposals.longerHorizonNeeded = true; out.proposals.gaps.insert( "known_threat_beyond_detailed_horizon" ); }
+            if ( frame.outsideHorizon || datedContinuation ) {
+                out.proposals.longerHorizonNeeded = true; out.proposals.gaps.insert( "known_threat_or_commitment_beyond_detailed_horizon" );
+            }
             out.frame = std::move( frame );
             // No live commitment is declared revisable here; no mission or authority is invented.
             out.preparation = Q::prepare( out.frame.context, {}, out.frame.assignments, scorer, work.evaluation,

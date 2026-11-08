@@ -104,3 +104,10 @@ trusted mission/commitment classification, with refresh/horizon/unknown handling
 Do not enable autonomous Farm/TG decisions yet. Persistent economic policy,
 recurrent-surplus proof, unsupported routes/risks and strategic Windows testing
 remain separate work. Require new user go-ahead. Sol High recommended.
+
+## C3D3 follow-up
+
+Frozen source/route evidence now supports a same-snapshot common H=28 rebuild;
+zero-radius friendly patrol visitors have explicit standing-use confirmation.
+The observation pipeline is connected; see `README_economy_pipeline.md`. Normal
+visitors and unknown information stay held. No economic execution is activated.
