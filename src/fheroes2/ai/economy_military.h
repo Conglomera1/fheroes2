@@ -77,6 +77,9 @@ namespace AI::EconomyMilitary
             for ( const auto & t : towns ) if ( !registered.count( t.first ) ) unknown_.insert( "town_usefulness_not_registered" );
         }
 
+        const G::Context & context() const { return context_; }
+        size_t requiredProjections() const { return baseline_ ? 1 : 2; }
+
         Result evaluate( const G::Candidate & candidate )
         {
             Result result;

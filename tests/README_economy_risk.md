@@ -127,3 +127,9 @@ Next proposed bounded block: C3C1, combined plan search under the same treasury,
 defense priority, risk and work limits. Stability, reserve refinement, unsupported
 income/terminal cases, actual planner input assembly and live execution remain
 explicit work before releasing a new AI. Obtain a new go-ahead; Sol High advised.
+
+## C3C1 follow-up
+
+A bounded combined-plan search now reuses this SAME evaluator and shared budget.
+See README_economy_search.md for composition identities, compact scores, ordinary
+reference selection, partial-result fallback and pending execution safeguards.

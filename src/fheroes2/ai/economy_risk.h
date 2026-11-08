@@ -115,6 +115,9 @@ namespace AI::EconomyRisk
                 scenarios_.push_back( std::move( unique[index] ) );
             }
         }
+        const G::Context * context() const { return sessions_.empty() ? nullptr : &sessions_[0]->context(); }
+        size_t requiredProjections() const { size_t n = 0; for ( const auto & session : sessions_ ) n += session->requiredProjections(); return n; }
+
         Result evaluate( const G::Candidate & candidate )
         {
             Result result; result.gaps = gaps_; result.omitted = omitted_;
