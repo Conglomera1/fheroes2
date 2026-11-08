@@ -5,6 +5,9 @@
 #include "kingdom.h"
 #include "payment.h"
 #include "profit.h"
+#include "difficulty.h"
+#include "game.h"
+#include "players.h"
 
 namespace
 {
@@ -43,6 +46,18 @@ AI::EconomyProject::Input AI::EconomyProject::capture( const Kingdom & kingdom, 
         town.tile = castle->GetIndex(); town.race = castle->GetRace();
         town.buildAvailable = castle->Modes( Castle::ALLOW_TO_BUILD_TODAY );
         town.wellBonus = Castle::GetGrownWell(); town.farmBonus = Castle::GetGrownWel2();
+        const auto * player = Players::Get( kingdom.GetColor() );
+        town.incomeAttributionKnown = player && player->getHandicapStatus() == Player::HandicapStatus::NONE
+            && ( !kingdom.isControlAI() || Game::getDifficulty() == Difficulty::NORMAL || Game::getDifficulty() == Difficulty::HARD );
+        Funds recurring = ProfitConditions::FromBuilding( castle->isCastle() ? BUILD_CASTLE : BUILD_TENT, 0 );
+        if ( castle->isBuild( BUILD_STATUE ) ) recurring += ProfitConditions::FromBuilding( BUILD_STATUE, 0 );
+        if ( town.race == Race::WRLK && castle->isBuild( BUILD_SPEC ) ) recurring += ProfitConditions::FromBuilding( BUILD_SPEC, Race::WRLK );
+        // This scenario makes a trapped visitor unavailable too; remove its known personal recurring income.
+        if ( const auto * visitor = castle->GetHero() ) {
+            recurring.gold += visitor->GetSecondarySkillValue( Skill::Secondary::ESTATES );
+            for ( const auto & artifact : visitor->GetBagArtifacts() ) recurring += ProfitConditions::FromArtifact( artifact.GetID() );
+        }
+        town.recurringIncome = resources( recurring );
         town.garrison = army( castle->GetArmy() );
         if ( const auto * hero = castle->GetHero() ) { town.hero = hero->GetID(); town.visitor = army( hero->GetArmy() ); }
         for ( uint32_t bit = 1; bit; bit <<= 1 ) {

@@ -111,7 +111,7 @@ namespace AI::EconomyDefense
             --forceBudget;
             const auto town = std::find_if( state.towns.begin(), state.towns.end(), [&]( const auto & t ) { return t.tile == threat.town; } );
             if ( town == state.towns.end() ) { check.reason = "defended_town_missing"; result.gaps.insert( check.reason ); continue; }
-            const auto value = scorer( *town, threat );
+            const auto value = town->available ? scorer( *town, threat ) : Value{ true, 0, "position_lost" };
             if ( !value.complete || !std::isfinite( value.force ) || value.force < 0 ) {
                 check.reason = value.reason.empty() ? "invalid_defense_context" : value.reason;
                 result.gaps.insert( check.reason ); continue;

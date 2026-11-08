@@ -119,3 +119,9 @@ C3B3: explicit prudent risk variants founded on known threats, sharing resources
 and evaluation limits. Combined-plan search, stability, actual planner input
 assembly and AI execution remain later work. Obtain a new explicit go-ahead.
 Sol High recommended; keep source and report checkpoints at the block boundary.
+
+## C3B3 follow-up
+
+Conditional town-loss variants now reuse these same deadline checks through
+EconomyRisk::Session. See README_economy_risk.md for the completed scope,
+comparison baselines, funding witnesses and explicit income/terminal limits.

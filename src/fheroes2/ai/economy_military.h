@@ -85,7 +85,9 @@ namespace AI::EconomyMilitary
             result.baselineDefense = baseline_->defense;
             if ( !baseline_->financial.covered() ) {
                 result.status = baseline_->limited ? Status::Limit : Status::Incomplete;
-                result.gaps = baseline_->gaps; result.gaps.insert( "baseline_unavailable" ); return result;
+                result.gaps = baseline_->gaps; result.gaps.insert( "baseline_unavailable" );
+                if ( !baseline_->financial.reason.empty() ) result.gaps.insert( baseline_->financial.reason );
+                return result;
             }
             P::Input input;
             if ( !G::materialize( context_, candidate, input ) ) { result.status = Status::Invalid; result.gaps.insert( "invalid_materialization" ); return result; }
@@ -138,6 +140,7 @@ namespace AI::EconomyMilitary
                     --budget_.forces;
                     const auto town = std::find_if( state.towns.begin(), state.towns.end(), [&]( const P::Town & t ) { return t.tile == a.town; } );
                     if ( town == state.towns.end() ) { trace.gaps.insert( "assigned_town_missing" ); continue; }
+                    if ( !town->available ) continue; // The captured position/visitor no longer contributes to our army.
                     const auto value = scorer_( *town, a.slot );
                     if ( !value.complete || !std::isfinite( value.force ) || value.force < 0 ) {
                         trace.gaps.insert( value.reason.empty() ? "invalid_force_context" : value.reason ); continue;

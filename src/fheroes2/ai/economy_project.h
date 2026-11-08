@@ -33,7 +33,8 @@ namespace AI::EconomyProject
         int32_t tile = -1;
         int race = 0, hero = -1;
         uint32_t mask = 0, disabled = 0, wellBonus = 0, farmBonus = 0;
-        bool buildAvailable = true;
+        bool buildAvailable = true, available = true, incomeAttributionKnown = false;
+        Resources recurringIncome{}; // Town + trapped visitor non-tax income; effective only when attribution is certified.
         Army garrison{}, visitor{};
         std::array<Dwelling, 6> dwellings;
         std::array<uint64_t, 2> extraPools{}; // Tiers 5/6; first four live in Economy::Snapshot.
@@ -50,12 +51,14 @@ namespace AI::EconomyProject
         size_t pool = 0;
         bool required = false;
     };
+    struct TownLoss { int32_t town = -1; uint32_t firstUnavailableDay = 0; };
     struct Input
     {
         State start;
         Conscription::Settings config;
         uint32_t throughDay = 0;
         std::vector<Action> actions;
+        std::vector<TownLoss> losses; // Conditional ownership loss BEFORE this own morning; never the already processed morning.
         std::vector<Economy::ScheduledEvent> events; // Explicit known inputs only.
     };
     struct WorkBudget { uint64_t days = 24576, attempts = 200000; }; // Shared across candidate evaluations.
@@ -72,6 +75,8 @@ namespace AI::EconomyProject
         EconomyBudget::Result budget;
         std::vector<Day> days;
         std::vector<Purchase> purchases;
+        std::vector<uint64_t> cancelledActions, cancelledRequiredActions;
+        std::vector<TownLoss> appliedLosses;
         bool covered() const { return status == Status::Covered; }
     };
 
@@ -115,13 +120,13 @@ namespace AI::EconomyProject
         for ( size_t i = 0; i < state.towns.size(); ++i ) {
             const auto & town = state.towns[i];
             auto & economic = state.economy.towns[i];
-            economic.training = town.race == Race::KNGT && ( town.mask & BUILD_TRAINING_GROUNDS );
-            economic.farm = town.race == Race::KNGT && ( town.mask & BUILD_WEL2 );
+            economic.training = town.available && town.race == Race::KNGT && ( town.mask & BUILD_TRAINING_GROUNDS );
+            economic.farm = town.available && town.race == Race::KNGT && ( town.mask & BUILD_WEL2 );
             economic.troops.garrison = count( town.garrison );
             economic.visitingPeasants = count( town.visitor );
             for ( size_t pool = 0; pool < 4; ++pool ) {
                 const auto & dwelling = town.dwellings[pool];
-                const uint64_t growth = !( town.mask & dwelling.base ) ? 0 : uint64_t{ dwelling.creature( town.mask ).growth }
+                const uint64_t growth = !town.available || !( town.mask & dwelling.base ) ? 0 : uint64_t{ dwelling.creature( town.mask ).growth }
                     + ( town.mask & BUILD_WELL ? town.wellBonus : 0 ) + ( pool == 0 && ( town.mask & BUILD_WEL2 ) ? town.farmBonus : 0 );
                 if ( growth > std::numeric_limits<uint32_t>::max() ) return false;
                 if ( !pool ) economic.hutGrowth = static_cast<uint32_t>( growth );
@@ -146,14 +151,14 @@ namespace AI::EconomyProject
         if ( !ledger.today || ledger.throughDay < ledger.today || uint64_t{ ledger.throughDay } - ledger.today > 28
              || state.towns.size() != state.economy.towns.size() || !EconomyBudget::validAmounts( ledger.funds ) )
             return stop( Status::Invalid, "invalid_initial_state" );
-        if ( state.towns.size() > 256 || input.actions.size() > 1024 || input.events.size() > 1024 ) return stop( Status::Limit, "input_limit" );
+        if ( state.towns.size() > 256 || input.actions.size() > 1024 || input.events.size() > 1024 || input.losses.size() > 256 ) return stop( Status::Limit, "input_limit" );
         std::set<int32_t> tiles;
         std::set<int> heroes;
         std::set<uint64_t> ids;
         for ( size_t i = 0; i < state.towns.size(); ++i ) {
             const auto & town = state.towns[i];
             const auto & economic = state.economy.towns[i];
-            if ( town.tile < 0 || economic.tile != town.tile || !tiles.insert( town.tile ).second
+            if ( !town.available || town.tile < 0 || economic.tile != town.tile || !tiles.insert( town.tile ).second
                  || ( town.hero >= 0 && !heroes.insert( town.hero ).second ) || ( town.hero < 0 && population( town.visitor ) )
                  || economic.troops.garrison != count( town.garrison ) || economic.visitingPeasants != count( town.visitor )
                  || ( town.race == Race::KNGT && ( town.mask & BUILD_WEL2 ) && ( town.mask & BUILD_TRAINING_GROUNDS ) ) )
@@ -174,6 +179,11 @@ namespace AI::EconomyProject
             ledger.exclusiveAssets.insert( key );
             if ( !town.buildAvailable ) ledger.busy.push_back( { key, ledger.today, ledger.today } );
         }
+        std::set<int32_t> lossTowns;
+        for ( const auto & loss : input.losses ) {
+            if ( !tiles.count( loss.town ) || !lossTowns.insert( loss.town ).second || loss.firstUnavailableDay <= ledger.today )
+                return stop( Status::Invalid, "invalid_town_loss" );
+        }
         for ( const auto & action : input.actions ) {
             if ( !action.id || action.id >= ( uint64_t{ 1 } << 63 ) || !action.project || action.day < ledger.today || !ids.insert( action.id ).second
                  || !tiles.count( action.town ) ) return stop( Status::Invalid, "invalid_action", action.id, action.day );
@@ -185,6 +195,24 @@ namespace AI::EconomyProject
             Day record;
             record.morning.day = day;
             if ( date > ledger.today ) {
+                for ( const auto & loss : input.losses ) if ( loss.firstUnavailableDay == day ) {
+                    const size_t i = static_cast<size_t>( std::find_if( state.towns.begin(), state.towns.end(), [&]( const Town & t ) { return t.tile == loss.town; } ) - state.towns.begin() );
+                    auto & town = state.towns[i]; auto & economic = state.economy.towns[i];
+                    if ( !town.incomeAttributionKnown || !EconomyBudget::validAmounts( town.recurringIncome ) )
+                        return stop( Status::Incomplete, "town_loss_income_unverified", 0, day );
+                    if ( town.recurringIncome[0] > state.economy.nonTaxIncome ) return stop( Status::Incomplete, "loss_income_attribution_mismatch", 0, day );
+                    state.economy.nonTaxIncome -= town.recurringIncome[0];
+                    for ( size_t r = 0; r < 6; ++r ) {
+                        if ( town.recurringIncome[r + 1] > state.economy.materialIncome[r] ) return stop( Status::Incomplete, "loss_income_attribution_mismatch", 0, day );
+                        state.economy.materialIncome[r] -= town.recurringIncome[r + 1];
+                    }
+                    town.available = false; town.buildAvailable = false; town.garrison = {}; town.visitor = {};
+                    economic.troops.garrison = 0; economic.visitingPeasants = 0;
+                    result.appliedLosses.push_back( loss );
+                }
+                if ( !refresh( state ) ) return stop( Status::Incomplete, "loss_refresh_failed", 0, day );
+                if ( !input.losses.empty() && std::none_of( state.towns.begin(), state.towns.end(), []( const Town & t ) { return t.available; } ) )
+                    return stop( Status::Incomplete, "kingdom_continuation_after_last_town_unmodelled", 0, day );
                 size_t training = 0;
                 for ( const auto & town : state.economy.towns ) if ( town.training ) ++training;
                 const uint64_t attempts = input.config.enabled ? uint64_t{ Conscription::dailyLimitForDay( input.config, day ) } * training : 0;
@@ -195,7 +223,7 @@ namespace AI::EconomyProject
                     for ( size_t i = 0; i < state.towns.size(); ++i ) for ( size_t pool = 4; pool < 6; ++pool ) {
                         const auto & town = state.towns[i];
                         const auto & dwelling = town.dwellings[pool];
-                        const uint64_t growth = !( town.mask & dwelling.base ) ? 0 : uint64_t{ dwelling.creature( town.mask ).growth }
+                        const uint64_t growth = !town.available || !( town.mask & dwelling.base ) ? 0 : uint64_t{ dwelling.creature( town.mask ).growth }
                             + ( town.mask & BUILD_WELL ? town.wellBonus : 0 );
                         if ( stock( state, i, pool ) + growth > std::numeric_limits<uint32_t>::max() ) return stop( Status::Incomplete, "pool_overflow", 0, day );
                         stock( state, i, pool ) += growth;
@@ -207,7 +235,7 @@ namespace AI::EconomyProject
                     removePeasants( state.towns[i].garrison, state.economy.towns[i].troops.garrison - next.end.towns[i].troops.garrison );
                 state.economy = next.end;
                 record.morning = next.days[0];
-                for ( auto & town : state.towns ) town.buildAvailable = true;
+                for ( auto & town : state.towns ) town.buildAvailable = town.available;
                 EconomyBudget::Morning morning;
                 morning.id = ( uint64_t{ 1 } << 63 ) + day; morning.day = day;
                 const auto after = funds( state.economy );
@@ -222,6 +250,7 @@ namespace AI::EconomyProject
                 if ( action.day != day ) continue;
                 const size_t i = static_cast<size_t>( std::find_if( state.towns.begin(), state.towns.end(), [&]( const Town & t ) { return t.tile == action.town; } ) - state.towns.begin() );
                 auto & town = state.towns[i];
+                if ( !town.available ) { result.cancelledActions.push_back( action.id ); if ( action.required ) result.cancelledRequiredActions.push_back( action.id ); continue; }
                 Resources price{};
                 EconomyBudget::Step commitment;
                 commitment.id = action.id; commitment.project = action.project; commitment.day = day; commitment.required = action.required;
@@ -267,6 +296,10 @@ namespace AI::EconomyProject
                     const int64_t income = state.economy.nonTaxIncome + building->income[0];
                     if ( income > EconomyBudget::resourceMaximum ) return stop( Status::Incomplete, "income_overflow", action.id, day );
                     state.economy.nonTaxIncome = income;
+                    if ( town.incomeAttributionKnown ) for ( size_t r = 0; r < 7; ++r ) {
+                        town.recurringIncome[r] += building->income[r];
+                        if ( town.recurringIncome[r] > EconomyBudget::resourceMaximum ) return stop( Status::Incomplete, "town_income_overflow", action.id, day );
+                    }
                     for ( size_t r = 0; r < 6; ++r ) {
                         state.economy.materialIncome[r] += building->income[r + 1];
                         if ( state.economy.materialIncome[r] > EconomyBudget::resourceMaximum ) return stop( Status::Incomplete, "income_overflow", action.id, day );
@@ -298,10 +331,15 @@ namespace AI::EconomyProject
             if ( observer ) observer( state );
         }
         for ( const auto & action : input.actions ) if ( action.day > ledger.throughDay ) {
+            const auto destination = std::find_if( state.towns.begin(), state.towns.end(), [&]( const Town & t ) { return t.tile == action.town; } );
+            if ( destination != state.towns.end() && !destination->available ) {
+                result.cancelledActions.push_back( action.id ); if ( action.required ) result.cancelledRequiredActions.push_back( action.id ); continue;
+            }
             EconomyBudget::Step pending;
             pending.id = action.id; pending.project = action.project; pending.day = action.day; pending.required = action.required;
             ledger.steps.push_back( pending ); // Cost not certified outside H; keep identity and date.
         }
+        for ( const auto & loss : input.losses ) if ( loss.firstUnavailableDay > ledger.throughDay ) return stop( Status::Incomplete, "loss_outside_horizon" );
         result.budget = EconomyBudget::evaluate( ledger );
         if ( result.budget.status == EconomyBudget::Status::OutsideHorizon ) { result.status = Status::Incomplete; result.reason = "future_actions_unverified"; return result; }
         if ( !result.budget.covered() || result.budget.remaining != funds( state.economy ) ) return stop( Status::Incomplete, "budget_reconciliation_failed" );
