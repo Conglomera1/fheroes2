@@ -19,6 +19,8 @@ AI::EconomyStability::Result AI::EconomyStability::observe( R::Session & evaluat
         const auto & plan = result.search.plans[i];
         ECONOMY_TRACE( 2, "STABILITY_PLAN", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent
                        << ",\"index\":" << i << ",\"id\":" << plan.candidate.id << ",\"verified\":" << ( plan.score.verified ? "true" : "false" )
+                       << ",\"payments_protected\":" << ( plan.score.reserve.protectedTrajectory ? "true" : "false" )
+                       << ",\"reserve_reason\":" << Economy::jsonQuote( plan.score.reserve.reason )
                        << ",\"active\":" << ( plan.active ? "true" : "false" ) << ",\"robust\":" << optional( plan.score.robust )
                        << ",\"central\":" << optional( plan.score.central )
                        << ",\"D\":" << [&]() { if ( !plan.score.defenseComplete ) return std::string( "null" ); std::ostringstream out; out << '[';

@@ -55,7 +55,7 @@ namespace AI::EconomyStability
     }
     inline S::Score compact( const R::Result & evaluation )
     {
-        S::Score score; score.risk = evaluation.status; score.gaps = evaluation.gaps; score.robust = evaluation.robustUtility;
+        S::Score score; score.reserve = EconomyReserve::assess( evaluation ); score.risk = evaluation.status; score.gaps = evaluation.gaps; score.robust = evaluation.robustUtility;
         score.variants = evaluation.variants.size();
         if ( evaluation.variants.empty() ) return score;
         const auto & central = evaluation.variants[0].evaluation;
@@ -64,7 +64,7 @@ namespace AI::EconomyStability
         for ( const auto & city : central.defense.cities ) {
             score.defenseComplete = score.defenseComplete && city.viable.has_value(); score.defenses.push_back( city.viable.value_or( false ) );
         }
-        score.verified = evaluation.status == R::Status::Scored && score.centralFunded && score.defenseComplete && score.scope
+        score.verified = score.reserve.protectedTrajectory && evaluation.status == R::Status::Scored && score.centralFunded && score.defenseComplete && score.scope
             && score.robust && score.central && std::isfinite( *score.robust ) && std::isfinite( *score.central );
         for ( const auto & variant : evaluation.variants ) {
             const auto & f = variant.evaluation.financial;

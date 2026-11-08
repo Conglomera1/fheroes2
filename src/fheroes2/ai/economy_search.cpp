@@ -28,6 +28,9 @@ AI::EconomySearch::Result AI::EconomySearch::observe( R::Session & evaluator, co
         ECONOMY_TRACE( 2, "SEARCH_PLAN", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent << ",\"id\":" << plan.candidate.id
                        << ",\"verified\":" << ( plan.score.verified ? "true" : "false" ) << ",\"ordinary\":" << ( plan.ordinary ? "true" : "false" )
                        << ",\"active\":" << ( plan.active ? "true" : "false" ) << ",\"families\":" << plan.candidate.families
+                       << ",\"payments_protected\":" << ( plan.score.reserve.protectedTrajectory ? "true" : "false" )
+                       << ",\"reserve_reason\":" << Economy::jsonQuote( plan.score.reserve.reason )
+                       << ",\"additional_need_known\":" << ( plan.score.reserve.additionalNeedKnown ? "true" : "false" )
                        << ",\"robust_utility\":" << optional( plan.score.robust ) << ",\"central_utility\":" << optional( plan.score.central )
                        << ",\"immediate_gold\":" << plan.score.immediateGold << ",\"variants\":" << plan.score.variants << ",\"gaps\":" << strings( plan.score.gaps )
                        << ",\"D\":" << [&]() { if ( !plan.score.defenseComplete ) return std::string( "null" ); std::ostringstream out; out << '['; for ( size_t i = 0; i < plan.score.defenses.size(); ++i ) { if ( i ) out << ','; out << ( plan.score.defenses[i] ? "true" : "false" ); } out << ']'; return out.str(); }()

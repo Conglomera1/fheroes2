@@ -1,6 +1,6 @@
 // Bounded combined plans, observation only. Selection here is NOT authorization to execute.
 #pragma once
-#include "economy_risk.h"
+#include "economy_reserve.h"
 
 namespace AI::EconomySearch
 {
@@ -94,6 +94,7 @@ namespace AI::EconomySearch
         bool verified = false, centralFunded = false, defenseComplete = false;
         std::shared_ptr<const D::ComparisonScope> scope;
         R::Status risk = R::Status::Incomplete;
+        EconomyReserve::Assessment reserve;
         std::optional<double> robust, central;
         std::vector<bool> defenses;
         int64_t immediateGold = 0;
@@ -200,7 +201,7 @@ namespace AI::EconomySearch
             auto evaluation = evaluator.evaluate( merged.candidate ); ++result.counts.evaluations;
             Plan plan; plan.candidate = std::move( merged.candidate ); plan.members = std::move( members ); plan.active = active;
             plan.ordinary = std::none_of( plan.candidate.actions.begin(), plan.candidate.actions.end(), []( const auto & a ) { return a.kind == P::Kind::Build && a.building == BUILD_TRAINING_GROUNDS; } );
-            auto & score = plan.score; score.risk = evaluation.status; score.robust = evaluation.robustUtility; score.gaps = evaluation.gaps; score.variants = evaluation.variants.size();
+            auto & score = plan.score; score.reserve = EconomyReserve::assess( evaluation ); score.risk = evaluation.status; score.robust = evaluation.robustUtility; score.gaps = evaluation.gaps; score.variants = evaluation.variants.size();
             for ( const auto & variant : evaluation.variants ) {
                 const auto & financial = variant.evaluation.financial;
                 score.witnesses.push_back( { variant.scenario, financial.covered(), financial.failedDay, financial.failedAction,
@@ -217,7 +218,7 @@ namespace AI::EconomySearch
                 for ( const auto & city : defense.cities ) { if ( !city.viable ) complete = false; score.defenses.push_back( city.viable.value_or( false ) ); }
                 score.defenseComplete = complete;
                 if ( !complete ) { score.gaps.insert( "defense_comparison_unavailable" ); score.gaps.insert( defense.gaps.begin(), defense.gaps.end() ); }
-                score.verified = evaluation.status == R::Status::Scored && score.centralFunded && complete && score.robust && score.central
+                score.verified = score.reserve.protectedTrajectory && evaluation.status == R::Status::Scored && score.centralFunded && complete && score.robust && score.central
                     && std::isfinite( *score.robust ) && std::isfinite( *score.central ) && score.todayGold;
             }
             if ( result.plans.empty() ) referenceGold = score.todayGold;
