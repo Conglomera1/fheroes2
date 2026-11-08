@@ -18,8 +18,15 @@ void AI::EconomyInputs::log( const Frame & frame, const int player, const Work &
         << ",\"valid\":" << ( frame.valid ? "true" : "false" ) << ",\"actionable\":false,\"towns\":" << frame.context.base.start.towns.size()
         << ",\"assignments\":" << frame.assignments.size() << ",\"threats\":" << frame.defenses.threats.size()
         << ",\"coverage_complete\":" << ( frame.defenses.coverageComplete ? "true" : "false" ) << ",\"path_queries\":" << frame.queried
-        << ",\"paths_left\":" << work.paths << ",\"outside_horizon\":" << frame.outsideHorizon );
+        << ",\"paths_left\":" << work.paths << ",\"outside_horizon\":" << frame.outsideHorizon
+        << ",\"through_day\":" << frame.context.base.throughDay );
     const auto parent = Economy::traceState().sequence;
+    for ( const auto & route : frame.routes )
+        ECONOMY_TRACE( 2, "PLANNER_ROUTE", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent
+            << ",\"enemy_tile\":" << route.enemy << ",\"town\":" << route.town << ",\"distance\":" << route.distance << ",\"daily_movement\":" << route.movement );
+    for ( const auto & assignment : frame.assignments )
+        ECONOMY_TRACE( 2, "PLANNER_ASSIGNMENT", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent
+            << ",\"town\":" << assignment.town << ",\"verified\":" << ( assignment.verified ? "true" : "false" ) << ",\"scope\":\"local_town_only\"" );
     for ( const auto & t : frame.defenses.threats )
         ECONOMY_TRACE( 2, "PLANNER_THREAT", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent
             << ",\"id\":" << t.id << ",\"town\":" << t.town << ",\"enemy_tile\":" << t.enemyTile << ",\"enemy_hero\":" << t.enemyHero

@@ -13,12 +13,14 @@ namespace AI::EconomyInputs
     struct Work { size_t paths = 128; };
     struct Enemy { D::Threat observation; uint32_t movePoints = 0; bool mobile = false; };
     using Distance = std::function<uint32_t( const Enemy &, int32_t )>;
+    struct Route { int32_t enemy, town; uint32_t distance, movement; };
     struct Frame
     {
         G::Context context;
         D::Registry defenses;
         R::Registry risks;
         std::vector<M::Assignment> assignments;
+        std::vector<Route> routes;
         std::set<std::string> gaps;
         size_t queried = 0, outsideHorizon = 0;
         bool valid = false, actionable = false;
@@ -38,11 +40,13 @@ namespace AI::EconomyInputs
             if ( !priorities.emplace( priorityOrder[i], static_cast<uint32_t>( i ) ).second ) { out.gaps.insert( "duplicate_town_priority" ); return out; }
         std::set<int32_t> towns;
         for ( const auto & town : input.start.towns ) {
-            if ( !town.available || !towns.insert( town.tile ).second || !priorities.count( town.tile ) ) {
+            if ( town.tile < 0 || !town.available || !towns.insert( town.tile ).second || !priorities.count( town.tile ) ) {
                 out.gaps.insert( "town_priority_or_ownership_unverified" ); return out;
             }
             // Only local garrison+visitor defense/readiness: no credit at a distant front.
-            out.assignments.push_back( { uint64_t( out.assignments.size() + 1 ), town.tile, M::Slot::TownArmy, today, input.throughDay, true, true } );
+            const bool fixedLocalUse = town.hero < 0;
+            if ( !fixedLocalUse ) out.gaps.insert( "visitor_assignment_not_committed" );
+            out.assignments.push_back( { uint64_t( out.assignments.size() + 1 ), town.tile, M::Slot::TownArmy, today, input.throughDay, fixedLocalUse, true } );
         }
         if ( priorities.size() != towns.size() ) { out.gaps.insert( "foreign_priority_town" ); return out; }
         std::sort( enemies.begin(), enemies.end(), []( const auto & a, const auto & b ) { return a.observation.enemyTile < b.observation.enemyTile; } );
@@ -65,6 +69,7 @@ namespace AI::EconomyInputs
             else {
                 --work.paths; ++out.queried;
                 const auto length = distance( enemy, town );
+                out.routes.push_back( { threat.enemyTile, town, length, enemy.movePoints } );
                 if ( !length ) out.gaps.insert( "enemy_path_unverified" );
                 else {
                     const uint64_t days = ( uint64_t{ length } + enemy.movePoints - 1 ) / enemy.movePoints;

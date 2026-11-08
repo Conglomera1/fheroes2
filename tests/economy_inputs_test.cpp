@@ -59,5 +59,8 @@ int main()
     auto nearMax = c; nearMax.base.start.economy.day = UINT32_MAX - 14; nearMax.base.throughDay = UINT32_MAX;
     I::Work overflow; f = I::assemble( nearMax, { enemy() }, { 42 }, true, []( const auto &, auto ) { return UINT32_MAX; }, overflow );
     assert( f.valid && f.outsideHorizon == 1 && f.defenses.threats.empty() ); ++n;
+    auto visitor = c; visitor.base.start.towns[0].hero = 5; I::Work uncommitted;
+    f = I::assemble( visitor, {}, { 42 }, true, {}, uncommitted );
+    assert( f.valid && !f.assignments[0].verified && !f.defenses.coverageComplete && f.gaps.count( "visitor_assignment_not_committed" ) ); ++n;
     std::cout << "PASS " << n << " planner-input oracles (knowledge, deadlines, risk, local use and shared paths)\n";
 }
