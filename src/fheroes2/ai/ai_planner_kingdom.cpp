@@ -23,6 +23,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <limits>
 #include <ostream>
 #include <set>
 #include <string>
@@ -36,6 +37,8 @@
 #include "ai_common.h"
 #include "ai_planner.h" // IWYU pragma: associated
 #include "ai_planner_internals.h"
+#include "economy_inputs.h"
+#include "economy_trace.h"
 #include "army.h"
 #include "artifact_ultimate.h"
 #include "audio.h"
@@ -63,6 +66,7 @@
 #include "resource.h"
 #include "route.h"
 #include "skill.h"
+#include "settings.h"
 #include "spell.h"
 #include "world.h"
 #include "world_pathfinding.h"
@@ -623,6 +627,27 @@ void AI::Planner::updatePriorityAttackTarget( const Kingdom & kingdom, const Map
     updatePriorityForEnemyArmy( kingdom, *enemyArmy );
 }
 
+void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vector<AICastle> & priorities )
+{
+    const uint64_t horizon = uint64_t{ world.CountDay() } + 14;
+    if ( horizon > std::numeric_limits<uint32_t>::max() ) return;
+    std::vector<EnemyArmy> known;
+    for ( const auto & entry : _enemyArmies ) known.push_back( entry.second );
+    std::vector<int32_t> order;
+    for ( const auto & entry : priorities ) if ( entry.castle ) order.push_back( entry.castle->GetIndex() );
+    EconomyInputs::Work work;
+    const auto frame = EconomyInputs::capture( kingdom, static_cast<uint32_t>( horizon ), known, order, true,
+        [&]( const EconomyInputs::Enemy & enemy, const int32_t town ) {
+            // Capture the real visitor before this temporary path-only erasure.
+            const TemporaryHeroEraser heroEraser( kingdom.GetHeroes() );
+            const AIWorldPathfinderStateRestorer restorer( _pathfinder );
+            _pathfinder.setMinimalArmyStrengthAdvantage( ARMY_ADVANTAGE_DESPERATE );
+            _pathfinder.setSpellPointsReserveRatio( 0.0 );
+            return _pathfinder.getDistance( enemy.observation.enemyTile, town, kingdom.GetColor(), enemy.observation.enemyStrength );
+        }, work );
+    EconomyInputs::log( frame, static_cast<int>( kingdom.GetColor() ), work );
+}
+
 fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 {
     class AIAutoControlModeCommitter
@@ -822,6 +847,7 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 
     std::set<int> castlesInDanger;
     std::vector<AICastle> sortedCastleList;
+    [[maybe_unused]] bool economyInputsObserved = false;
 
     while ( true ) {
         // If a hero is standing in a castle most likely he has nothing to do so let's try to give him more army.
@@ -834,6 +860,13 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         setHeroRoles( heroes, Game::getDifficulty() );
 
         castlesInDanger = findCastlesInDanger( kingdom );
+#if defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
+        if ( !economyInputsObserved && Settings::Get().taxpayerTestDiagnostics() >= 2 ) {
+            // The initial visible-map scan is still current: no hero planning/movement yet.
+            observeEconomyInputs( kingdom, getSortedCastleList( castles, castlesInDanger ) );
+            economyInputsObserved = true;
+        }
+#endif
         for ( Heroes * hero : heroes ) {
             assert( hero != nullptr );
 
