@@ -1,4 +1,5 @@
 #include "economy_project.h"
+#include "economy_candidates.h"
 #include "army_troop.h"
 #include "difficulty.h"
 #include "map_format_info.h"
@@ -57,10 +58,23 @@ int main( int argc, char ** argv )
     add( 6, 0, P::Kind::Build, BUILD_TRAINING_GROUNDS );
     add( 7, 2, P::Kind::Recruit, 2, 0 );
     const Funds originalFunds = kingdom.GetFunds();
-    std::cout << "OBS_BEGIN\n";
+    std::cout << "OBS_BEGIN" << std::endl;
     P::WorkBudget work;
     const auto predicted = P::project( input, work );
-    std::cout << "OBS_END\n";
+    AI::EconomyCandidates::Budget generationBudget;
+    const auto observation = AI::EconomyCandidates::observe( kingdom, input.throughDay, generationBudget );
+    const auto & context = observation.context;
+    const auto & candidates = observation.proposals;
+    assert( candidates.valid && !candidates.projects.empty() && candidates.projects.size() <= 36 );
+    size_t covered = 0;
+    P::WorkBudget candidateWork;
+    for ( const auto & candidate : candidates.projects ) {
+        P::Input plan;
+        assert( AI::EconomyCandidates::materialize( context, candidate, plan ) );
+        if ( P::project( plan, candidateWork ).covered() ) ++covered;
+    }
+    assert( covered && input.start.towns[0].dwellings[1].basic.quickStrength > 0 );
+    std::cout << "OBS_END" << std::endl;
     if ( !predicted.covered() ) std::cerr << predicted.reason << ' ' << predicted.failedAction << '\n';
     assert( predicted.covered() && kingdom.GetFunds() == originalFunds );
     assert( towns[0]->isBuild( BUILD_WEL2 ) && towns[0]->GetArmy().GetCountMonsters( Monster( Monster::PEASANT ) ) == 40 );

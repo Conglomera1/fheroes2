@@ -25,7 +25,7 @@ namespace
         if ( !dwelling ) return {};
         const Monster unit( race, dwelling );
         if ( !unit.isValid() ) return {};
-        return { unit.GetID(), unit.GetGrown(), resources( unit.GetCost() ) };
+        return { unit.GetID(), unit.GetGrown(), resources( unit.GetCost() ), unit.GetMonsterStrength() };
     }
 }
 

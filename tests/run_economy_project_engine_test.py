@@ -1,5 +1,6 @@
 """Fresh-process INI profiles: real build/recruit routines versus copied projects."""
 import os
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -26,13 +27,24 @@ for name, ini in profiles.items():
             config = root / "settings.cfg"
             config.write_text(f"taxpayer test diagnostics = {diagnostics}\n")
             result = subprocess.run([executable, str(config)], env=dict(os.environ, XDG_CONFIG_HOME=directory),
-                                    text=True, capture_output=True, timeout=30)
-            assert result.returncode == 0, result.stdout + result.stderr
-            lines = (result.stdout + result.stderr).splitlines()
+                                    text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=30)
+            assert result.returncode == 0, result.stdout
+            lines = result.stdout.splitlines()
             results.append(next(line for line in lines if line.startswith("RESULT")))
-            # Projecting may not emit actual purchase/payment logs.
+            # Observation may emit proposals, but never actual purchases/payments.
             observed = result.stdout.split("OBS_BEGIN\n", 1)[1].split("OBS_END\n", 1)[0]
-            assert "[KNIGHT ECONOMY]" not in observed and "[TAXPAYER" not in observed
+            records = [json.loads(line.split("[KNIGHT ECONOMY] ", 1)[1]) for line in observed.splitlines() if "[KNIGHT ECONOMY] " in line]
+            assert "[TAXPAYER" not in observed
+            if diagnostics == 0:
+                assert not records
+            else:
+                assert records and all(row["kind"] == "proposal" for row in records)
+                coverage = [row for row in records if row["event"] == "CANDIDATE_COVERAGE"]
+                assert len(coverage) == 1 and coverage[0]["selected"] <= 36
+                assert "financial_and_military_evaluation_pending" in coverage[0]["gaps"]
+                assert sum(row["event"] == "CANDIDATE_FAMILY" for row in records) == 6
+                assert sum(row["event"] == "CANDIDATE_PROPOSAL" for row in records) == coverage[0]["selected"] + coverage[0]["references"]
+                assert all(row.get("batch_seq", coverage[0]["seq"]) == coverage[0]["seq"] for row in records)
     assert results[0] == results[1], (name, results)
     print(f"PASS {name}: daily funds, stocks, cycle, conversion costs, six pools; diagnostics neutral")
 print("All 6 engine processes passed; 9 actions each, 7 days, Knight + Warlock")

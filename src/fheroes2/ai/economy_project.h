@@ -13,7 +13,7 @@ namespace AI::EconomyProject
     using Resources = EconomyBudget::Resources;
     struct Stack { int monster = 0; uint32_t count = 0; };
     using Army = std::array<Stack, 5>;
-    struct Creature { int id = 0; uint32_t growth = 0; Resources price{}; };
+    struct Creature { int id = 0; uint32_t growth = 0; Resources price{}; double quickStrength = 0; }; // No commander bonuses; presort only.
     struct Dwelling
     {
         uint32_t base = 0, upgrade = 0, secondUpgrade = 0;
