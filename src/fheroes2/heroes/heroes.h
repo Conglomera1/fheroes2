@@ -394,8 +394,8 @@ public:
 
     int GetMorale() const override;
     int GetLuck() const override;
-    int getMoraleWithModifiers( std::string * text ) const;
-    int getLuckWithModifiers( std::string * text ) const;
+    int getMoraleWithModifiers( std::string * text, int armyDelta = 0 ) const;
+    int getLuckWithModifiers( std::string * text, int armyDelta = 0 ) const;
 
     int GetLevel() const
     {

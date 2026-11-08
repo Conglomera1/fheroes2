@@ -113,7 +113,9 @@ public:
     int GetKnowledgeModificator( std::string * = nullptr ) const;
     int GetMoraleModificator( std::string * = nullptr ) const;
     int GetLuckModificator( std::string * = nullptr ) const;
+    int powerWithCastleDelta( int delta ) const;
     double GetMagicStrategicValue( const double armyStrength ) const;
+    static double GetMagicStrategicValue( const SpellStorage & spells, uint32_t spellPoints, int power, double armyStrength );
 
     uint32_t GetSpellPoints() const
     {

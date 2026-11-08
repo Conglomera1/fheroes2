@@ -1292,14 +1292,29 @@ int Army::GetMoraleModificator( std::string * strs ) const
 
 double Army::GetStrength() const
 {
+    return strengthWithContext( strengthContext() );
+}
+
+ArmyStrengthContext Army::strengthContext() const
+{
+    ArmyStrengthContext context;
+    context.archery = commander ? commander->GetSecondarySkillValue( Skill::Secondary::ARCHERY ) : 0;
+    context.attack = commander ? commander->GetAttack() : 0;
+    context.defense = commander ? commander->GetDefense() : 0;
+    context.morale = GetMorale(); context.luck = GetLuck();
+    if ( commander ) {
+        context.spellPoints = commander->GetSpellPoints();
+        if ( context.spellPoints ) { context.spells = commander->getAllSpells(); context.power = commander->GetPower(); }
+    }
+    return context;
+}
+
+double Army::strengthWithContext( const ArmyStrengthContext & context ) const
+{
     double result = 0;
-
-    const uint32_t heroArchery = ( commander != nullptr ) ? commander->GetSecondarySkillValue( Skill::Secondary::ARCHERY ) : 0;
-
-    const int bonusAttack = ( commander ? commander->GetAttack() : 0 );
-    const int bonusDefense = ( commander ? commander->GetDefense() : 0 );
-    const int armyMorale = GetMorale();
-    const int armyLuck = GetLuck();
+    const uint32_t heroArchery = context.archery;
+    const int bonusAttack = context.attack, bonusDefense = context.defense;
+    const int armyMorale = context.morale, armyLuck = context.luck;
 
     bool troopsExist = false;
 
@@ -1327,8 +1342,8 @@ double Army::GetStrength() const
         result += strength;
     }
 
-    if ( commander != nullptr && troopsExist ) {
-        result += commander->GetMagicStrategicValue( result );
+    if ( troopsExist && context.spellPoints ) {
+        result += HeroBase::GetMagicStrategicValue( context.spells, context.spellPoints, context.power, result );
     }
 
     return result;

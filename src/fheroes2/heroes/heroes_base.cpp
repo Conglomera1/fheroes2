@@ -355,6 +355,11 @@ int HeroBase::GetLuckModificator( std::string * strs ) const
     return result;
 }
 
+int HeroBase::powerWithCastleDelta( const int delta ) const
+{
+    return std::clamp( power + GetPowerModificator( nullptr ) + delta, 1, 255 );
+}
+
 double HeroBase::GetMagicStrategicValue( const double armyStrength ) const
 {
     const uint32_t currentSpellPoints = GetSpellPoints();
@@ -365,6 +370,13 @@ double HeroBase::GetMagicStrategicValue( const double armyStrength ) const
 
     const SpellStorage spells = getAllSpells();
     const int spellPower = GetPower();
+
+    return GetMagicStrategicValue( spells, currentSpellPoints, spellPower, armyStrength );
+}
+
+double HeroBase::GetMagicStrategicValue( const SpellStorage & spells, const uint32_t currentSpellPoints, const int spellPower, const double armyStrength )
+{
+    if ( currentSpellPoints == 0 ) return 0;
 
     double bestValue = 0;
     for ( const Spell & spell : spells ) {

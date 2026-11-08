@@ -4,6 +4,7 @@
 #include "economy_budget.h"
 #include "economy_forecast.h"
 #include <map>
+#include <functional>
 #include <set>
 
 class Kingdom;
@@ -130,7 +131,8 @@ namespace AI::EconomyProject
         return true;
     }
 
-    inline Result project( const Input & input, WorkBudget & work )
+    using DayObserver = std::function<void( const State & )>;
+    inline Result project( const Input & input, WorkBudget & work, const DayObserver & observer = {} )
     {
         Result result;
         result.end = input.start;
@@ -293,6 +295,7 @@ namespace AI::EconomyProject
             }
             record.afterActions = funds( state.economy );
             result.days.push_back( record ); result.end = state;
+            if ( observer ) observer( state );
         }
         for ( const auto & action : input.actions ) if ( action.day > ledger.throughDay ) {
             EconomyBudget::Step pending;

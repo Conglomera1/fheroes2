@@ -1037,7 +1037,7 @@ int Heroes::GetMorale() const
     return getMoraleWithModifiers( nullptr );
 }
 
-int Heroes::getMoraleWithModifiers( std::string * text ) const
+int Heroes::getMoraleWithModifiers( std::string * text, const int armyDelta ) const
 {
     int result = Morale::NORMAL;
 
@@ -1048,6 +1048,7 @@ int Heroes::getMoraleWithModifiers( std::string * text ) const
 
     // bonus artifact
     result += GetMoraleModificator( text );
+    result += armyDelta;
 
     // A special artifact ability presence must be the last check.
     const Artifact maxMoraleArtifact = _bagArtifacts.getFirstArtifactWithBonus( fheroes2::ArtifactBonusType::MAXIMUM_MORALE );
@@ -1073,7 +1074,7 @@ int Heroes::GetLuck() const
     return getLuckWithModifiers( nullptr );
 }
 
-int Heroes::getLuckWithModifiers( std::string * text ) const
+int Heroes::getLuckWithModifiers( std::string * text, const int armyDelta ) const
 {
     int result = Luck::NORMAL;
 
@@ -1085,6 +1086,7 @@ int Heroes::getLuckWithModifiers( std::string * text ) const
 
     // bonus artifact
     result += GetLuckModificator( text );
+    result += armyDelta;
 
     const Artifact maxLuckArtifact = _bagArtifacts.getFirstArtifactWithBonus( fheroes2::ArtifactBonusType::MAXIMUM_LUCK );
     if ( maxLuckArtifact.isValid() ) {

@@ -117,7 +117,12 @@ int Captain::GetKnowledge() const
 
 int Captain::GetMorale() const
 {
-    int result = Morale::NORMAL;
+    return getMoraleWithArmyDelta( 0 );
+}
+
+int Captain::getMoraleWithArmyDelta( const int delta ) const
+{
+    int result = Morale::NORMAL + delta;
 
     // global modificator
     result += GetMoraleModificator( nullptr );
@@ -133,7 +138,12 @@ int Captain::GetMorale() const
 
 int Captain::GetLuck() const
 {
-    int result = Luck::NORMAL;
+    return getLuckWithArmyDelta( 0 );
+}
+
+int Captain::getLuckWithArmyDelta( const int delta ) const
+{
+    int result = Luck::NORMAL + delta;
 
     // global modificator
     result += GetLuckModificator( nullptr );

@@ -52,6 +52,8 @@ public:
     int GetKnowledge() const override;
     int GetMorale() const override;
     int GetLuck() const override;
+    int getMoraleWithArmyDelta( int delta ) const;
+    int getLuckWithArmyDelta( int delta ) const;
     int GetRace() const override;
     PlayerColor GetColor() const override;
     int GetType() const override;

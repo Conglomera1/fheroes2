@@ -32,6 +32,14 @@
 #include "color.h"
 #include "monster.h"
 #include "players.h"
+#include "spell_storage.h"
+
+struct ArmyStrengthContext
+{
+    int attack = 0, defense = 0, morale = 0, luck = 0, power = 0;
+    uint32_t archery = 0, spellPoints = 0;
+    SpellStorage spells;
+};
 
 class IStreamBase;
 class OStreamBase;
@@ -205,6 +213,8 @@ public:
     uint32_t getTotalCount() const;
 
     double GetStrength() const override;
+    ArmyStrengthContext strengthContext() const;
+    double strengthWithContext( const ArmyStrengthContext & context ) const;
     bool isStrongerThan( const Army & target, const double safetyRatio = 1.0 ) const;
     bool isMeleeDominantArmy() const;
 
