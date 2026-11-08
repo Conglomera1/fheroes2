@@ -36,6 +36,7 @@
 #include "system.h"
 #include "tinyconfig.h"
 #include "world.h"
+#include "economy_trace.h"
 
 const Conscription::Settings & Conscription::settings()
 {
@@ -228,6 +229,7 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         snapshots.push_back( town->conscriptionDaySnapshot() );
     }
     int64_t gold = kingdom.GetFunds().gold;
+    const auto before = snapshots;
     Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold, world.CountDay() );
     kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ) );
     for ( size_t n = 0; n < towns.size(); ++n ) {
@@ -245,6 +247,17 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         town._dwelling[0] -= snapshot.fromHut;
         town._conscription = snapshot.state;
         for ( size_t i = 0; i < 3; ++i ) town._dwelling[i + 1] = static_cast<uint32_t>( snapshot.pools[i] );
+        ECONOMY_TRACE( 1, "CONSCRIPTION_DAY", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
+                       << ",\"town\":" << town.GetIndex() << ",\"order\":" << n << ",\"limit\":" << Conscription::dailyLimitForDay( config, world.CountDay() )
+                       << ",\"garrison_used\":" << snapshot.fromGarrison << ",\"hut_used\":" << snapshot.fromHut << ",\"failed\":" << snapshot.failed
+                       << ",\"garrison_before\":" << before[n].garrison << ",\"garrison_after\":" << snapshot.garrison
+                       << ",\"hut_before\":" << before[n].hut << ",\"hut_after\":" << snapshot.hut
+                       << ",\"enabled\":" << ( config.enabled ? "true" : "false" ) << ",\"odd_limit\":" << config.oddDayLimit << ",\"even_limit\":" << config.evenDayLimit
+                       << ",\"success_rate_scaled\":" << config.successRate << ",\"fee_per_attempt\":" << config.goldPerPeasant
+                       << ",\"fees\":" << ( uint64_t{ snapshot.fromGarrison } + snapshot.fromHut ) * config.goldPerPeasant + uint64_t{ snapshot.fromHut } * Monster( Monster::PEASANT ).GetCost().gold
+                       << ",\"recruits\":[" << snapshot.pools[0] - before[n].pools[0] << ',' << snapshot.pools[1] - before[n].pools[1] << ',' << snapshot.pools[2] - before[n].pools[2]
+                       << "],\"success_total_before\":" << before[n].state.total << ",\"success_total_after\":" << snapshot.state.total
+                       << ",\"loss_remainder_before\":" << before[n].state.lossRemainder << ",\"loss_remainder_after\":" << snapshot.state.lossRemainder );
     }
 }
 

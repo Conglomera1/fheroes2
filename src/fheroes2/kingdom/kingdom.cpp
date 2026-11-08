@@ -22,6 +22,8 @@
  ***************************************************************************/
 
 #include "taxpayer_test.h"
+#include "economy_forecast.h"
+#include "economy_trace.h"
 
 #include "kingdom.h"
 
@@ -371,6 +373,8 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
         const Funds dailyIncome = GetIncome( INCOME_ALL );
         const int32_t goldBefore = GetFunds().gold;
         AddFundsResource( dailyIncome );
+        ECONOMY_TRACE( 1, "DAILY_INCOME", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
+                       << ",\"tax\":" << getKingdomTaxpayerIncome( *this, getTaxpayerSettings() ) << ",\"income\":" << Economy::fundsJson( dailyIncome ) );
         TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() )
                            << ": daily credit, taxpayer gold " << getKingdomTaxpayerIncome( *this, getTaxpayerSettings() )
                            << ", total income gold " << dailyIncome.gold << ", treasury " << goldBefore << " -> " << GetFunds().gold
@@ -392,6 +396,12 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
             displayEventDialog( event, fundsUpdate );
     }
     Castle::processDailyConscription( *this );
+    if ( Settings::Get().taxpayerTestDiagnostics() >= 2 && fheroes2::taxpayerSimulationDepth == 0 ) {
+        const auto projection = Economy::forecast( economySnapshot(), Conscription::settings(), 14 );
+        ECONOMY_TRACE( 2, "FORECAST", ",\"kind\":\"forecast\",\"phase\":\"after_daily_update\",\"player\":" << static_cast<int>( GetColor() )
+                       << ",\"requested_days\":14,\"projected_days\":" << projection.days.size() << ",\"complete\":" << ( projection.complete ? "true" : "false" )
+                       << ",\"assumptions\":\"" << projection.reason << "\",\"closing_gold\":" << projection.end.gold );
+    }
 }
 
 void Kingdom::ActionNewWeek()
@@ -591,14 +601,59 @@ bool Kingdom::HeroesMayStillMove() const
 
 void Kingdom::AddFundsResource( const Funds & funds )
 {
+    const Funds before = resource;
+    const Funds credited = funds; // The argument may alias resource.
     resource = resource + funds;
     resource.Trim();
+    ECONOMY_TRACE( 1, "FUNDS_CREDIT", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() ) << ",\"before\":" << Economy::fundsJson( before )
+                   << ",\"delta\":" << Economy::fundsJson( credited ) << ",\"after\":" << Economy::fundsJson( resource ) );
 }
 
 void Kingdom::OddFundsResource( const Funds & funds )
 {
+    const Funds before = resource;
+    const Funds requested = funds; // Preserve the requested debit before mutation.
     resource = resource - funds;
     resource.Trim();
+    ECONOMY_TRACE( 1, "FUNDS_DEBIT", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() ) << ",\"before\":" << Economy::fundsJson( before )
+                   << ",\"requested\":" << Economy::fundsJson( requested ) << ",\"after\":" << Economy::fundsJson( resource ) );
+}
+
+Economy::Snapshot Kingdom::economySnapshot() const
+{
+    Economy::Snapshot result;
+    result.day = world.CountDay();
+    result.gold = GetFunds().gold;
+    result.taxRate = static_cast<uint32_t>( GetTaxpayerGoldPerPeasantPerDay() );
+    result.requireFarms = TaxpayerRequiresFarms();
+    result.nonTaxIncome = int64_t{ GetIncome( INCOME_ALL ).gold } - getKingdomTaxpayerIncome( *this, getTaxpayerSettings() );
+    result.peasantCost = Monster( Monster::PEASANT ).GetCost().gold;
+    uint64_t visiting = 0;
+    for ( const Castle * castle : GetCastles() ) {
+        if ( !castle ) continue;
+        Economy::Town town;
+        town.tile = castle->GetIndex();
+        town.training = castle->hasTrainingGrounds();
+        town.farm = castle->GetRace() == Race::KNGT && castle->isBuild( BUILD_WEL2 );
+        town.troops = castle->conscriptionDaySnapshot();
+        const Heroes * guest = castle->GetHero();
+        town.visitingPeasants = guest ? guest->GetArmy().GetCountMonsters( Monster( Monster::PEASANT ) ) : 0;
+        visiting += town.visitingPeasants;
+        if ( castle->GetRace() == Race::KNGT && castle->isBuild( DWELLING_MONSTER1 ) )
+            town.hutGrowth = Monster( Monster::PEASANT ).GetGrown() + ( castle->isBuild( BUILD_WELL ) ? Castle::GetGrownWell() : 0 )
+                             + ( town.farm ? Castle::GetGrownWel2() : 0 );
+        const uint32_t dwellings[] = { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
+        for ( size_t i = 0; i < 3; ++i ) {
+            if ( castle->isBuild( dwellings[i] ) )
+                town.poolGrowth[i] = Monster( castle->GetRace(), castle->GetActualDwelling( dwellings[i] ) ).GetGrown()
+                                     + ( castle->isBuild( BUILD_WELL ) ? Castle::GetGrownWell() : 0 );
+        }
+        result.towns.push_back( town );
+    }
+    uint64_t heroPeasants = 0;
+    for ( const Heroes * hero : GetHeroes() ) if ( hero ) heroPeasants += hero->GetArmy().GetCountMonsters( Monster( Monster::PEASANT ) );
+    result.otherPeasants = heroPeasants >= visiting ? heroPeasants - visiting : 0;
+    return result;
 }
 
 const Recruits & Kingdom::GetRecruits()

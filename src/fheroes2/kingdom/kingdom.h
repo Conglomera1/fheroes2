@@ -46,6 +46,7 @@ class IStreamBase;
 class OStreamBase;
 
 struct EventDate;
+namespace Economy { struct Snapshot; }
 
 namespace MP2
 {
@@ -143,6 +144,7 @@ public:
     static bool TaxpayerRequiresFarms();
 
     Funds GetIncome( int type = INCOME_STANDARD ) const;
+    Economy::Snapshot economySnapshot() const;
 
     double GetArmiesStrength() const;
 
