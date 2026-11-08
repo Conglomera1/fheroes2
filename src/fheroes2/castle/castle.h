@@ -198,6 +198,9 @@ public:
     }
 
     uint32_t CountBuildings() const;
+    uint32_t countBuildings( uint32_t buildings ) const;
+    static double garrisonStrengthWithStructures( double armyStrength, uint32_t buildings, uint32_t buildingCount,
+                                                 uint32_t guildLevel, bool meleeWithoutBallistics );
 
     Heroes * RecruitHero( Heroes * hero );
     Heroes * GetHero() const;

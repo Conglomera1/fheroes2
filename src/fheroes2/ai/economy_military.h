@@ -1,6 +1,7 @@
 // Central, dated local-army utility. No autonomous actions, routes or battle outcomes.
 #pragma once
 #include "economy_candidates.h"
+#include "economy_defense.h"
 #include <optional>
 
 class Kingdom;
@@ -36,18 +37,27 @@ namespace AI::EconomyMilitary
         P::Result financial;
         std::set<std::string> gaps;
         std::vector<Row> days;
+        EconomyDefense::Evaluation defense, baselineDefense;
     };
 
     class Session
     {
     public:
-        Session( G::Context context, std::vector<Assignment> assignments, Scorer scorer, Budget & budget )
-            : context_( std::move( context ) ), assignments_( std::move( assignments ) ), scorer_( std::move( scorer ) ), budget_( budget )
+        Session( G::Context context, std::vector<Assignment> assignments, Scorer scorer, Budget & budget,
+                 std::optional<EconomyDefense::Registry> defenses = {}, EconomyDefense::Scorer defenseScorer = {} )
+            : context_( std::move( context ) ), assignments_( std::move( assignments ) ), scorer_( std::move( scorer ) ), budget_( budget ),
+              defenses_( std::move( defenses ) ), defenseScorer_( std::move( defenseScorer ) )
         {
             const auto today = context_.base.start.economy.day;
             const auto end = context_.base.throughDay;
             if ( !scorer_ || !today || end <= today || ( uint64_t{ end } - today != 14 && uint64_t{ end } - today != 28 ) || assignments_.size() > 1024 ) {
                 invalid_.insert( "invalid_military_window_or_scorer" ); return;
+            }
+            if ( defenses_ ) {
+                const auto validation = EconomyDefense::prepare( *defenses_, context_.base, static_cast<bool>( defenseScorer_ ), defenseScope_ );
+                if ( validation.status == EconomyDefense::Status::Invalid || validation.status == EconomyDefense::Status::Limit ) {
+                    invalid_.insert( validation.gaps.begin(), validation.gaps.end() ); return;
+                }
             }
             std::map<int32_t, int> towns;
             for ( const auto & t : context_.base.start.towns ) towns.emplace( t.tile, t.hero );
@@ -72,6 +82,7 @@ namespace AI::EconomyMilitary
             Result result;
             if ( !invalid_.empty() ) { result.status = Status::Invalid; result.gaps = invalid_; return result; }
             if ( !baseline_ ) baseline_ = trace( context_.base );
+            result.baselineDefense = baseline_->defense;
             if ( !baseline_->financial.covered() ) {
                 result.status = baseline_->limited ? Status::Limit : Status::Incomplete;
                 result.gaps = baseline_->gaps; result.gaps.insert( "baseline_unavailable" ); return result;
@@ -80,6 +91,7 @@ namespace AI::EconomyMilitary
             if ( !G::materialize( context_, candidate, input ) ) { result.status = Status::Invalid; result.gaps.insert( "invalid_materialization" ); return result; }
             auto proposed = trace( input );
             result.financial = std::move( proposed.financial );
+            result.defense = std::move( proposed.defense );
             result.gaps = baseline_->gaps; result.gaps.insert( proposed.gaps.begin(), proposed.gaps.end() );
             if ( proposed.limited || baseline_->limited ) { result.status = Status::Limit; return result; }
             if ( !result.financial.covered() ) {
@@ -109,11 +121,13 @@ namespace AI::EconomyMilitary
             std::vector<std::pair<uint32_t, double>> values;
             std::set<std::string> gaps;
             bool limited = false;
+            EconomyDefense::Evaluation defense;
         };
         Trace trace( const P::Input & input )
         {
             Trace trace;
             trace.gaps = unknown_;
+            if ( defenses_ ) trace.defense = EconomyDefense::prepare( *defenses_, input, static_cast<bool>( defenseScorer_ ), defenseScope_ );
             if ( !budget_.projections ) { trace.limited = true; trace.gaps.insert( "shared_projection_count_limit" ); return trace; }
             --budget_.projections;
             trace.financial = P::project( input, budget_.mechanics, [&]( const P::State & state ) {
@@ -132,8 +146,11 @@ namespace AI::EconomyMilitary
                 }
                 if ( !std::isfinite( total ) ) trace.gaps.insert( "force_sum_out_of_range" );
                 trace.values.emplace_back( state.economy.day, total );
+                EconomyDefense::record( trace.defense, state, budget_.forces, defenseScorer_ );
             } );
             if ( trace.financial.status == P::Status::Limit ) { trace.limited = true; trace.gaps.insert( trace.financial.reason ); }
+            EconomyDefense::finish( trace.defense, trace.financial.covered() );
+            if ( trace.defense.status == EconomyDefense::Status::Limit ) { trace.limited = true; trace.gaps.insert( "shared_defense_force_limit" ); }
             return trace;
         }
         G::Context context_; // Freeze the common initial state and horizon for all comparisons.
@@ -142,7 +159,16 @@ namespace AI::EconomyMilitary
         Budget & budget_;
         std::set<std::string> invalid_, unknown_;
         std::optional<Trace> baseline_;
+        std::optional<EconomyDefense::Registry> defenses_;
+        EconomyDefense::Scorer defenseScorer_;
+        std::shared_ptr<const EconomyDefense::ComparisonScope> defenseScope_ = std::make_shared<EconomyDefense::ComparisonScope>();
     };
+
+    inline EconomyDefense::Order compareDefense( const Result & a, const Result & b )
+    {
+        if ( !a.financial.covered() || !b.financial.covered() ) return EconomyDefense::Order::Incomparable;
+        return EconomyDefense::comparePriority( a.defense, b.defense );
+    }
 
     // Observation only: no selection or execution in the running AI.
     Result evaluateObserved( Session & session, const G::Candidate & candidate, int player, const Budget & budget );

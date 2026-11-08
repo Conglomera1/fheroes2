@@ -100,3 +100,10 @@ player campaigns remain untested. Previous balance simulations are not rerun.
 Suggested next bounded block: C3B2, known military deadlines and priority defense
 viability, before risk variants and combined search. Obtain explicit permission
 before starting it. Keep source/report checkpoints at each block.
+
+## C3B2 follow-up
+
+Optional deadline/defense checks are now attached to the same Session projections.
+See `README_economy_defense.md` for the completed scope, priority comparator,
+phase/visibility contracts, shared budgets and remaining integration limits.
+The C3B1 central utility itself still does not select or execute an AI plan.

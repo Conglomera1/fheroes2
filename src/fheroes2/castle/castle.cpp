@@ -567,6 +567,11 @@ void Castle::_setDefaultBuildings()
 
 uint32_t Castle::CountBuildings() const
 {
+    return countBuildings( _constructedBuildings );
+}
+
+uint32_t Castle::countBuildings( const uint32_t buildings ) const
+{
     uint32_t tavern = BUILD_TAVERN;
     if ( _race == Race::NECR ) {
         const GameVersion version = Settings::Get().getCurrentMapInfo().version;
@@ -578,7 +583,7 @@ uint32_t Castle::CountBuildings() const
         }
     }
 
-    return CountBits( _constructedBuildings
+    return CountBits( buildings
                       & ( BUILD_THIEVESGUILD | tavern | ( _race == Race::KNGT ? static_cast<uint32_t>( BUILD_TRAINING_GROUNDS ) : 0U )
                           | BUILD_SHIPYARD | BUILD_WELL | BUILD_STATUE | BUILD_LEFTTURRET | BUILD_RIGHTTURRET | BUILD_MARKETPLACE | BUILD_WEL2
                           | BUILD_MOAT | BUILD_SPEC | BUILD_CAPTAIN | BUILD_CASTLE | BUILD_MAGEGUILD1 | DWELLING_MONSTER1 | DWELLING_MONSTER2 | DWELLING_MONSTER3
@@ -2149,29 +2154,26 @@ double Castle::GetGarrisonStrength( const Heroes * attackingHero, const Troop * 
         totalStrength += _army.GetStrength();
     }
 
-    // Add castle bonuses if there are any troops defending the castle
-    if ( isCastle() && totalStrength > 0.1 ) {
-        const Battle::Tower tower( *this, Battle::TowerType::TWR_CENTER, 0 );
-        const double towerStr = tower.GetStrengthWithBonus( tower.GetAttackBonus(), 0 );
+    const bool meleeWithoutBallistics = attackingHero && !attackingHero->HasSecondarySkill( Skill::Secondary::BALLISTICS )
+                                        && attackingHero->GetArmy().isMeleeDominantArmy();
+    return garrisonStrengthWithStructures( totalStrength, _constructedBuildings, CountBuildings(), GetLevelMageGuild(), meleeWithoutBallistics );
+}
 
-        totalStrength += towerStr;
-        if ( isBuild( BUILD_LEFTTURRET ) ) {
-            totalStrength += towerStr / 2;
-        }
-        if ( isBuild( BUILD_RIGHTTURRET ) ) {
-            totalStrength += towerStr / 2;
-        }
-
-        if ( attackingHero && !attackingHero->HasSecondarySkill( Skill::Secondary::BALLISTICS ) && attackingHero->GetArmy().isMeleeDominantArmy() ) {
-            // Heavy penalty if the attacking hero does not have a ballistic skill, and his army is based on melee infantry
-            totalStrength *= isBuild( BUILD_MOAT ) ? 1.45 : 1.25;
-        }
-        else {
-            totalStrength *= isBuild( BUILD_MOAT ) ? 1.2 : 1.15;
-        }
+double Castle::garrisonStrengthWithStructures( double armyStrength, const uint32_t buildings, const uint32_t buildingCount,
+                                             const uint32_t guildLevel, const bool meleeWithoutBallistics )
+{
+    // Same virtual Archers and siege coefficients as the original GetGarrisonStrength.
+    // The structure helper does not add commander bonuses to the virtual tower troops.
+    if ( ( buildings & BUILD_CASTLE ) && armyStrength > 0.1 ) {
+        const Troop tower( Monster::ARCHER, std::max<uint32_t>( std::min<uint32_t>( buildingCount, 20U ), 1U ) );
+        const double towerStrength = tower.GetStrengthWithBonus( static_cast<int>( guildLevel ), 0 );
+        armyStrength += towerStrength;
+        if ( buildings & BUILD_LEFTTURRET ) armyStrength += towerStrength / 2;
+        if ( buildings & BUILD_RIGHTTURRET ) armyStrength += towerStrength / 2;
+        if ( meleeWithoutBallistics ) armyStrength *= buildings & BUILD_MOAT ? 1.45 : 1.25;
+        else armyStrength *= buildings & BUILD_MOAT ? 1.2 : 1.15;
     }
-
-    return totalStrength;
+    return armyStrength;
 }
 
 bool Castle::AllowBuyBoat( const bool checkPayment ) const

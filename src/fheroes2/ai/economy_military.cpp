@@ -113,5 +113,38 @@ AI::EconomyMilitary::Result AI::EconomyMilitary::evaluateObserved( Session & ses
                            << ",\"candidate\":" << candidate.id << ",\"projected_day\":" << day.day << ",\"baseline\":" << day.baseline
                            << ",\"proposed\":" << day.proposed << ",\"difference\":" << day.difference );
     }
+    if ( result.defense.status != EconomyDefense::Status::NotRequested && Settings::Get().taxpayerTestDiagnostics() >= 2
+         && fheroes2::taxpayerSimulationDepth == 0 ) {
+        const auto optionalNumber = []( const auto & value ) { std::ostringstream out; out << std::setprecision( 17 ); if ( value ) out << *value; else out << "null"; return out.str(); };
+        const auto optionalBool = []( const std::optional<bool> value ) { return value ? ( *value ? "true" : "false" ) : "null"; };
+        const auto bits = [&]( const EconomyDefense::Evaluation & evaluation ) {
+            std::ostringstream out; out << '[';
+            for ( size_t i = 0; i < evaluation.cities.size(); ++i ) { if ( i ) out << ','; out << optionalBool( evaluation.cities[i].viable ); }
+            out << ']'; return out.str();
+        };
+        std::ostringstream gaps; gaps << '['; bool first = true;
+        for ( const auto & gap : result.defense.gaps ) { if ( !first ) gaps << ','; first = false; gaps << Economy::jsonQuote( gap ); }
+        gaps << ']';
+        const char * statuses[] = { "not_requested", "pending", "complete", "incomplete", "limit", "invalid" };
+        ECONOMY_TRACE( 2, "DEFENSE_EVALUATION", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
+                       << ",\"status\":" << Economy::jsonQuote( statuses[static_cast<size_t>( result.defense.status )] )
+                       << ",\"funded\":" << ( result.financial.covered() ? "true" : "false" ) << ",\"D\":" << bits( result.defense )
+                       << ",\"baseline_D\":" << bits( result.baselineDefense ) << ",\"gaps\":" << gaps.str()
+                       << ",\"model\":\"conditional_local_defense_at_last_safe_own_phase\"" );
+        const auto evaluation = Economy::traceState().sequence;
+        for ( const auto & city : result.defense.cities )
+            ECONOMY_TRACE( 2, "DEFENSE_CITY", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
+                           << ",\"evaluation_seq\":" << evaluation << ",\"town\":" << city.town << ",\"last_safe_day\":" << ( city.deadline ? std::to_string( city.deadline ) : "null" )
+                           << ",\"priority\":" << city.priority << ",\"viable\":" << optionalBool( city.viable ) );
+        for ( const auto & check : result.defense.checks )
+            ECONOMY_TRACE( 2, "DEFENSE_CHECK", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
+                           << ",\"evaluation_seq\":" << evaluation << ",\"threat\":" << check.threat.id << ",\"town\":" << check.threat.town
+                           << ",\"enemy_tile\":" << check.threat.enemyTile << ",\"enemy_hero\":" << check.threat.enemyHero
+                           << ",\"last_safe_day\":" << optionalNumber( check.threat.lastSafeDay )
+                           << ",\"enemy_strength\":" << optionalNumber( std::optional<double>{ check.threat.enemyStrength } ) << ",\"melee_without_ballistics\":" << ( check.threat.meleeWithoutBallistics ? "true" : "false" )
+                           << ",\"defense_force\":" << optionalNumber( check.force ) << ",\"ratio\":" << optionalNumber( check.ratio )
+                           << ",\"viable\":" << optionalBool( check.viable ) << ",\"threshold\":" << EconomyDefense::viableRatio
+                           << ",\"reason\":" << Economy::jsonQuote( check.reason ) );
+    }
     return result;
 }

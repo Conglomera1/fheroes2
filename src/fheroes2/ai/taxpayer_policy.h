@@ -14,16 +14,17 @@ namespace AI
     // Keep existing log IDs for preservation and the two military exceptions.
     enum class TaxpayerDefenseDecision { Preserve = 1, PivotalReplacement = 2, LastStand = 3 };
 
+    constexpr double taxpayerViableDefenseRatio = 1.10;
+
     // Ratios use the worst known, reachable defense threat. Preserve taxpayers by default;
     // recruitment price alone never justifies discarding a productive population.
     constexpr TaxpayerDefenseDecision taxpayerDefenseDecision( const double currentRatio, const double replacementRatio, const bool lastStand,
                                                               const bool hasKnownDefenseThreat )
     {
-        constexpr double viableDefenseRatio = 1.10;
-        if ( !hasKnownDefenseThreat || currentRatio >= viableDefenseRatio ) {
+        if ( !hasKnownDefenseThreat || currentRatio >= taxpayerViableDefenseRatio ) {
             return TaxpayerDefenseDecision::Preserve;
         }
-        if ( replacementRatio >= viableDefenseRatio && replacementRatio >= currentRatio * 1.10 ) {
+        if ( replacementRatio >= taxpayerViableDefenseRatio && replacementRatio >= currentRatio * 1.10 ) {
             return TaxpayerDefenseDecision::PivotalReplacement;
         }
         return lastStand ? TaxpayerDefenseDecision::LastStand : TaxpayerDefenseDecision::Preserve;
