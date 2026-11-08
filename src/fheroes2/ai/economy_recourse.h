@@ -31,6 +31,7 @@ namespace AI::EconomyRecourse
                            const D::Registry & defenses, const D::Scorer & defender, const R::Registry & risks )
     {
         Result out;
+        budget.projections = std::min<size_t>( budget.projections, 256 );
         if ( original.base.actions.size() > 1024 || permissions.size() > 64 ) { out.reason = "recourse_input_limit"; return out; }
         std::map<uint64_t, const P::Action *> actions;
         for ( const auto & a : original.base.actions ) {

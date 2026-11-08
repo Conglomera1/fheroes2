@@ -90,3 +90,9 @@ and explicit recourse belongs to subsequent integration work, not an invented
 reserve top-up. Persistent policy, planner threat/path assembly, unsupported
 income/terminal/route cases, surplus/recurrent-outlet certification and strategic
 Windows game validation are still required before live autonomous conversions.
+
+## C3D1 follow-up
+
+`README_economy_recourse.md` describes explicit preparation of an alternative
+feasible reference. Unsupported baseline data still stays unknown; no automatic
+commitment release or live spending authority is introduced.
