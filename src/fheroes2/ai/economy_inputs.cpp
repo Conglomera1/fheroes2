@@ -1,5 +1,7 @@
 #include "economy_inputs.h"
 #include "ai_planner.h"
+#include "heroes.h"
+#include "kingdom.h"
 #include "economy_trace.h"
 
 AI::EconomyInputs::Frame AI::EconomyInputs::capture( const Kingdom & kingdom, const uint32_t throughDay, const std::vector<EnemyArmy> & observed,
@@ -9,7 +11,12 @@ AI::EconomyInputs::Frame AI::EconomyInputs::capture( const Kingdom & kingdom, co
     std::vector<Enemy> enemies;
     if ( observed.size() > 1024 ) { Frame invalid; invalid.gaps.insert( "enemy_input_limit" ); return invalid; }
     for ( const auto & enemy : observed ) enemies.push_back( { D::snapshotThreat( enemy, 0, -1, 0, {}, true, false ), enemy.movePoints, enemy.hero != nullptr } );
-    return assemble( std::move( context ), std::move( enemies ), priorities, complete, distance, work );
+    std::set<int32_t> stationary;
+    for ( const auto * town : kingdom.GetCastles() ) if ( town ) {
+        const auto * hero = town->GetHero();
+        if ( hero && hero->GetColor() == kingdom.GetColor() && hero->Modes( Heroes::PATROL ) && hero->GetPatrolDistance() == 0 ) stationary.insert( hero->GetID() );
+    }
+    return assemble( std::move( context ), std::move( enemies ), priorities, complete, distance, work, stationary );
 }
 
 void AI::EconomyInputs::log( const Frame & frame, const int player, const Work & work )

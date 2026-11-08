@@ -38,6 +38,7 @@
 #include "ai_planner.h" // IWYU pragma: associated
 #include "ai_planner_internals.h"
 #include "economy_inputs.h"
+#include "economy_pipeline.h"
 #include "economy_trace.h"
 #include "army.h"
 #include "artifact_ultimate.h"
@@ -635,8 +636,8 @@ void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vect
     for ( const auto & entry : _enemyArmies ) known.push_back( entry.second );
     std::vector<int32_t> order;
     for ( const auto & entry : priorities ) if ( entry.castle ) order.push_back( entry.castle->GetIndex() );
-    EconomyInputs::Work work;
-    const auto frame = EconomyInputs::capture( kingdom, static_cast<uint32_t>( horizon ), known, order, true,
+    EconomyPipeline::Work work;
+    auto frame = EconomyInputs::capture( kingdom, static_cast<uint32_t>( horizon ), known, order, true,
         [&]( const EconomyInputs::Enemy & enemy, const int32_t town ) {
             // Capture the real visitor before this temporary path-only erasure.
             const TemporaryHeroEraser heroEraser( kingdom.GetHeroes() );
@@ -644,8 +645,10 @@ void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vect
             _pathfinder.setMinimalArmyStrengthAdvantage( ARMY_ADVANTAGE_DESPERATE );
             _pathfinder.setSpellPointsReserveRatio( 0.0 );
             return _pathfinder.getDistance( enemy.observation.enemyTile, town, kingdom.GetColor(), enemy.observation.enemyStrength );
-        }, work );
-    EconomyInputs::log( frame, static_cast<int>( kingdom.GetColor() ), work );
+        }, work.paths );
+    EconomyInputs::log( frame, static_cast<int>( kingdom.GetColor() ), work.paths );
+    const auto observation = EconomyPipeline::observe( std::move( frame ), kingdom, work );
+    (void)observation; // No decision, purchase or cancellation is applied to the world.
 }
 
 fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
