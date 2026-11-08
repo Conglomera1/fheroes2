@@ -24,6 +24,7 @@
 #include "taxpayer_test.h"
 
 #include "castle.h"
+#include "economy_trace.h"
 
 #include <algorithm>
 #include <array>
@@ -1021,6 +1022,7 @@ Heroes * Castle::RecruitHero( Heroes * hero )
         return nullptr;
     }
 
+    const Economy::CauseScope cause( "hero_purchase", GetIndex() );
     GetKingdom().OddFundsResource( PaymentConditions::RecruitHero() );
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, _name << ", recruit: " << hero->GetName() )
@@ -1030,6 +1032,7 @@ Heroes * Castle::RecruitHero( Heroes * hero )
 
 bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
 {
+    const Economy::CauseScope cause( "troop_purchase", GetIndex() );
     if ( !troop.isValid() )
         return false;
 
@@ -1090,6 +1093,9 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
 
     kingdom.OddFundsResource( paymentCosts );
     _dwelling[dwellingIndex] -= count;
+    ECONOMY_TRACE( 1, "TROOP_PURCHASE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
+                   << ",\"town\":" << GetIndex() << ",\"monster\":" << troop.GetID() << ",\"requested_count\":" << troop.GetCount()
+                   << ",\"stock_removed\":" << count << ",\"cost\":" << Economy::fundsJson( paymentCosts ) );
 
     DEBUG_LOG( DBG_GAME, DBG_TRACE, _name << " recruit: " << troop.GetMultiName() << "(" << count << ")" )
 
@@ -1271,7 +1277,9 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
         return false;
     }
 
-    GetKingdom().OddFundsResource( getBuildingCost( buildingType ) );
+    const Economy::CauseScope cause( "building_purchase", GetIndex() );
+    const Funds payment = getBuildingCost( buildingType );
+    GetKingdom().OddFundsResource( payment );
     if ( _race == Race::KNGT ) {
         if ( buildingType == BUILD_TRAINING_GROUNDS )
             _constructedBuildings &= ~BUILD_WEL2;
@@ -1332,6 +1340,8 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
     }
 
     ResetModes( ALLOW_TO_BUILD_TODAY );
+    ECONOMY_TRACE( 1, "BUILD_ACTION", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
+                   << ",\"town\":" << GetIndex() << ",\"building\":" << buildingType << ",\"cost\":" << Economy::fundsJson( payment ) );
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, _name << " build " << GetStringBuilding( buildingType, _race ) )
     return true;

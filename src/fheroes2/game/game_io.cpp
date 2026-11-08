@@ -22,6 +22,7 @@
  ***************************************************************************/
 
 #include "game_io.h"
+#include "economy_trace.h"
 
 #include <algorithm>
 #include <cctype>
@@ -159,6 +160,8 @@ bool Game::Save( const std::string & filePath, const bool autoSave /* = false */
     if ( !autoSave ) {
         Game::SetLastSaveName( filePath );
     }
+
+    ECONOMY_TRACE( 1, "SAVE_WRITTEN", ",\"source_path_bytes\":" << Economy::jsonQuote( filePath ) );
 
     return true;
 }
@@ -301,6 +304,7 @@ fheroes2::GameMode Game::Load( const std::string & filePath )
         world.fixFrenchCharactersInStrings();
     }
 
+    Economy::beginTraceSegment( "save_loaded", filePath );
     return returnValue;
 }
 

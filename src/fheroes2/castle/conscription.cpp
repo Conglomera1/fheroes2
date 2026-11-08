@@ -220,6 +220,7 @@ bool Castle::conscript( ArmyTroop & troop )
 void Castle::processDailyConscription( Kingdom & kingdom )
 {
     if ( world.CountDay() <= 1 ) return;
+    const Economy::CauseScope cause( "conscription", static_cast<int>( kingdom.GetColor() ) );
     const auto & config = Conscription::settings();
     std::vector<Castle *> towns;
     std::vector<Conscription::TownDay> snapshots;

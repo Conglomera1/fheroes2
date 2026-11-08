@@ -22,6 +22,7 @@
  ***************************************************************************/
 
 #include <algorithm>
+#include "economy_trace.h"
 #include <array>
 #include <cassert>
 #include <cstddef>
@@ -705,6 +706,7 @@ bool World::LoadMapMP2( const std::string & filename, const bool isOriginalMp2Fi
     }
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, "Loading of MP2 map is completed." )
+    Economy::beginTraceSegment( "map_loaded", filename );
     return true;
 }
 
@@ -1403,6 +1405,7 @@ bool World::loadResurrectionMap( const std::string & filename )
     }
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, "Loading of FH2M map is completed." )
+    Economy::beginTraceSegment( "map_loaded", filename );
 
     return true;
 }

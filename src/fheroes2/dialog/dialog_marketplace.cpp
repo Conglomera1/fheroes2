@@ -30,6 +30,7 @@
 #include <vector>
 
 #include "cursor.h"
+#include "economy_trace.h"
 #include "dialog.h" // IWYU pragma: associated
 #include "game_assets.h"
 #include "game_hotkeys.h"
@@ -587,6 +588,7 @@ void Dialog::Marketplace( Kingdom & kingdom, bool fromTradingPost )
 
         // trade
         if ( buttonTrade.isEnabled() && le.MouseClickLeft( buttonTrade.area() ) && count_sell && count_buy ) {
+            const Economy::CauseScope cause( "market_trade", static_cast<int>( kingdom.GetColor() ) );
             kingdom.OddFundsResource( Funds( resourceFrom, count_sell ) );
             kingdom.AddFundsResource( Funds( resourceTo, count_buy ) );
 

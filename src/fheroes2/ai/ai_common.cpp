@@ -35,6 +35,7 @@
 #include <vector>
 
 #include "army.h"
+#include "economy_trace.h"
 #include "army_troop.h"
 #include "artifact_ultimate.h"
 #include "castle.h"
@@ -430,7 +431,10 @@ bool AI::tradeAtMarketplace( Kingdom & kingdom, const Funds & fundsToObtain )
                Color::String( kingdom.GetColor() ) << " having funds " << kingdom.GetFunds().String() << " obtains funds " << fundsToObtain.String()
                                                    << " through a transaction " << transaction->String() )
 
+    const Economy::CauseScope cause( "market_trade", static_cast<int>( kingdom.GetColor() ) );
     kingdom.OddFundsResource( *transaction );
+    ECONOMY_TRACE( 1, "MARKET_TRADE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
+                   << ",\"goal\":" << Economy::fundsJson( fundsToObtain ) << ",\"transaction\":" << Economy::fundsJson( *transaction ) );
 
     return true;
 }
