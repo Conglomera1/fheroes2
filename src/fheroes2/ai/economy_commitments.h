@@ -18,6 +18,7 @@ namespace AI::EconomyCommitments
     {
         uint64_t id = 0;
         int32_t town = -1, hero = -1;
+        int32_t visitor = -1; // Bound local actor for Peasant transfers; never a remote beneficiary.
         Source source = Source::ExplicitProgram;
         Destination destination = Destination::Town;
         std::vector<P::Action> pending; // Complete remaining schedule, never already paid steps.
@@ -39,6 +40,12 @@ namespace AI::EconomyCommitments
     { return a.player == b.player && a.day == b.day && a.revision == b.revision; }
     inline bool same( const P::Action & a, const P::Action & b )
     { return a.id == b.id && a.project == b.project && G::sameAction( a, b ); }
+    inline bool fixedVisitor( const P::Town & town, const X::Snapshot & missions, const int32_t visitor )
+    {
+        const auto hero = std::find_if( missions.heroes.begin(), missions.heroes.end(), [&]( const auto & h ) { return h.id == visitor; } );
+        return visitor >= 0 && town.hero == visitor && missions.stationaryVisitors.count( visitor ) && hero != missions.heroes.end()
+            && hero->town == town.tile && hero->tile == town.tile && hero->use == X::Use::FixedLocal && hero->patrol && hero->patrolRadius == 0;
+    }
 
     inline Result import( const G::Context & original, const X::Snapshot & missions, const Stamp & current, const Book & book )
     {
@@ -83,6 +90,10 @@ namespace AI::EconomyCommitments
                 out.reason = "invalid_commitment_destination"; return out;
             }
             const auto & town = *towns.at( program.town );
+            if ( program.visitor < -1 ) { out.reason = "invalid_local_visitor_binding"; return out; }
+            if ( program.visitor >= 0 && !fixedVisitor( town, missions, program.visitor ) ) {
+                out.status = Status::Unsupported; out.reason = "local_transfer_visitor_not_fixed"; return out;
+            }
             if ( program.destination == Destination::Town && program.hero != -1 ) { out.reason = "ambiguous_town_beneficiary"; return out; }
             if ( program.destination == Destination::StationaryVisitor ) {
                 const auto hero = std::find_if( missions.heroes.begin(), missions.heroes.end(), [&]( const auto & h ) { return h.id == program.hero; } );
@@ -101,11 +112,14 @@ namespace AI::EconomyCommitments
                     out.reason = "invalid_or_unordered_pending_action"; return out;
                 }
                 previousDay = action.day;
-                if ( action.kind != P::Kind::Build && action.kind != P::Kind::Recruit ) {
-                    out.status = Status::Unsupported; out.reason = "nonlocal_or_transfer_commitment_unsupported"; return out;
+                const bool transfer = action.kind == P::Kind::ToGarrison || action.kind == P::Kind::ToVisitor;
+                if ( transfer && program.visitor < 0 ) { out.status = Status::Unsupported; out.reason = "local_transfer_visitor_not_fixed"; return out; }
+                if ( action.kind != P::Kind::Build && action.kind != P::Kind::Recruit && !transfer ) {
+                    out.status = Status::Unsupported; out.reason = "nonlocal_or_unknown_commitment_unsupported"; return out;
                 }
                 if ( ( action.kind == P::Kind::Build && ( !action.building || ( action.building & ( action.building - 1 ) ) || action.count || action.pool ) )
-                     || ( action.kind == P::Kind::Recruit && ( action.building || action.pool >= 6 || !action.count ) ) ) {
+                     || ( action.kind == P::Kind::Recruit && ( action.building || action.pool >= 6 || !action.count ) )
+                     || ( transfer && ( action.building || action.pool || !action.count ) ) ) {
                     out.reason = "invalid_commitment_action_shape"; return out;
                 }
                 const auto old = retained.find( action.id );
@@ -177,7 +191,7 @@ namespace AI::EconomyCommitments
         const bool completeExisting = std::all_of( projectActions.begin(), projectActions.end(), [&]( const auto & item ) { return programs.count( item.first ); } );
         for ( const auto & item : programs ) {
             const auto & program = *item.second;
-            if ( completeExisting && program.allowAbandon && program.independent && !program.executedPrefix && !needed.count( program.id ) )
+            if ( completeExisting && program.allowAbandon && program.independent && !program.executedPrefix && program.visitor < 0 && !needed.count( program.id ) )
                 out.permissions.push_back( { program.id, program.pending } );
             else out.protectedProjects.insert( program.id );
         }

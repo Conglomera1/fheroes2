@@ -29,16 +29,14 @@ for name, ini in profiles.items():
                     assert registry["scope"] == "hypothetical_snapshot_only" and not registry["live_commitments"] and not registry["actionable"]
                     assert not registry["retained_between_turns"] and not registry["reference_replaced"] and registry["actual_receipts"] == 0
                     if mode in ("known", "patrol"):
-                        if registry["status"] == "staged":
-                            assert registry["status"] == "staged" and registry["pending_actions"] > 0
-                            assert len([r for r in rows if r["event"] == "REGISTRY_SOURCE_LINK"]) == registry["pending_actions"]
-                            actions = [r for r in rows if r["event"] == "REGISTRY_PENDING_ACTION"]
-                            assert len(actions) == registry["pending_actions"] and all(not a["abandonment_authorized"] for a in actions)
-                        else:
-                            assert mode == "patrol"
-                            assert registry["status"] == "unsupported" and registry["reason"] == "registry_selected_transfer_or_delivery_unsupported"
-                            assert registry["pending_actions"] == 0
-                            assert not any(r["event"] in ("REGISTRY_SOURCE_LINK", "REGISTRY_PENDING_ACTION") for r in rows)
+                        assert registry["status"] == "staged" and registry["pending_actions"] > 0
+                        assert len([r for r in rows if r["event"] == "REGISTRY_SOURCE_LINK"]) == registry["pending_actions"]
+                        actions = [r for r in rows if r["event"] == "REGISTRY_PENDING_ACTION"]
+                        assert len(actions) == registry["pending_actions"] and all(not a["abandonment_authorized"] for a in actions)
+                        transfers = [a for a in actions if a["operation"] in (2, 3)]
+                        assert all(a["visitor"] >= 0 for a in transfers)
+                        if mode == "patrol":
+                            assert transfers
                         assert summary["searched"] and summary["projections_left"] < 256
                         stable = next(r for r in rows if r["event"] == "STABILITY_EVALUATION")
                         assert stable["certified"] and not stable["actionable"]

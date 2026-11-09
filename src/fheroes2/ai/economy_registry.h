@@ -12,7 +12,7 @@ namespace AI::EconomyRegistry
     enum class Outcome { Executed, Failed, Uncertain };
     struct Update { Status status = Status::Invalid; uint64_t project = 0; std::string reason; bool actionable = false; };
     // This ticket IDENTIFIES an expected operation; it does not authorize executing it.
-    struct Ticket { uint64_t registry = 0; C::Stamp stamp; P::Action action; };
+    struct Ticket { uint64_t registry = 0; C::Stamp stamp; P::Action action; int32_t visitor = -1; };
     class Registry
     {
     public:
@@ -26,6 +26,8 @@ namespace AI::EconomyRegistry
         uint64_t revision() const { return revision_; }
         size_t pending() const
         { size_t count = 0; for ( const auto & p : book_.programs ) count += p.pending.size(); return count; }
+        int32_t boundVisitor( const uint64_t project ) const
+        { for ( const auto & p : book_.programs ) if ( p.id == project ) return p.visitor; return -1; }
 
         Update refresh( const G::Context & fresh, const X::Snapshot & missions )
         {
@@ -77,14 +79,15 @@ namespace AI::EconomyRegistry
             if ( !ready_ ) return {};
             for ( const auto & p : book_.programs ) if ( p.dependsOn.empty() && !p.pending.empty()
                 && p.pending.front().id == actionId && p.pending.front().day == book_.stamp.day )
-                return Ticket{ token_, book_.stamp, p.pending.front() };
+                return Ticket{ token_, book_.stamp, p.pending.front(), p.visitor };
             return {};
         }
 
         Update record( const Ticket & receipt, const Outcome outcome )
         {
             const auto expected = ticket( receipt.action.id );
-            if ( !expected || receipt.registry != token_ || !C::sameStamp( receipt.stamp, expected->stamp ) || !C::same( receipt.action, expected->action ) )
+            if ( !expected || receipt.registry != token_ || receipt.visitor != expected->visitor
+                 || !C::sameStamp( receipt.stamp, expected->stamp ) || !C::same( receipt.action, expected->action ) )
                 return { Status::Invalid, 0, "stale_or_conflicting_registry_receipt" };
             if ( outcome != Outcome::Executed && outcome != Outcome::Failed && outcome != Outcome::Uncertain )
                 return { Status::Invalid, 0, "invalid_registry_outcome" };

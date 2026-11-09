@@ -57,16 +57,13 @@ int main( int argc, char ** argv )
         const auto & selectedActions = result.selection.search.plans[*result.selection.selected].candidate.actions;
         const bool containsTransfer = std::any_of( selectedActions.begin(), selectedActions.end(),
             []( const auto & a ) { return a.kind != P::Kind::Build && a.kind != P::Kind::Recruit; } );
-        if ( !containsTransfer ) {
-            assert( result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Staged
-                    && result.registry.registry->pending() > 0 && result.registry.registry->view().permissions.empty() );
-            assert( result.registry.links.size() == result.registry.registry->pending() );
-        }
-        else {
-            // A real selected patrol plan can include a peasant transfer. Never
-            // silently drop it to force a partially adopted local program.
-            assert( !result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Unsupported
-                    && result.registry.reason == "registry_selected_transfer_or_delivery_unsupported" && result.registry.links.empty() );
+        assert( result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Staged
+                && result.registry.registry->pending() > 0 && result.registry.registry->view().permissions.empty() );
+        assert( result.registry.links.size() == result.registry.registry->pending() );
+        if ( containsTransfer ) {
+            assert( mode == "patrol" ); const auto registered = result.registry.registry->view();
+            for ( const auto & a : registered.context->base.actions ) if ( a.kind == P::Kind::ToGarrison || a.kind == P::Kind::ToVisitor )
+                assert( a.town == towns[0]->GetIndex() && result.registry.registry->boundVisitor(a.project) == visitor.GetID() );
         }
         if ( result.widened ) assert( result.frame.context.base.throughDay == 29 && work.paths.paths == 126 );
     }

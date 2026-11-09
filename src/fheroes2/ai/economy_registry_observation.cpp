@@ -20,6 +20,7 @@ void AI::EconomyRegistryObservation::log( const Result & result, const int playe
             ECONOMY_TRACE( 2, "REGISTRY_PENDING_ACTION", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << parent
                 << ",\"id\":" << action.id << ",\"project\":" << action.project << ",\"day\":" << action.day << ",\"town\":" << action.town
                 << ",\"operation\":" << static_cast<int>( action.kind ) << ",\"building\":" << action.building << ",\"pool\":" << action.pool
-                << ",\"count\":" << action.count << ",\"required\":" << ( action.required ? "true" : "false" ) << ",\"abandonment_authorized\":false" );
+                << ",\"count\":" << action.count << ",\"visitor\":" << result.registry->boundVisitor( action.project )
+                << ",\"required\":" << ( action.required ? "true" : "false" ) << ",\"abandonment_authorized\":false" );
     }
 }

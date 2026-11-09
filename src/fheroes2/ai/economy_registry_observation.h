@@ -55,11 +55,20 @@ namespace AI::EconomyRegistryObservation
         std::stable_sort( source.begin(), source.end(), []( const auto & a, const auto & b ) { return a.action.day < b.action.day; } );
         std::vector<C::Program> drafts; std::map<int32_t, size_t> byTown;
         for ( const auto & step : source ) {
-            if ( step.action.kind != P::Kind::Build && step.action.kind != P::Kind::Recruit ) {
-                out.status = Status::Unsupported; out.reason = "registry_selected_transfer_or_delivery_unsupported"; return out;
+            const bool transfer = step.action.kind == P::Kind::ToGarrison || step.action.kind == P::Kind::ToVisitor;
+            if ( step.action.kind != P::Kind::Build && step.action.kind != P::Kind::Recruit && !transfer ) {
+                out.status = Status::Unsupported; out.reason = "registry_selected_operation_unsupported"; return out;
             }
             if ( !byTown.count( step.action.town ) ) {
                 byTown[step.action.town] = drafts.size(); C::Program draft; draft.town = step.action.town; drafts.push_back( draft );
+            }
+            if ( transfer ) {
+                const auto town = std::find_if( context.base.start.towns.begin(), context.base.start.towns.end(),
+                    [&]( const auto & t ) { return t.tile == step.action.town; } );
+                if ( town == context.base.start.towns.end() || !C::fixedVisitor( *town, *missions, town->hero ) ) {
+                    out.status = Status::Unsupported; out.reason = "registry_local_transfer_visitor_not_fixed"; return out;
+                }
+                drafts[byTown.at( step.action.town )].visitor = town->hero;
             }
             auto action = step.action; action.id = action.project = 0;
             drafts[byTown.at( action.town )].pending.push_back( action );
