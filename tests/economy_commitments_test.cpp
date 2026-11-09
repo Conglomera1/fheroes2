@@ -111,5 +111,15 @@ int main()
     assert( !C::import( funded, missions, newStamp, buildBook ).context ); ++n;
     auto many = book; many.programs.resize(65,p); assert( run( many ).status == C::Status::Limit ); ++n;
     auto unchanged = run( C::Book{stamp,{}} ); assert( unchanged.context && unchanged.context->base.actions.empty() && unchanged.permissions.empty() ); ++n;
+    auto notIndependent = book; notIndependent.programs[0].independent = false; out = run( notIndependent );
+    assert( out.context && out.permissions.empty() && out.protectedProjects.count(10) ); ++n;
+    auto notAuthorized = book; notAuthorized.programs[0].allowAbandon = false; out = run( notAuthorized );
+    assert( out.context && out.permissions.empty() && out.protectedProjects.count(10) ); ++n;
+    // An optional continuation cannot alias a newly retained action under another project.
+    auto conflict = c; conflict.active = p.pending; conflict.active[0].project = 99;
+    invalid = C::import( conflict, missions, stamp, book );
+    assert( !invalid.context && invalid.permissions.empty() && invalid.reason == "conflicting_active_commitment_identity" ); ++n;
+    conflict.active = p.pending; out = C::import( conflict, missions, stamp, book );
+    assert( out.context && out.context->active.size() == 1 && C::same( out.context->active[0], p.pending[0] ) ); ++n;
     std::cout << "PASS " << n << " dated-commitment oracles (identity, snapshot, beneficiaries, dependencies, dynamic cost and explicit recourse)\n";
 }

@@ -46,8 +46,14 @@ Returned permissions are hypothetical inputs to Recourse, not live cancellations
 Bounds: 64 programs/dependencies per program, 1024 pending/merged retained actions,
 256 towns/mission heroes. No context or permission is returned after a failure.
 
-Intermediate validation: new pure suite in progress. Sanitized checks and final
-integration checks with the existing pure Project/Recourse still due at this point.
+Intermediate source checkpoint: 136ef9490098657da299812b9953c991d02b3360
+on knight-ai-lot-c3d5a-wip1-20261109 (40 initial pure checks; sanitizers pending).
+
+Final validation: 44 pure oracles including real Project/Recourse calls, default
+protected vs explicitly revisable unaffordable recruitment, shared budget counts,
+stable action identities, stale/partial/foreign data, DAG protection, old order,
+all-or-nothing failure, effective changed TG costs and unresolved distant dates.
+ASan/UBSan on this suite with detect_leaks=0; no leak-validation claim.
 No native rebuild needed: this header is not included by production translation
 units. Existing C3D4 native/real-map results are preserved, not rerun.
 
