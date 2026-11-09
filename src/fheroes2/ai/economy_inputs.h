@@ -1,6 +1,7 @@
 // C3D2: frozen, local planner inputs; no economic decision is executed.
 #pragma once
 #include "economy_risk.h"
+#include "economy_missions.h"
 
 namespace AI { struct EnemyArmy; }
 namespace AI::EconomyInputs
@@ -24,6 +25,7 @@ namespace AI::EconomyInputs
         std::vector<Enemy> sourceEnemies;
         std::vector<int32_t> priorityOrder;
         std::set<int32_t> stationaryVisitors;
+        std::optional<EconomyMissions::Snapshot> missions;
         bool observationsComplete = false;
         std::set<std::string> gaps;
         size_t queried = 0, outsideHorizon = 0;
@@ -113,10 +115,19 @@ namespace AI::EconomyInputs
             Frame invalid; invalid.gaps.insert( "invalid_common_horizon_extension" ); return invalid;
         }
         auto context = frame.context; context.base.throughDay = today + 28;
-        return assemble( std::move( context ), frame.sourceEnemies, frame.priorityOrder, frame.observationsComplete, {}, work,
-                         frame.stationaryVisitors, &frame.routes );
+        auto out = assemble( std::move( context ), frame.sourceEnemies, frame.priorityOrder, frame.observationsComplete, {}, work,
+                             frame.stationaryVisitors, &frame.routes );
+        out.missions = frame.missions; // Preserve the same evidence; no planner call or new target selection.
+        if ( out.missions ) {
+            out.gaps.insert( out.missions->gaps.begin(), out.missions->gaps.end() );
+            out.valid = out.valid && out.missions->valid;
+            out.defenses.coverageComplete = out.defenses.coverageComplete && out.gaps.empty();
+            out.risks.coverageComplete = out.risks.coverageComplete && out.gaps.empty(); out.risks.gaps = out.gaps;
+        }
+        return out;
     }
     Frame capture( const Kingdom &, uint32_t throughDay, const std::vector<EnemyArmy> &, const std::vector<int32_t> & priorityOrder,
-                   bool observationsComplete, const Distance &, Work & );
+                   bool observationsComplete, const Distance &, Work &,
+                   const std::vector<EconomyMissions::Target> & = {}, const std::vector<EconomyMissions::Need> & = {} );
     void log( const Frame &, int player, const Work & );
 }

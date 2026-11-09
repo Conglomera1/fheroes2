@@ -636,6 +636,21 @@ void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vect
     for ( const auto & entry : _enemyArmies ) known.push_back( entry.second );
     std::vector<int32_t> order;
     for ( const auto & entry : priorities ) if ( entry.castle ) order.push_back( entry.castle->GetIndex() );
+    std::vector<EconomyMissions::Target> targets;
+    for ( const auto & entry : _priorityTargets ) {
+        EconomyMissions::Intent intent = EconomyMissions::Intent::Unknown;
+        switch ( entry.second.type ) {
+        case PriorityTaskType::ATTACK: intent = EconomyMissions::Intent::Attack; break;
+        case PriorityTaskType::DEFEND: intent = EconomyMissions::Intent::Defend; break;
+        case PriorityTaskType::REINFORCE: intent = EconomyMissions::Intent::Reinforce; break;
+        default: break;
+        }
+        targets.push_back( { entry.first, intent, entry.second.secondaryTaskTileId } );
+    }
+    std::vector<EconomyMissions::Need> needs;
+    const int resourceOrder[] = { Resource::GOLD, Resource::WOOD, Resource::ORE, Resource::MERCURY, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS };
+    for ( size_t i = 0; i < 7; ++i ) for ( const auto & need : _budget ) if ( need.resource == resourceOrder[i] )
+        needs.push_back( { i, need.missing, need.priority, need.recurringCost } );
     EconomyPipeline::Work work;
     auto frame = EconomyInputs::capture( kingdom, static_cast<uint32_t>( horizon ), known, order, true,
         [&]( const EconomyInputs::Enemy & enemy, const int32_t town ) {
@@ -645,7 +660,7 @@ void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vect
             _pathfinder.setMinimalArmyStrengthAdvantage( ARMY_ADVANTAGE_DESPERATE );
             _pathfinder.setSpellPointsReserveRatio( 0.0 );
             return _pathfinder.getDistance( enemy.observation.enemyTile, town, kingdom.GetColor(), enemy.observation.enemyStrength );
-        }, work.paths );
+        }, work.paths, targets, needs );
     EconomyInputs::log( frame, static_cast<int>( kingdom.GetColor() ), work.paths );
     const auto observation = EconomyPipeline::observe( std::move( frame ), kingdom, work );
     (void)observation; // No decision, purchase or cancellation is applied to the world.
