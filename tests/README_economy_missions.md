@@ -31,10 +31,26 @@ PLANNER_MISSIONS explicitly states future_commitments_complete=false and
 military_outlets_exhausted=false. Detailed hero, target, relation, resource and
 limitation rows are evaluation-only and diagnostics-level-2-only.
 
-Validation in progress at the intermediate source checkpoint:
-- 25 pure mission oracles passed initially; final warning-free/sanitized checks due.
-- Full native build and real-engine mission/refresh fixture due.
-- Targeted input/pipeline regression suites due after capture changes.
+Intermediate source checkpoint: 9fd714c3558a0cf1b0c65e69bcee4e3c5d7d0188
+on knight-ai-lot-c3d4-wip1-20261109 (25 mission checks and input/pipeline checks;
+native validation pending at that point).
+
+Completed validation:
+- 25 pure mission oracles; warning-free, ASan/UBSan (detect_leaks=0).
+- Existing inputs 26 and pipeline 23 pure checks, as the capture/frame changed.
+- Four new native processes: default/custom effective INI x diagnostics 0/2,
+  six real friendly heroes across all five roles, actual path/movement/sleep/
+  patrol fields, three priorities and seven resource hints. Stable widening and
+  fresh capture after a changed live patrol mode. No new route queries.
+- Existing pipeline 16 and inputs 12 native processes, rebuilt against the new
+  capture. Same observations, shared budgets, held visitors and exact original
+  kingdom funds/town armies. Diagnostic JSON valid; off/on summaries identical.
+- Full native game compilation/link, no warnings in final build log.
+
+These fixtures do not run a whole KingdomTurn or map campaign. The private planner
+priority/budget adapter is compiled/linked; supplied fixture hints exercise its
+destination contract, not the strategic decisions that generated those hints.
+No strategic/performance equivalence or Windows build is claimed.
 
 Remaining: date/quantity/beneficiary/transport feasibility for real missions,
 real persistent economic commitments and recourse authority, then refresh and

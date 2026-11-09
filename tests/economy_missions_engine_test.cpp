@@ -1,4 +1,5 @@
 #include "economy_inputs.h"
+#include "ai_planner.h"
 #include "heroes.h"
 #include "difficulty.h"
 #include "map_format_info.h"
