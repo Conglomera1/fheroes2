@@ -2,6 +2,14 @@
 #include "economy_trace.h"
 #include "kingdom.h"
 
+namespace
+{
+    // AI observation runs on the game thread. No RNG/time-derived identity or
+    // persistence; never reuse a token within this process, including after load.
+    uint64_t nextRegistryToken()
+    { static uint64_t serial = 0; return serial == UINT64_MAX ? 0 : ++serial; }
+}
+
 AI::EconomyPipeline::Result AI::EconomyPipeline::observe( I::Frame frame, const Kingdom & kingdom, Work & work )
 {
     const int player = static_cast<int>( kingdom.GetColor() );
@@ -9,6 +17,9 @@ AI::EconomyPipeline::Result AI::EconomyPipeline::observe( I::Frame frame, const 
         [&]( const auto & town, auto slot ) { return M::localArmyValue( kingdom, town, slot ); },
         [&]( const auto & town, const auto & threat ) { return D::localDefenseValue( kingdom, town, threat ); },
         [&]( auto & session, const auto & proposals, auto & budget, auto & search ) { return T::observe( session, proposals, budget, search, player ); } );
+    out.registry = EconomyRegistryObservation::stage( out.frame.context, out.frame.missions, out.selection,
+                                                     static_cast<uint32_t>( player ), nextRegistryToken() );
+    EconomyRegistryObservation::log( out.registry, player );
     if ( out.widened ) I::log( out.frame, player, work.paths );
     const char * names[] = { "observed", "partial", "held", "invalid" };
     ECONOMY_TRACE( 2, "PIPELINE_EVALUATION", ",\"kind\":\"evaluation\",\"player\":" << player

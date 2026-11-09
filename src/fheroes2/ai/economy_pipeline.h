@@ -3,6 +3,7 @@
 #include "economy_inputs.h"
 #include "economy_recourse.h"
 #include "economy_stability.h"
+#include "economy_registry_observation.h"
 
 namespace AI::EconomyPipeline
 {
@@ -21,6 +22,7 @@ namespace AI::EconomyPipeline
         G::Result proposals;
         Q::Result preparation;
         T::Result selection;
+        EconomyRegistryObservation::Result registry;
         size_t generationPasses = 0;
         bool widened = false, searched = false, actionable = false;
         std::set<std::string> gaps;

@@ -25,7 +25,14 @@ for name, ini in profiles.items():
                     assert rows and all(r["kind"] == "evaluation" for r in rows)
                     summary = next(r for r in rows if r["event"] == "PIPELINE_EVALUATION")
                     assert not summary["actionable"] and summary["paths_left"] == 126
+                    registry = next(r for r in rows if r["event"] == "REGISTRY_OBSERVATION")
+                    assert registry["scope"] == "hypothetical_snapshot_only" and not registry["live_commitments"] and not registry["actionable"]
+                    assert not registry["retained_between_turns"] and not registry["reference_replaced"] and registry["actual_receipts"] == 0
                     if mode in ("known", "patrol"):
+                        assert registry["status"] == "staged" and registry["pending_actions"] > 0
+                        assert len([r for r in rows if r["event"] == "REGISTRY_SOURCE_LINK"]) == registry["pending_actions"]
+                        actions = [r for r in rows if r["event"] == "REGISTRY_PENDING_ACTION"]
+                        assert len(actions) == registry["pending_actions"] and all(not a["abandonment_authorized"] for a in actions)
                         assert summary["searched"] and summary["projections_left"] < 256
                         stable = next(r for r in rows if r["event"] == "STABILITY_EVALUATION")
                         assert stable["certified"] and not stable["actionable"]
@@ -34,6 +41,7 @@ for name, ini in profiles.items():
                             captures = [r for r in rows if r["event"] == "PLANNER_INPUTS"]
                             assert captures[-1]["through_day"] == 29 and captures[-1]["path_queries"] == 0
                     else:
+                        assert registry["status"] == "held" and registry["pending_actions"] == 0
                         assert summary["status"] == "held" and not summary["searched"] and summary["projections_left"] == 256
                         assert not any(r["event"] == "STABILITY_EVALUATION" for r in rows)
         assert summaries[0] == summaries[1], summaries

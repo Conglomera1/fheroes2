@@ -53,9 +53,12 @@ int main( int argc, char ** argv )
     if ( mode == "known" || mode == "patrol" ) {
         assert( result.searched && result.selection.certified && result.selection.selected && !result.actionable );
         assert( work.evaluation.projections < 256 && result.preparation.released.empty() );
+        assert( result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Staged
+                && result.registry.registry->pending() > 0 && result.registry.registry->view().permissions.empty() );
+        assert( result.registry.links.size() == result.registry.registry->pending() && work.evaluation.projections == 64 );
         if ( result.widened ) assert( result.frame.context.base.throughDay == 29 && work.paths.paths == 126 );
     }
-    else { assert( !result.searched && result.status == O::Status::Held && work.evaluation.projections == 256 ); }
+    else { assert( !result.searched && result.status == O::Status::Held && work.evaluation.projections == 256 && !result.registry.registry ); }
     const auto after = P::capture( kingdom, 15 ); assert( kingdom.GetFunds() == money && ( ( towns[0]->GetHero() == &visitor ) == hasVisitor ) );
     for ( size_t t = 0; t < 2; ++t ) for ( size_t s = 0; s < 5; ++s ) {
         assert( before.start.towns[t].garrison[s].monster == after.start.towns[t].garrison[s].monster && before.start.towns[t].garrison[s].count == after.start.towns[t].garrison[s].count );
