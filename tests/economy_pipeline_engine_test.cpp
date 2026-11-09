@@ -53,9 +53,21 @@ int main( int argc, char ** argv )
     if ( mode == "known" || mode == "patrol" ) {
         assert( result.searched && result.selection.certified && result.selection.selected && !result.actionable );
         assert( work.evaluation.projections < 256 && result.preparation.released.empty() );
-        assert( result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Staged
-                && result.registry.registry->pending() > 0 && result.registry.registry->view().permissions.empty() );
-        assert( result.registry.links.size() == result.registry.registry->pending() && work.evaluation.projections == 64 );
+        assert( work.evaluation.projections == 64 );
+        const auto & selectedActions = result.selection.search.plans[*result.selection.selected].candidate.actions;
+        const bool containsTransfer = std::any_of( selectedActions.begin(), selectedActions.end(),
+            []( const auto & a ) { return a.kind != P::Kind::Build && a.kind != P::Kind::Recruit; } );
+        if ( !containsTransfer ) {
+            assert( result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Staged
+                    && result.registry.registry->pending() > 0 && result.registry.registry->view().permissions.empty() );
+            assert( result.registry.links.size() == result.registry.registry->pending() );
+        }
+        else {
+            // A real selected patrol plan can include a peasant transfer. Never
+            // silently drop it to force a partially adopted local program.
+            assert( !result.registry.registry && result.registry.status == AI::EconomyRegistryObservation::Status::Unsupported
+                    && result.registry.reason == "registry_selected_transfer_or_delivery_unsupported" && result.registry.links.empty() );
+        }
         if ( result.widened ) assert( result.frame.context.base.throughDay == 29 && work.paths.paths == 126 );
     }
     else { assert( !result.searched && result.status == O::Status::Held && work.evaluation.projections == 256 && !result.registry.registry ); }
@@ -65,6 +77,7 @@ int main( int argc, char ** argv )
         assert( before.start.towns[t].visitor[s].monster == after.start.towns[t].visitor[s].monster && before.start.towns[t].visitor[s].count == after.start.towns[t].visitor[s].count );
     }
     std::cout << "RESULT " << mode << " threats=" << frame.defenses.threats.size() << " queries=" << frame.queried
-        << " searched=" << result.searched << " widened=" << result.widened << " proposals=" << result.proposals.projects.size() << " projections_left=" << work.evaluation.projections << '\n';
+        << " searched=" << result.searched << " widened=" << result.widened << " proposals=" << result.proposals.projects.size() << " projections_left=" << work.evaluation.projections
+        << " registry=" << AI::EconomyRegistryObservation::name( result.registry.status ) << '\n';
     kingdom.GetCastles().clear();
 }

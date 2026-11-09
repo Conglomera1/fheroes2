@@ -45,6 +45,7 @@ namespace AI::EconomyRegistryObservation
             out.status = Status::Unsupported; out.reason = "live_commitment_ownership_not_connected"; return out;
         }
         const auto & candidate = selected.search.plans[*selected.selected].candidate;
+        out.selectedPlan = candidate.id; out.token = token;
         if ( candidate.actions.size() > 1024 ) { out.status = Status::Limit; out.reason = "registry_selected_schedule_limit"; return out; }
         P::Input input;
         if ( !G::materialize( context, candidate, input ) ) { out.reason = "registry_selected_identity_invalid"; return out; }

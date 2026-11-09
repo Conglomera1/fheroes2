@@ -32,7 +32,23 @@ live_commitments=false, retained_between_turns=false, actual_receipts=0,
 reference_replaced=false, actionable=false. Exact dates/quantities and required
 flags logged, all programs protected. Level 0 emits none.
 
-Intermediate: pure bridge checks/build in progress; native/sanitizer validation due.
+Intermediate checkpoint: eb0e088ac67669556014b0f349f7b6dca4eab1f7,
+knight-ai-lot-c3d5c-wip1-20261109 (23 pure checks/native build, before engine
+validation and final diagnostic source-ID adjustment).
+
+Final: 23 pure checks, same 23 ASan/UBSan (detect_leaks=0, no leak-validation
+claim), 23 existing pure Pipeline regression checks, native game build/link with
+no warnings, 16 native Pipeline processes (default/custom INI x four scenarios x
+diagnostics 0/2). Known local plans stage; unknown paths/mobile visitors remain
+held; real selected zero-radius-patrol plans contain a transfer and stay explicitly
+unsupported by this adapter, without dropping it or changing Search's result.
+Native assertions derive support from the actual selected operation types, rather
+than hardcoding an INI-dependent strategy. No real funds/armies changed; original
+64 or 256 remaining projection counts preserved; valid evaluation-only JSON and
+off/on summaries identical. An initial fixture incorrectly required every searched
+plan to stage; corrected that expectation, never relaxed the unsupported-operation
+gate. Unsupported records retain source selected-plan ID and observation token.
+
 Native pipeline fixture uses actual Kingdom/INI/armies and real selection, with
 controlled route distances (not a campaign or whole KingdomTurn). Production
 receipt/reconciliation hooks, cross-turn ownership, persistence and activation
