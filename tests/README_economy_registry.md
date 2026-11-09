@@ -1,5 +1,8 @@
 # C3D5B: in-memory observation-program registry lifecycle
 
+C3D5D update: tickets additionally bind the local transfer visitor ID; mismatched
+actor receipts fail. See README_economy_local_transfer.md for current support.
+
 Parent C3D5A: 52fe4d5b4488e67d593ae63b428cefdce6b60b2f.
 Isolated header-only registry, no engine callback/production owner, persistence,
 save format, policy execution or gameplay/default change in this block.

@@ -20,7 +20,18 @@ The snapshot observer binds each local transfer to that exact actor and preserve
 the entire source schedule/order, without dropping any transfer. Future planned
 remote transports do not become supported through this path.
 
-Intermediate verification pending final sanitizers/native/regression checks.
+Intermediate checkpoint: 8f0e877da5ce39a628994ab23faa8a7d62550f6d,
+knight-ai-lot-c3d5d-wip1-20261109 (21 initial pure checks before final validation).
+
+Final: 21 new pure checks and the same 21 ASan/UBSan (detect_leaks=0; no leak
+validation claimed). Relevant regressions: commitments 44, registry 38, bridge 23.
+Native game compilation/link with no warnings. All 16 native Pipeline processes
+pass with default/custom INI and diagnostics off/on. Both known and fixed-patrol
+plans now stage completely; uncertain paths/mobile visitor remain held. The
+patrol fixture explicitly checks every transfer is bound to its actual visitor,
+all source links survive, no abandonment is authorized, real funds/armies unchanged
+and shared projection counts remain 64 (searched) or 256 (held).
+
 Native patrol fixture must now stage its WHOLE selected local-transfer plan, with
 the original shared budget and unchanged real funds/armies. Control routes still
 do not constitute a map campaign or real KingdomTurn/execution-callback test.

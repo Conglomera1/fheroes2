@@ -1,5 +1,9 @@
 # C3D5A: explicit pending-local-program contract
 
+C3D5D update: bound fixed-visitor Peasant transfers are now supported; see
+README_economy_local_transfer.md. The local-operation limits below describe the
+original C3D5A checkpoint. Remote/exact-visitor deliveries remain unsupported.
+
 Parent C3D4: 9320eafcc58c3c307ca628ce0ceffe108525351c.
 Short isolated block. Header-only, no production caller, no world execution or
 save/INI/default changes. This is not yet a persistent/live commitment registry.

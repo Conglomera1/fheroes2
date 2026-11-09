@@ -1,5 +1,9 @@
 # C3D5C: production observation owns a snapshot-scoped registry
 
+C3D5D update: verified fixed-local Peasant transfers now stage with their actor
+binding. The patrol refusal below is historical C3D5C behavior; the current native
+patrol fixture stages its complete plan. See README_economy_local_transfer.md.
+
 Parent C3D5B: a7556ec20746be1cfc816840bec28321d055b836.
 EconomyPipeline::observe now builds a registry from its verified selected schedule
 in the SAME frozen frame, AFTER search/stability. Ownership travels with its Result
