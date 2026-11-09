@@ -41,7 +41,17 @@ or post-state proof is invented here. Failed/overdue/lost-destination reconcilia
 and serialization are future work. Unknown outcomes must not be retried in the
 game automatically merely because the registry retains their pending description.
 
-Intermediate validation pending final sanitizer/regression checks. Pure fixture
+Intermediate: ed5d46c49cd4fc413985e2ed84589c503999963c, branch
+knight-ai-lot-c3d5b-wip1-20261109 (35 pure checks, before final three/sanitizers).
+Final validation: 38 pure lifecycle oracles and ASan/UBSan with detect_leaks=0
+(no leak-validation claim), no compiler warnings. Includes same-day stale tickets,
+foreign identities, full/partial completion, failed vs uncertain execution, no
+automatic retry after uncertainty, actual post-action copied state, exact pending
+ID preservation, dependencies, invalid refresh, overdue actions, day rewind and
+new effective TG costs. No production/old algorithm changed; prior C3D5A/C3D4
+checks are preserved rather than repeated.
+
+Pure fixture
 emulates an actual success using Project, passes the resulting copied state as
 fresh capture and checks no duplicate charge. Not a real game callback or campaign.
 No native game rebuild is needed: no production translation unit includes this

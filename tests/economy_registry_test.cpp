@@ -85,6 +85,7 @@ int main()
     auto hint = draft(); hint.source = C::Source::LegacyHint;
     assert( deps.stage(hint).status == V::Status::Invalid && deps.revision() == revision ); ++n;
     auto far = draft(30); assert( deps.stage(far).status == V::Status::Ready && !deps.ticket(3) && deps.view().beyondHorizon.count(3) ); ++n;
+    assert( deps.record(validTicket,V::Outcome::Executed).status == V::Status::Invalid && deps.pending() == 2 ); ++n;
     auto external = c; external.base.actions = {first};
     assert( deps.refresh(external,missions(external)).status == V::Status::Invalid && !deps.view().context ); ++n;
     // A new game/load must use a different registry token even if player/day/IDs/revision coincide.
@@ -101,5 +102,11 @@ int main()
     // Failure never allocates published IDs; the next accepted program is stable.
     auto idBefore = other.view().context->base.actions[0].project; assert( other.stage(bad).status == V::Status::Invalid );
     assert( other.stage(draft()).project == idBefore+1 ); ++n;
+    V::Registry rewind(1,104); auto nextDay = c; nextDay.base.start.economy.day = 2; nextDay.base.throughDay = 16;
+    assert( rewind.refresh(nextDay,missions(nextDay)).status == V::Status::Ready
+            && rewind.refresh(c,missions(c)).reason == "registry_day_rewind_requires_new_instance" && !rewind.ready() ); ++n;
+    const auto beforeInvalid = *other.ticket(1); const auto oldRevision = other.revision();
+    assert( other.record(beforeInvalid,static_cast<V::Outcome>(99)).status == V::Status::Invalid
+            && other.ready() && other.revision() == oldRevision && other.pending() == 2 ); ++n;
     std::cout << "PASS " << n << " registry-lifecycle oracles (stable IDs, receipts, refresh, dependencies, no double payment and effective INI)\n";
 }
