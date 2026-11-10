@@ -1,0 +1,4 @@
+RETURN_CODE=0
+ADAPTER_BEGIN
+ADAPTER_END
+RESULT mode=budget status=0 calls=0 pending=1 blocked=0 gold_spent=0 stock_removed=0 garrison_added=0 visitor_added=0 projections_left=0 synthetic_oracles=0

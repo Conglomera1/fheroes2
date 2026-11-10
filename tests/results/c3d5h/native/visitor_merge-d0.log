@@ -1,0 +1,4 @@
+RETURN_CODE=0
+ADAPTER_BEGIN
+ADAPTER_END
+RESULT mode=visitor_merge status=2 calls=1 pending=0 blocked=0 gold_spent=1200 stock_removed=8 garrison_added=0 visitor_added=8 projections_left=254 synthetic_oracles=0

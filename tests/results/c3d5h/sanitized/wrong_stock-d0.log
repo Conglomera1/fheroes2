@@ -1,0 +1,4 @@
+RETURN_CODE=0
+ADAPTER_BEGIN
+ADAPTER_END
+RESULT mode=wrong_stock status=4 calls=1 pending=1 blocked=1 gold_spent=150 stock_removed=1 garrison_added=1 visitor_added=0 projections_left=254 synthetic_oracles=0

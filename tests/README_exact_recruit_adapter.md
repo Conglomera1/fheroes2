@@ -3,10 +3,20 @@
 Parent: C3D5G `2ced18db0b0eea056baaaf9f3733c00545fca3b2`.
 Test-only implementation under `tests/`; no production include or AI connection.
 
-Intermediate checkpoint: compiled/linked against the unchanged C3D5D native
-debug objects, no final compiler warnings. All **80 native processes / 40
-diagnostic pairs** passed. Fixture/adapter sanitizer validation is pending at
-this intermediate checkpoint. No full-engine sanitizer claim.
+Intermediate checkpoint: `950ed92b6584cb8a0dc7e0a0877f482064eecf9d`, branch
+`knight-ai-lot-c3d5h-wip1-20261110`: 80 native processes passed; sanitizer runs
+were pending at that checkpoint.
+
+Final validation: compiled/linked against unchanged C3D5D native debug objects,
+no final native compiler/linker warnings. **80 native processes / 40 diagnostic
+pairs passed**, plus the same **80 processes with ASan+UBSan on the fixture and
+adapter only**, `detect_leaks=0`, UBSan halt-on-error. Native and instrumented
+RESULT records are identical. No full-engine sanitizer or leak-validation claim.
+The sanitized link emitted one dependency warning: system libtiff's libjpeg.so.62
+may conflict with libjpeg.so.8. It is preserved in `sanitized-build.txt`; image
+decoding is not exercised. The 80 instrumented controls completed without a
+reported sanitizer error. No game sources or dependencies were modified to hide
+that warning.
 
 The generated fixture explicitly accepts ONE complete current-day local Recruit
 program (up to 16 steps), never an observer registry or a legacy hint. This narrow
@@ -66,3 +76,26 @@ plus actual purchase-trace counts. `--modes` supports a justified targeted rerun
 
 See `results/c3d5h/` for outputs. This implements the FIRST isolated recruitment
 block proposed in C3D5G, not its complete future executor/strategic test matrix.
+
+## Final boundaries and next block
+
+All 160 raw process logs, independent numeric observations, build summaries and
+source/log hashes are retained. The two C3D5F raw stock discrepancies remain
+unchanged; the adapter prevents those requests before reaching the API. No old
+balance campaigns or unchanged historical suites were rerun. Production source,
+INI/defaults, translations, saves and resources remain unchanged. No release,
+Windows executable or player package is produced.
+
+Still unsupported here: multiple accepted programs/towns, future-day execution,
+real threat/mission coverage, live ownership/acceptance, persistence and recovery
+of uncertain actions. Complete configuration is compared across the operation,
+but the native matrix uses isolated default INI only. Seven-resource arithmetic
+is synthetic; this block does not recruit every faction's resource-priced unit.
+Record rejection after effects is injected and tested; the recording-exception
+catch is defensive code, not an injected allocation-failure reproduction.
+
+Proposed next bounded block: an isolated supported building adapter, starting
+with Farm/TG effective prices and conversions under default/custom INI, with
+building-specific final effects. Keep live AI integration and exact transfers
+separate. Stop after this checkpoint and the user-facing bilan; **Sol / High**
+recommended for that next block, after another explicit go-ahead.

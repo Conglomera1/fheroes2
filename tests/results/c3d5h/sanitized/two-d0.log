@@ -1,0 +1,4 @@
+RETURN_CODE=0
+ADAPTER_BEGIN
+ADAPTER_END
+RESULT mode=two status=2 calls=2 pending=0 blocked=0 gold_spent=750 stock_removed=5 garrison_added=5 visitor_added=0 projections_left=252 synthetic_oracles=0
