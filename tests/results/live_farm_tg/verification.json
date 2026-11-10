@@ -1,0 +1,30 @@
+{
+  "native_full_build": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "targeted_processes": 20,
+  "diagnostics_levels": [
+    0,
+    2
+  ],
+  "diagnostics_neutral": true,
+  "map_smoke": {
+    "exit_code": 0,
+    "days": 14,
+    "controlled": true
+  },
+  "release_syntax": {
+    "exit_code": 0,
+    "cpp_files": 14,
+    "debug_defined": false,
+    "taxpayer_diagnostics_defined": false,
+    "warnings": 0
+  },
+  "windows_source_manifest": {
+    "xml_valid": true,
+    "economy_cpp_entries_complete": true
+  },
+  "windows_build": "not_run",
+  "evidence_sha256": "3e79a7d9c395db799486cc70088d38068041bc9c4223ba4d29ea506f4912c50a"
+}

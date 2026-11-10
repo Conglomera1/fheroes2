@@ -12,7 +12,7 @@ growth, income, training, seven resource prices, stocks and army capacity. Its
 not a proof of optimal play. Existing military development and defense remain
 responsible for actual recruitment, hero movement and threatened towns.
 
-## Intermediate checkpoint
+## Final verification
 
 - Full native game compiled successfully.
 - Ten targeted cases, each with diagnostics 0 and 2: twenty successful processes.
@@ -22,8 +22,26 @@ responsible for actual recruitment, hero movement and threatened towns.
   training yield prevent the new conversion. Forecasting leaves live state intact.
 - Diagnostics settings produce identical choices and resulting payments.
 - Windows source manifest now lists the existing economy cpp dependencies and
-  the new module. XML checked separately; no Windows executable validated yet.
-- Real-map smoke is pending at this intermediate save.
+  the new module. XML and all fourteen AI translation units pass native release
+  syntax checks without diagnostics or debug defines. This is not a Windows build.
+- Karlosge.mp2 completed fourteen real KingdomTurn days in 11.15 seconds, exit 0.
+  Seeded Green Knight town 5168 built TG on day 1, trained seventeen units through
+  day 8, then paid for Farm reconversion on day 8. Forecasts favored the TG first
+  and Farm later; production BUILD_ACTION receipts confirm both purchases.
+- This one seeded, revealed-map run establishes integration, not balanced or
+  stable behavior across maps. Weekly role switching remains a pilot heuristic.
+- The 2000-gold reserve applies to this role decision and hypothetical buying;
+  the ordinary AI can spend below it afterwards (observed in the map run).
+
+Evidence: role_observations.json, map_observations.json, verification.json and
+execution_logs.json.gz (JSON containing twenty targeted logs, native build log
+and complete map log). Original map/game assets are not distributed.
+
+Intermediate remote checkpoint: b5e591e60a14f69c867103f74ae30420dd019701.
+Final source is based on C3D5J, 55cf801eab416a09185025f1191643c60cc7cc99.
+
+Next deliverable: build the existing Windows KM x86 package from this pilot
+branch, then try a normal game before extending policy or running broad studies.
 
 Build and run entry points:
 
