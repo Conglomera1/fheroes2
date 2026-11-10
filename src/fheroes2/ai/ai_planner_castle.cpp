@@ -42,6 +42,7 @@
 #include "game.h"
 #include "heroes.h"
 #include "kingdom.h"
+#include "knight_economy.h"
 #include "logging.h"
 #include "maps_tiles.h"
 #include "monster.h"
@@ -321,6 +322,10 @@ namespace
     {
         if ( !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() ) ) {
             return false;
+        }
+
+        if ( AI::KnightEconomy::develop( castle, safetyFactor > 0 ) ) {
+            return true;
         }
 
         // Defensive turns never enter this development path. Keep all building prerequisites,

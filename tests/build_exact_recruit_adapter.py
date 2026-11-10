@@ -15,11 +15,12 @@ parser.add_argument("--sdl-libs", required=True)
 parser.add_argument("--ldflags", default="")
 parser.add_argument("--sanitize", action="store_true", help="Instrument fixture/adapter only; game objects remain uninstrumented")
 parser.add_argument("--source", default="tests/exact_recruit_adapter_engine_test.cpp", help="Repository-relative isolated native fixture")
+parser.add_argument("--exclude-object", action="append", default=[], help="Game object included directly by the fixture, repeatable")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 output = args.output.resolve()
 output.parent.mkdir(parents=True, exist_ok=True)
-objects = sorted(p for p in (root / "src/dist/fheroes2").glob("*.o") if p.name != "fheroes2.o")
+objects = sorted(p for p in (root / "src/dist/fheroes2").glob("*.o") if p.name not in {"fheroes2.o", *args.exclude_object})
 if len(objects) < 200:
     raise SystemExit("Matching native game objects are missing; restore the documented debug build first")
 includes = ["-I" + str(p) for p in (root / "src/fheroes2").iterdir() if p.is_dir()]
