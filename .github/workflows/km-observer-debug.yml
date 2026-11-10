@@ -1,7 +1,7 @@
 name: Knight Mod Observer Debug x86
 on:
   push:
-    branches: [knight-ai-observer-debug-build1-20261110]
+    branches: ['knight-ai-observer-debug-build*-20261110']
   workflow_dispatch:
 permissions:
   contents: read
