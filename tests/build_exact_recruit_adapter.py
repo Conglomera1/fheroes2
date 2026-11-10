@@ -14,6 +14,7 @@ parser.add_argument("--sdl-flags", required=True)
 parser.add_argument("--sdl-libs", required=True)
 parser.add_argument("--ldflags", default="")
 parser.add_argument("--sanitize", action="store_true", help="Instrument fixture/adapter only; game objects remain uninstrumented")
+parser.add_argument("--source", default="tests/exact_recruit_adapter_engine_test.cpp", help="Repository-relative isolated native fixture")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -24,7 +25,9 @@ if len(objects) < 200:
 includes = ["-I" + str(p) for p in (root / "src/fheroes2").iterdir() if p.is_dir()]
 includes += ["-I" + str(root / "src/engine"), "-I" + str(root / "src/thirdparty/libsmacker")]
 sanitizers = ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] if args.sanitize else []
-source = root / "tests/exact_recruit_adapter_engine_test.cpp"
+source = (root / args.source).resolve()
+if not source.is_relative_to(root / "tests") or not source.is_file():
+    raise SystemExit("Fixture source must be an existing file under tests/")
 fixture_object = output.with_suffix(".o")
 subprocess.run(["g++", "-c", str(source), "-o", str(fixture_object), "-std=c++17", "-O0", "-g", "-fsigned-char", "-pthread",
                 "-Wall", "-Wextra", "-Wshadow", "-Wfloat-conversion", "-pedantic", "-UNDEBUG", "-DWITH_DEBUG", "-DWITH_IMAGE",

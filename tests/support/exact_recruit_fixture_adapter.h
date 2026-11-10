@@ -129,23 +129,41 @@ namespace RecruitFixture
     enum class Status { Held, Prepared, Executed, Failed, Blocked, Empty };
     struct Result { Status status = Status::Held; std::string reason; std::optional<V::Ticket> ticket; };
 
-    // Only instantiated in the explicitly generated no-threat native fixture.
-    // One accepted program, one town, current-day recruits. No add/replace API.
-    class Owner
+    struct RecruitPolicy
     {
+        using Evidence = RecruitFixture::Evidence;
+        using Checked = RecruitFixture::Checked;
+        using Call = std::function<bool( Castle &, const Troop & )>;
+        static bool supports( const P::Action & a ) { return a.kind == P::Kind::Recruit; }
+        static Evidence capture( const Castle & t ) { return RecruitFixture::capture( t ); }
+        static Checked check( const Castle & t, const P::Town & p, const P::Action & a, const Evidence & e )
+        { return RecruitFixture::check( t, p, a, e ); }
+        static V::Outcome classify( bool returned, const Evidence & before, const Checked & checked, const std::optional<Evidence> & after )
+        { return RecruitFixture::classify( returned, before, checked, after ); }
+        static bool dispatch( Castle & t, const P::Action & a, const Checked & c, const Call & testCall )
+        { const Troop request( c.monster, a.count ); return testCall ? testCall( t, request ) : t.RecruitMonster( request, false ); }
+    };
+
+    // Only instantiated in the explicitly generated no-threat native fixture.
+    // C3D5I shares only lifecycle; policies explicitly bound their supported effects.
+    // One accepted program, one town, current-day actions. No add/replace API.
+    template<class Policy> class ActionOwner
+    {
+        using Evidence = typename Policy::Evidence;
+        using Checked = typename Policy::Checked;
     public:
-        Owner( Kingdom & k, Castle & town, const uint64_t token )
+        ActionOwner( Kingdom & k, Castle & town, const uint64_t token )
             : kingdom_( k ), town_( town ), registry_( static_cast<uint32_t>( k.GetColor() ), token ), token_( token ) {}
         bool acceptProgram( C::Program program )
         {
             if ( accepted_ || blocked_ || !token_ || program.town != town_.GetIndex() || program.pending.empty() || program.pending.size() > 16
                  || program.id || program.executedPrefix || program.allowAbandon || program.independent || !program.dependsOn.empty()
                  || program.source != C::Source::ExplicitProgram || program.destination != C::Destination::Town || program.hero != -1 ) return false;
-            for ( const auto & a : program.pending ) if ( a.kind != P::Kind::Recruit || a.day != world.CountDay() ) return false;
+            for ( const auto & a : program.pending ) if ( !Policy::supports( a ) || a.day != world.CountDay() ) return false;
             auto frame = fresh();
             if ( !frame || registry_.refresh( frame->first, frame->second ).status != V::Status::Ready ) return false;
             if ( registry_.stage( std::move( program ) ).status != V::Status::Ready ) return false;
-            accepted_ = true; acceptedDay_ = world.CountDay(); acceptedVisitor_ = capture( town_ ).visitor; return true;
+            accepted_ = true; acceptedDay_ = world.CountDay(); acceptedVisitor_ = Policy::capture( town_ ).visitor; return true;
         }
         Result prepare( M::Budget & budget, const bool fixtureThreatCoverageComplete = true )
         {
@@ -153,7 +171,7 @@ namespace RecruitFixture
             if ( blocked_ || inflight_ ) return { Status::Blocked, "owner_blocked_or_inflight", {} };
             if ( !accepted_ ) return { Status::Held, "explicit_acceptance_required", {} };
             auto frame = fresh();
-            if ( !frame || world.CountDay() != acceptedDay_ || capture( town_ ).visitor != acceptedVisitor_ )
+            if ( !frame || world.CountDay() != acceptedDay_ || Policy::capture( town_ ).visitor != acceptedVisitor_ )
                 return { Status::Held, "fixture_identity_changed", {} };
             const auto refreshed = registry_.refresh( frame->first, frame->second );
             if ( refreshed.status != V::Status::Ready ) return { Status::Held, refreshed.reason, {} };
@@ -163,8 +181,8 @@ namespace RecruitFixture
             // Single accepted program preserves its exact global order by construction.
             const auto ticket = registry_.ticket( view.context->base.actions.front().id );
             if ( !ticket || registry_.revision() == UINT64_MAX ) return { Status::Held, "ticket_unavailable", {} };
-            const auto before = capture( town_ );
-            const auto checked = check( town_, frame->first.base.start.towns.front(), ticket->action, before );
+            const auto before = Policy::capture( town_ );
+            const auto checked = Policy::check( town_, frame->first.base.start.towns.front(), ticket->action, before );
             if ( !checked.valid ) return finish( *ticket, V::Outcome::Failed, checked.reason );
             std::vector<M::Assignment> uses{ { 1, town_.GetIndex(), M::Slot::TownArmy, before.day, before.day + 14, true, true } };
             // Complete empty threat coverage is an explicit GENERATED-FIXTURE premise.
@@ -180,21 +198,20 @@ namespace RecruitFixture
             return { Status::Prepared, "fixture_schedule_verified", ticket };
         }
         // Optional callback is a TEST fault seam, never supplied by production code.
-        using Call = std::function<bool( Castle &, const Troop & )>;
+        using Call = typename Policy::Call;
         Result run( const V::Ticket & ticket, const Call & testCall = {} )
         {
             if ( blocked_ || inflight_ ) return { Status::Blocked, "owner_blocked_or_inflight", {} };
             if ( !accepted_ || !prepared_ || !same( ticket, prepared_->ticket ) ) return { Status::Held, "no_matching_preparation", {} };
             const auto current = registry_.ticket( ticket.action.id );
             if ( !current || !same( ticket, *current ) ) { prepared_.reset(); return { Status::Held, "stale_ticket", {} }; }
-            if ( !( capture( town_ ) == prepared_->before ) ) { prepared_.reset(); return { Status::Held, "physical_state_changed", {} }; }
+            if ( !( Policy::capture( town_ ) == prepared_->before ) ) { prepared_.reset(); return { Status::Held, "physical_state_changed", {} }; }
             auto operation = *prepared_; prepared_.reset(); inflight_ = true;
             V::Outcome outcome = V::Outcome::Uncertain;
             try {
                 ++calls_;
-                const Troop request( operation.checked.monster, ticket.action.count );
-                const bool returned = testCall ? testCall( town_, request ) : town_.RecruitMonster( request, false );
-                outcome = classify( returned, operation.before, operation.checked, capture( town_ ) );
+                const bool returned = Policy::dispatch( town_, ticket.action, operation.checked, testCall );
+                outcome = Policy::classify( returned, operation.before, operation.checked, Policy::capture( town_ ) );
             }
             catch ( ... ) { outcome = V::Outcome::Uncertain; }
             inflight_ = false;
@@ -246,4 +263,5 @@ namespace RecruitFixture
         uint32_t acceptedDay_ = 0; int32_t acceptedVisitor_ = -1;
         size_t calls_ = 0; std::optional<Prepared> prepared_;
     };
+    using Owner = ActionOwner<RecruitPolicy>;
 }
