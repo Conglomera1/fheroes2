@@ -1,0 +1,51 @@
+{
+  "parent": "9f588bb260ba23b2214ea767001f4087d262f98e",
+  "intermediate_commit": "a89457841f26f07707d09e204f9ff1b4776e9665",
+  "production_src_tree": "94535930b5eddbd47ce224b47250c6fca10e2869",
+  "native_building_processes": 200,
+  "instrumented_building_processes": 200,
+  "recruitment_regression_processes": 80,
+  "building_diagnostic_pairs": 100,
+  "profiles": [
+    "default",
+    "custom",
+    "disabled",
+    "extra_requirement",
+    "free",
+    "compatibility"
+  ],
+  "normal_and_instrumented_results_equal": true,
+  "recruitment_results_equal_h": true,
+  "synthetic_receipt_oracles_per_pure_mode": 27,
+  "instrumentation_scope": "ASan+UBSan on fixture and test-only policies/shared owner; linked production objects uninstrumented",
+  "leak_detection": false,
+  "ubsan_halt_on_error": true,
+  "native_build_warning_lines": 0,
+  "sanitized_link_warning": "System libtiff dependency libjpeg.so.62 may conflict with libjpeg.so.8; recorded in sanitized-build.txt. Image decoding is not exercised.",
+  "archives": {
+    "native-raw.jsonl.gz": {
+      "raw_process_logs": 200,
+      "compressed_bytes": 17278,
+      "sha256": "e1f1e331dd9eb9fb98bc76c61588ec1e68531eb79813a1694838160981dd5ca9"
+    },
+    "sanitized-raw.jsonl.gz": {
+      "raw_process_logs": 200,
+      "compressed_bytes": 17331,
+      "sha256": "b31dc1295b481bbca93991778b76f92882ee4305a1677231b0e1cb792fd69902"
+    },
+    "recruit-regression-raw.jsonl.gz": {
+      "raw_process_logs": 80,
+      "compressed_bytes": 7483,
+      "sha256": "bca7bd5f8bff07f998e67a2ed6cdf771006800e87bd97cf92e4a994d6643fd54"
+    }
+  },
+  "source_sha256": {
+    "tests/support/exact_recruit_fixture_adapter.h": "5611adf4668366732dd1faee77891823db47afd645c093d27d6b617da7e2ed3a",
+    "tests/support/exact_build_fixture_adapter.h": "6153105c99f35f2ba685c71177be034be26da1e02ee8fb220661e993b4333735",
+    "tests/exact_build_adapter_engine_test.cpp": "fa5407196239a2d607167da0f6c0f1ac485fcd8e262ea43a96911f852d15823c",
+    "tests/run_exact_build_adapter.py": "052a9c9cbbc23606b5e168aedcf3c8e8fc0fd61c884c970c83716073195c5ec8",
+    "tests/build_exact_recruit_adapter.py": "37adae32357e221421ffd01e2bf98e43bf8a2936b81bbcf9a511a83cefd1eef5"
+  },
+  "production_rebuilt": false,
+  "historical_balance_suites_rerun": false
+}

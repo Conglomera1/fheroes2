@@ -3,10 +3,16 @@
 Parent H: `9f588bb260ba23b2214ea767001f4087d262f98e`.
 Test-only extension; production source and normal AI are unchanged.
 
-Intermediate state: **200 native building processes / 100 diagnostic pairs pass**,
-covering six isolated INI profiles; **80 recruitment regression processes** equal
-H's records exactly. Native fixture compilation/linking has no warnings. Sanitizer
-validation is pending at this intermediate checkpoint.
+Intermediate checkpoint: `a89457841f26f07707d09e204f9ff1b4776e9665`, branch
+`knight-ai-lot-c3d5i-wip1-20261110`: 200 native building processes and 80 recruitment
+regressions passed; sanitizer runs were pending at that checkpoint.
+
+Final: **200 native building processes / 100 diagnostic pairs pass** across six
+INI profiles, plus the same **200 ASan+UBSan fixture/adapter processes**, with
+identical RESULT records. **80 freshly compiled recruitment regressions** equal
+H's records exactly after the shared-owner change. Native compilation/linking has
+no warnings. The sanitized link preserves one known JPEG dependency warning;
+see the exact instrumentation limits below.
 
 ## Contract and shared lifecycle
 
@@ -89,6 +95,38 @@ Run `run_exact_build_adapter.py BINARY --output-dir DIRECTORY` with repeated
 `run_exact_recruit_adapter.py` against a freshly linked recruitment fixture to
 verify a shared-owner change. Old balance campaigns need not be rerun for this.
 
-See `results/c3d5i/` for the saved validation outputs. Stop at the saved final
-checkpoint and bilan. Exact transfers, persistence, general buildings, future
-execution and the live AI connection are later blocks.
+## Saved evidence and limits
+
+`results/c3d5i/` contains normal/instrumented observations, recruitment regression
+records, summaries, build outputs and verification/source hashes. The 480 complete
+raw process logs are preserved without loss in three `*-raw.jsonl.gz` archives.
+After gzip decompression, each JSON line has `path`, original `log` text and its
+SHA-256. Every archived log was compared back to the original output. This keeps
+the raw evidence without adding hundreds of separate log paths to the repository.
+
+ASan+UBSan instruments the building fixture/policy and instantiated shared-owner
+code; linked production game/engine objects remain uninstrumented. Recruitment
+regressions in this block are native controls, not a new instrumented recruit run.
+`ASAN_OPTIONS=detect_leaks=0`, `UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1`.
+No full-engine sanitizer or leak-validation claim. The sanitized link warns that
+system TIFF's libjpeg.so.62 may conflict with libjpeg.so.8; the warning is retained
+in `sanitized-build.txt`. Image decoding is outside this fixture, and all 200
+instrumented controls completed without a reported ASan/UBSan error.
+
+Only Farm/TG are supported; dwelling stock initialization, spells/captain/map
+effects and all other buildings remain held. The supported one-town generated
+fixture certifies empty threat coverage, not safety on real maps. No live AI
+acceptance, future-day/multi-town ownership, persistence or reconciliation of
+uncertain actions is implemented. A native case preserves a real partial training
+cycle, but this is not an end-to-end saved-game or next-turn executor test.
+
+Production source, default INI, translations, saves, resources and player packages
+are unchanged. Existing matching native objects were reused, no full production
+rebuild. The recruitment suite was rerun because its owner changed; no unrelated
+historical balance campaigns or unchanged suites were repeated.
+
+Stop at the saved final checkpoint and bilan. Proposed next bounded block:
+isolated exact Peasant transfers in both directions with a bound fixed visitor,
+source/destination checks, the hero's last unit and final conservation checks.
+**Sol / High** recommended, after the next explicit user go-ahead. Live integration,
+persistence and general building execution remain separate work.

@@ -1,0 +1,2 @@
+/usr/bin/ld: warning: libjpeg.so.62, needed by /lib/x86_64-linux-gnu/libtiff.so.6, may conflict with libjpeg.so.8
+Built isolated adapter fixture (fixture/adapter ASan+UBSan only)
