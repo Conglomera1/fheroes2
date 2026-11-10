@@ -34,6 +34,8 @@
 #include <vector>
 
 #include "taxpayer_test.h"
+#include "economy_trace.h"
+#include "knight_observer.h"
 
 #include "ai_common.h"
 #include "ai_hero_action.h"
@@ -2876,6 +2878,11 @@ int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
     TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
                        << ", tile " << hero.GetIndex() << ": selected target " << priorityTarget << ", score " << maxPriority
                        << ", moves " << hero.GetMovePoints() << ", carried Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
+    if ( Settings::Get().isKnightObserverBuild() ) {
+        ECONOMY_TRACE( 1, "AI_TARGET_EVALUATION", ",\"kind\":\"decision\",\"player\":" << static_cast<int>( hero.GetColor() )
+            << ",\"hero\":" << hero.GetID() << ",\"tile\":" << hero.GetIndex() << ",\"target\":" << priorityTarget
+            << ",\"score\":" << maxPriority << ",\"moves\":" << hero.GetMovePoints() );
+    }
     return priorityTarget;
 }
 
@@ -3070,6 +3077,11 @@ void AI::Planner::HeroesBeginMovement( Heroes & hero )
 
 void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, const MP2::MapObjectType objectType )
 {
+    if ( Settings::Get().isKnightObserverBuild() ) {
+        ECONOMY_TRACE( 1, "AI_ACTION_COMPLETE", ",\"kind\":\"actual\",\"hero\":" << hero.GetID() << ",\"tile\":" << tileIndex
+            << ",\"object\":" << static_cast<int>( objectType ) << ",\"active\":" << ( hero.isActive() ? "true" : "false" )
+            << ",\"army\":" << KnightObserver::armyJson( hero.GetArmy() ) );
+    }
     // This method is called upon action completion and the hero could no longer be available.
     // So it is to check if the hero is still present.
     if ( hero.isActive() ) {
@@ -3152,6 +3164,11 @@ void AI::Planner::HeroesActionNewPosition( Heroes & hero )
 
     Route::Path & path = hero.GetPath();
     const int32_t heroIdx = hero.GetIndex();
+    if ( Settings::Get().isKnightObserverBuild() ) {
+        ECONOMY_TRACE( 1, "AI_HERO_STEP", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( hero.GetColor() )
+            << ",\"hero\":" << hero.GetID() << ",\"tile\":" << heroIdx << ",\"moves\":" << hero.GetMovePoints()
+            << ",\"mana\":" << hero.GetSpellPoints() << ",\"target\":" << path.GetDestinationIndex() );
+    }
     if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
         TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
                            << ": position " << heroIdx << ", previous step " << path.GetFrontFrom() << ", target " << path.GetDestinationIndex()
@@ -3362,6 +3379,11 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
         }
 
         const size_t heroesBefore = heroes.size();
+        if ( Settings::Get().isKnightObserverBuild() ) {
+            ECONOMY_TRACE( 1, "AI_HERO_ORDER", ",\"kind\":\"decision\",\"player\":" << static_cast<int>( bestHero->GetColor() )
+                << ",\"hero\":" << bestHero->GetID() << ",\"tile\":" << bestHero->GetIndex() << ",\"target\":" << bestTargetIndex
+                << ",\"moves\":" << bestHero->GetMovePoints() << ",\"army\":" << KnightObserver::armyJson( bestHero->GetArmy() ) );
+        }
         _pathfinder.reEvaluateIfNeeded( *bestHero );
 
         int prevHeroPosition = bestHero->GetIndex();

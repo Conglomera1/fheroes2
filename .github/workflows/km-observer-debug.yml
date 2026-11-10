@@ -1,0 +1,47 @@
+name: Knight Mod Observer Debug x86
+on:
+  push:
+    branches: [knight-ai-observer-debug-build1-20261110]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        shell: cmd
+        run: script\windows\install_packages.bat
+      - uses: microsoft/setup-msbuild@v2
+      - name: Build observer executable
+        shell: cmd
+        run: MSBuild.exe fheroes2-vs2019.vcxproj /m /property:Platform=x86 /property:Configuration=Release-SDL2 /property:KnightObserverBuild=true /property:TaxpayerDiagnostics=true /property:TaxpayerTestBuild=false
+      - name: Package and verify
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/files/data | Out-Null
+          Copy-Item build/x86/Release-SDL2/fheroes2.exe package/fheroes2KM-debug.exe
+          Copy-Item files/data/resurrection.h2d package/files/data/resurrectionKM.h2d
+          Copy-Item files/data/training_grounds.png package/files/data/training_grounds.png
+          Copy-Item files/data/build_training_grounds.png package/files/data/build_training_grounds.png
+          Copy-Item packaging/km/Observer_Readme.txt package/Observer_Readme.txt
+          Copy-Item LICENSE package/LICENCE
+          $binary = [IO.File]::ReadAllBytes("$pwd/package/fheroes2KM-debug.exe")
+          $pe = [BitConverter]::ToInt32($binary, 0x3c)
+          if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne 332) { throw 'Expected x86 executable' }
+          $strings = [Text.Encoding]::ASCII.GetString($binary)
+          foreach ($marker in @('resurrectionKM.h2d', 'KNIGHT_OBSERVER_20261110', 'OBSERVER_KINGDOM', 'AI_HERO_ORDER', 'KNIGHT_ROLE_REVIEW')) {
+            if (-not $strings.Contains($marker)) { throw "Missing marker $marker" }
+          }
+          $files = @(Get-ChildItem package -Recurse -File)
+          if ($files.Count -ne 6) { throw 'Unexpected observer package contents' }
+          git rev-parse HEAD | Out-File -Encoding ascii package/SOURCE_COMMIT.txt
+          Compress-Archive -Path package/* -DestinationPath KM-Observer-Debug-Windows-x86.zip
+          Get-FileHash KM-Observer-Debug-Windows-x86.zip -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: KM-Observer-Debug-Windows-x86
+          path: KM-Observer-Debug-Windows-x86.zip
+          if-no-files-found: error

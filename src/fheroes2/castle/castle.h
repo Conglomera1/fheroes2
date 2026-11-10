@@ -299,7 +299,8 @@ public:
     // Draw image castle to position.
     void DrawImageCastle( const fheroes2::Point & pt ) const;
 
-    CastleDialogReturnValue OpenDialog( const bool openConstructionWindow, const bool openMageGuildWindow, const bool fade, const bool renderBackgroundDialog );
+    CastleDialogReturnValue OpenDialog( const bool openConstructionWindow, const bool openMageGuildWindow, const bool fade, const bool renderBackgroundDialog,
+                                       const bool readOnly = false );
 
     int GetAttackModificator( const std::string * /* unused */ ) const
     {

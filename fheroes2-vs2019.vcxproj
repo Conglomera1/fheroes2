@@ -57,5 +57,10 @@
       <PreprocessorDefinitions>FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(KnightObserverBuild)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>FHEROES2_KNIGHT_OBSERVER;FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

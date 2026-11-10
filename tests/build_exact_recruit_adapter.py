@@ -16,6 +16,7 @@ parser.add_argument("--ldflags", default="")
 parser.add_argument("--sanitize", action="store_true", help="Instrument fixture/adapter only; game objects remain uninstrumented")
 parser.add_argument("--source", default="tests/exact_recruit_adapter_engine_test.cpp", help="Repository-relative isolated native fixture")
 parser.add_argument("--exclude-object", action="append", default=[], help="Game object included directly by the fixture, repeatable")
+parser.add_argument("--define", action="append", default=[], help="Additional matching build define, repeatable")
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 output = args.output.resolve()
@@ -32,7 +33,7 @@ if not source.is_relative_to(root / "tests") or not source.is_file():
 fixture_object = output.with_suffix(".o")
 subprocess.run(["g++", "-c", str(source), "-o", str(fixture_object), "-std=c++17", "-O0", "-g", "-fsigned-char", "-pthread",
                 "-Wall", "-Wextra", "-Wshadow", "-Wfloat-conversion", "-pedantic", "-UNDEBUG", "-DWITH_DEBUG", "-DWITH_IMAGE",
-                "-DFHEROES2_TAXPAYER_DIAGNOSTICS", *sanitizers, *includes, *shlex.split(args.sdl_flags)], check=True)
+                "-DFHEROES2_TAXPAYER_DIAGNOSTICS", *["-D" + x for x in args.define], *sanitizers, *includes, *shlex.split(args.sdl_flags)], check=True)
 subprocess.run(["g++", "-o", str(output), str(fixture_object), *map(str, objects),
                 str(root / "src/dist/engine/libengine.a"), str(root / "src/dist/thirdparty/libsmacker/libsmacker.a"),
                 "-pthread", *sanitizers, *shlex.split(args.sdl_libs), "-lz", *shlex.split(args.ldflags)], check=True)

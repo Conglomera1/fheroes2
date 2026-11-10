@@ -40,6 +40,7 @@
 #include "economy_inputs.h"
 #include "economy_pipeline.h"
 #include "economy_trace.h"
+#include "knight_observer.h"
 #include "army.h"
 #include "artifact_ultimate.h"
 #include "audio.h"
@@ -668,6 +669,8 @@ void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vect
 
 fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 {
+    KnightObserver::kingdomState( kingdom, "ai_turn_begin" );
+    const fheroes2::TaxpayerTraceScope observerTurn( [&kingdom]() { KnightObserver::kingdomState( kingdom, "ai_turn_end" ); } );
     class AIAutoControlModeCommitter
     {
     public:

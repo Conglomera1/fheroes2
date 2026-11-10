@@ -218,7 +218,7 @@ namespace
 }
 
 Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionWindow, const bool openMageGuildWindow, const bool fade,
-                                                    const bool renderBackgroundDialog )
+                                                    const bool renderBackgroundDialog, const bool readOnly )
 {
     // Set the cursor image. This dialog does not require a cursor restorer. It is called from other dialogs that have the same cursor
     // or from the Game Area that will set the appropriate cursor after this dialog is closed.
@@ -309,13 +309,13 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
         return CastleDialogReturnValue::DoNothing;
     };
 
-    if ( openConstructionWindow && isBuild( BUILD_CASTLE ) ) {
+    if ( !readOnly && openConstructionWindow && isBuild( BUILD_CASTLE ) ) {
         const CastleDialogReturnValue constructionResult = constructionDialogHandler();
         if ( constructionResult != CastleDialogReturnValue::DoNothing ) {
             return constructionResult;
         }
     }
-    else if ( openMageGuildWindow && isBuild( BUILD_MAGEGUILD ) ) {
+    else if ( !readOnly && openMageGuildWindow && isBuild( BUILD_MAGEGUILD ) ) {
         const auto result = mageGuildDialogHandler( hero );
         if ( result != CastleDialogReturnValue::DoNothing ) {
             return result;
@@ -362,12 +362,12 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
     };
 
     // Castle army (top) bar.
-    ArmyBar topArmyBar( &_army, false, false );
+    ArmyBar topArmyBar( &_army, false, readOnly );
     setArmyBarParameters( topArmyBar, { dialogRoi.x + 112, rectSign1.y } );
     topArmyBar.Redraw( display );
 
     // Hero army (bottom) bar.
-    ArmyBar bottomArmyBar( hero ? &hero->GetArmy() : nullptr, false, false );
+    ArmyBar bottomArmyBar( hero ? &hero->GetArmy() : nullptr, false, readOnly );
     setArmyBarParameters( bottomArmyBar, { dialogRoi.x + 112, rectSign2.y } );
 
     if ( hero && alphaHero != 0 ) {
@@ -388,7 +388,7 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
     // Render castle buildings.
     CastleDialog::redrawAllBuildings( *this, dialogRoi.getPosition(), cacheBuildings, fadeBuilding, 0 );
 
-    if ( GetKingdom().GetCastles().size() < 2 ) {
+    if ( readOnly || GetKingdom().GetCastles().size() < 2 ) {
         buttonPrevCastle.disable();
         buttonNextCastle.disable();
     }
@@ -403,10 +403,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
         bool isRedrawNeeded{ false };
 
         // Army bar events processing.
-        if ( ( bottomArmyBar.isValid()
+        if ( !readOnly && ( ( bottomArmyBar.isValid()
                && ( ( le.isMouseCursorPosInArea( topArmyBar.GetArea() ) && topArmyBar.QueueEventProcessing( bottomArmyBar, &statusMessage ) )
                     || ( le.isMouseCursorPosInArea( bottomArmyBar.GetArea() ) && bottomArmyBar.QueueEventProcessing( topArmyBar, &statusMessage ) ) ) )
-             || ( !bottomArmyBar.isValid() && le.isMouseCursorPosInArea( topArmyBar.GetArea() ) && topArmyBar.QueueEventProcessing( &statusMessage ) ) ) {
+             || ( !bottomArmyBar.isValid() && le.isMouseCursorPosInArea( topArmyBar.GetArea() ) && topArmyBar.QueueEventProcessing( &statusMessage ) ) ) ) {
             isRedrawNeeded = true;
         }
 
@@ -452,7 +452,10 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
         fheroes2::Rect area;
 
-        if ( statusMessage.empty() ) {
+        if ( readOnly ) {
+            area = statusBar.updateMessage( "[OBSERVER] Read only: no purchases or army changes" );
+        }
+        else if ( statusMessage.empty() ) {
             area = statusBar.updateMessage( currentDate );
         }
         else {
@@ -493,6 +496,35 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
     while ( le.HandleEvents() && result == CastleDialogReturnValue::DoNothing ) {
         bool needRedraw = false;
         bool needFadeIn = false;
+
+        // Observation has its own event path. Never enter purchase, transfer,
+        // recruitment, hero management, or building hotkey handlers below.
+        if ( readOnly ) {
+            buttonExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonExit.area() ) );
+            if ( le.MouseClickLeft( buttonExit.area() ) || Game::HotKeyCloseWindow() ) {
+                result = CastleDialogReturnValue::Close;
+                break;
+            }
+            topArmyBar.QueueEventProcessing();
+            if ( bottomArmyBar.isValid() ) bottomArmyBar.QueueEventProcessing();
+            if ( le.MouseClickLeft( resActiveArea ) || le.isMouseRightButtonPressedInArea( resActiveArea ) ) {
+                fheroes2::showKingdomIncome( GetKingdom(), le.MouseClickLeft( resActiveArea ) ? Dialog::OK : 0 );
+            }
+            else if ( hero && le.isMouseRightButtonPressedInArea( rectSign2 ) ) Dialog::QuickInfo( *hero );
+            else if ( isBuild( BUILD_CAPTAIN ) && le.isMouseRightButtonPressedInArea( rectSign1 ) ) Dialog::QuickInfo( GetCaptain() );
+            for ( auto it = cacheBuildings.crbegin(); it != cacheBuildings.crend(); ++it ) {
+                if ( !isBuild( it->id ) ) continue;
+                const bool clicked = std::any_of( it->areas.begin(), it->areas.end(), [&]( const auto & area ) {
+                    return le.MouseClickLeft( area ) || le.isMouseRightButtonPressedInArea( area );
+                } );
+                if ( !clicked ) continue;
+                if ( GetActualDwelling( it->id ) != BUILD_NOTHING ) Dialog::DwellingInfo( Monster( _race, it->id ), getMonstersInDwelling( it->id ) );
+                else fheroes2::showStandardTextMessage( GetStringBuilding( it->id ), GetDescriptionBuilding( it->id ), Dialog::ZERO );
+                break;
+            }
+            display.render( dialogRoi );
+            continue;
+        }
 
         // During hero purchase or building construction skip any interaction with the dialog.
         if ( alphaHero >= 255 && fadeBuilding.isFadeDone() ) {

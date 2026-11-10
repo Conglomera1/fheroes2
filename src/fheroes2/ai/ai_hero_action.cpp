@@ -130,6 +130,8 @@ namespace
             return false;
         }
 
+        if ( Settings::Get().isTaxpayerTestMapRevealEnabled() ) return true;
+
         // Show AI hero animation if he is visible (or barely visible) for human player.
         if ( world.getTile( indexFrom ).getFogDirection() != DIRECTION_ALL ) {
             return true;
@@ -155,7 +157,7 @@ namespace
         }
 
         // Show animation on this tile if it is visible (or barely visible) to the human player.
-        return ( tile.getFogDirection() != DIRECTION_ALL );
+        return Settings::Get().isTaxpayerTestMapRevealEnabled() || ( tile.getFogDirection() != DIRECTION_ALL );
     }
 
     int AISelectSkillFromArena( const Heroes & hero )

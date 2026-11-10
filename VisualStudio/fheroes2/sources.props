@@ -55,6 +55,7 @@
     <ClCompile Include="src\fheroes2\ai\economy_search.cpp" />
     <ClCompile Include="src\fheroes2\ai\economy_stability.cpp" />
     <ClCompile Include="src\fheroes2\ai\knight_economy.cpp" />
+    <ClCompile Include="src\fheroes2\system\knight_observer.cpp" />
     <ClCompile Include="src\fheroes2\army\army.cpp" />
     <ClCompile Include="src\fheroes2\army\army_bar.cpp" />
     <ClCompile Include="src\fheroes2\army\army_troop.cpp" />

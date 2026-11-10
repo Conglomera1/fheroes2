@@ -67,7 +67,7 @@ int main(int argc,char**argv){
  for(auto color:colors) {
   Players::SetPlayerControl(color, CONTROL_HUMAN);
   Players::Get(color)->setAIAutoControlMode(true);
-  world.ClearFog(color);
+  if ( !conf.isKnightObserverBuild() ) world.ClearFog(color);
  }
  GameOver::Result::Get().Reset();
  Interface::GameArea::updateMapFogDirections();

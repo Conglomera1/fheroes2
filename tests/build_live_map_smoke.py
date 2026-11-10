@@ -14,10 +14,11 @@ p.add_argument("--output", type=Path, required=True)
 p.add_argument("--sdl-flags", required=True)
 p.add_argument("--sdl-libs", required=True)
 p.add_argument("--ldflags", default="")
+p.add_argument("--define", action="append", default=[], help="Additional matching production define")
 a = p.parse_args(); root = Path(__file__).resolve().parents[1]; output = a.output.resolve()
 work = output.parent / (output.name + "-objects"); work.mkdir(parents=True, exist_ok=True)
 includes = ["-I" + str(x) for x in (root / "src/fheroes2").iterdir() if x.is_dir()] + ["-I" + str(root / "src/engine"), "-I" + str(root / "src/thirdparty/libsmacker")]
-flags = ["g++", "-std=c++17", "-O0", "-g", "-DWITH_DEBUG", "-DWITH_IMAGE", "-DFHEROES2_TAXPAYER_DIAGNOSTICS", *includes, *shlex.split(a.sdl_flags)]
+flags = ["g++", "-std=c++17", "-O0", "-g", "-DWITH_DEBUG", "-DWITH_IMAGE", "-DFHEROES2_TAXPAYER_DIAGNOSTICS", *["-D" + x for x in a.define], *includes, *shlex.split(a.sdl_flags)]
 patches = {
     "screen": ("src/engine/screen.cpp", "void Display::_renderFrame( const Rect & roi ) const\n    {", "void Display::_renderFrame( const Rect & roi ) const\n    {\n        static_cast<void>( roi ); return;"),
     "localevent": ("src/engine/localevent.cpp", "if ( eventProcessingTimer.getMs() < globalLoopSleepTime )", "if ( false )"),

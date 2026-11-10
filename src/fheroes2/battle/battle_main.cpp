@@ -32,6 +32,8 @@
 #include <vector>
 
 #include "taxpayer_test.h"
+#include "economy_trace.h"
+#include "knight_observer.h"
 
 #include "ai_planner.h"
 #include "army.h"
@@ -293,6 +295,20 @@ namespace
 Battle::Result Battle::Loader( Army & attackingArmy, Army & defendingArmy, const int32_t tileIndex )
 {
     Result result;
+    const bool observer = Settings::Get().isKnightObserverBuild() && fheroes2::taxpayerSimulationDepth == 0;
+    const std::string attackerBefore = observer ? KnightObserver::armyJson( attackingArmy ) : "[]";
+    const std::string defenderBefore = observer ? KnightObserver::armyJson( defendingArmy ) : "[]";
+    const auto attackerOwner = attackingArmy.GetColor(), defenderOwner = defendingArmy.GetColor();
+    const fheroes2::TaxpayerTraceScope observerBattle( [&]() {
+        if ( observer ) {
+            ECONOMY_TRACE( 1, "OBSERVER_BATTLE_RESULT", ",\"kind\":\"actual\",\"tile\":" << tileIndex
+                << ",\"attacker\":" << static_cast<int>( attackerOwner ) << ",\"defender\":" << static_cast<int>( defenderOwner )
+                << ",\"attacker_before\":" << attackerBefore << ",\"defender_before\":" << defenderBefore
+                << ",\"attacker_after\":" << KnightObserver::armyJson( attackingArmy ) << ",\"defender_after\":" << KnightObserver::armyJson( defendingArmy )
+                << ",\"attacker_result\":" << result.attacker << ",\"defender_result\":" << result.defender
+                << ",\"attacker_experience\":" << result.attackerExperience << ",\"defender_experience\":" << result.defenderExperience );
+        }
+    } );
     const uint32_t attackerPeasantsBefore = attackingArmy.GetCountMonsters( Monster::PEASANT );
     const uint32_t defenderPeasantsBefore = defendingArmy.GetCountMonsters( Monster::PEASANT );
     const PlayerColor attackerColor = attackingArmy.GetColor();
