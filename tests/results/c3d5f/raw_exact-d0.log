@@ -1,0 +1,4 @@
+RETURN_CODE=0
+PROBE_BEGIN
+PROBE_END
+RESULT mode=raw_exact invoked=1 accepted=1 requested=8 stock_before=8 stock_after=0 units_added=8 stock_removed=8 gold_spent=1200 garrison_added=8 visitor_added=0 receipt_consistent=1

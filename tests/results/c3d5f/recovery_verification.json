@@ -1,0 +1,41 @@
+{
+  "kind": "offline_recovery_verification_not_a_new_engine_run",
+  "recovered_records": 18,
+  "consistent_observations": 14,
+  "red_observations": 4,
+  "distinct_red_scenarios": 2,
+  "diagnostic_pairs_equal": 9,
+  "raw_logs_matched": 18,
+  "production_src_tree": "94535930b5eddbd47ce224b47250c6fca10e2869",
+  "production_tracked_changes": [],
+  "compiler_warning_error_lines_in_recovered_logs": 0,
+  "caveat": "Prior build/run artifacts recovered; no compilation, game process, sanitizers or historical suites rerun in this block. Source fixture observes Archer recruitment only.",
+  "recovered_artifact_sha256": {
+    "knight-ai-c3d5f/tests/recruit_receipt_probe.cpp": "f66ef30b6803f87bc245ce83c60aa3641c2edce95e6f0e4dddd7e1e32daa4b03",
+    "knight-ai-c3d5f/tests/run_recruit_receipt_probe.py": "627e11de0dd534ca717f8211696490b8ffafa08b02e4d0bc9aa2581518343881",
+    "c3d5f-build.log": "ef83a8149938f35e1b32aed267c7d35a5cdf5214f3c890759737754ec7cda16f",
+    "c3d5f-probe-compile.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "c3d5f-recruit-receipt-probe": "22ffe7f13cb513b91acc66cab3666927a687af9fdd9eef04279e82ce772a76bb",
+    "c3d5f-fheroes2-linux": "84253c36dab534e6a6aa82c562ae8e420de20af47c715b431822d00ed1d91005"
+  },
+  "raw_log_sha256": {
+    "full-d0.log": "65a4258f3e4522232bc473d85b78a6c80cddef4e82d184922f79b6839c0affb6",
+    "full-d2.log": "2259394339ad7643d322b88ff022143a6a677fe8e2fe2864660dac11baa0b722",
+    "guarded_empty-d0.log": "6511d4c03e4f22fc066f456094e88088c006670cddcd3e57f3fe6d65a04af02d",
+    "guarded_empty-d2.log": "145253a227bed29fc3e2509851919585423f17966ef99d130471c16ab0e85841",
+    "guarded_overstock-d0.log": "abf90d5d943c3907ba054c86892090d6c1ee1c3951f3410f34eacca8b83fbeea",
+    "guarded_overstock-d2.log": "7dc31eed207203e2ab0faa1c6a408c1b6b0d5b052d226f17338001e99d4d44e4",
+    "poor-d0.log": "2a040e554af8e0a6c6895453f5531b325e6d710e1d6de0dd0821a1a82c747b4e",
+    "poor-d2.log": "1c73d82d0e01cd7d021e7824ac8d00af107133c61cffffcb6313427e5be6f353",
+    "raw_empty-d0.log": "2d77cb31bffeb62c165eafe58b29ce853d630b9cb27aea1b26659af329eaf353",
+    "raw_empty-d2.log": "e6572ace0b57e422f53d82fa04228810998ae2d0edd11e0d17aa294b24652165",
+    "raw_exact-d0.log": "36755b81a017adfc1dfa150ffc1bc0d8f3e3974d1bb5f4a01f5209e10d89cff3",
+    "raw_exact-d2.log": "0ebe97b44ddc0989e697d330c139ae876ab5ded418a5620c1496a46732290085",
+    "raw_overstock-d0.log": "f996bd510a9d16e1067234ba8300be0bc4ce0706b5286fa1861853f6611a92a7",
+    "raw_overstock-d2.log": "52307361ac754eb36ad7c23745fe7471ff0ddd82f8e6221dac7376b1bcf162d0",
+    "raw_zero-d0.log": "61fbb9d924032a3e6d8231d3286d110159e89dac8b5b4f7a6dd409dd14f86372",
+    "raw_zero-d2.log": "d4a5451856971526632d7672b7465fed5fea172b7a07666708e57f844b575a25",
+    "visitor-d0.log": "b7b6c9d9820aa2fbf805e515d7019a2ba2c384295c52c93ccabd3e9e10535067",
+    "visitor-d2.log": "7d1ef69115bad5df88d22a6257017e483ab06d5956d9d675b21573670ac04cac"
+  }
+}

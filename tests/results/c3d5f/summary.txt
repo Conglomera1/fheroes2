@@ -1,0 +1,10 @@
+CONTROL raw_exact: requested=8 stock=8 added=8 removed=8 gold=1200; diagnostics neutral
+RED raw_overstock: requested=9 stock=8 added=9 removed=8 gold=1350; diagnostics neutral
+CONTROL guarded_overstock: requested=9 stock=8 added=0 removed=0 gold=0; diagnostics neutral
+RED raw_empty: requested=1 stock=0 added=1 removed=0 gold=150; diagnostics neutral
+CONTROL guarded_empty: requested=1 stock=0 added=0 removed=0 gold=0; diagnostics neutral
+CONTROL raw_zero: requested=0 stock=8 added=0 removed=0 gold=0; diagnostics neutral
+CONTROL poor: requested=8 stock=8 added=0 removed=0 gold=0; diagnostics neutral
+CONTROL full: requested=8 stock=8 added=0 removed=0 gold=0; diagnostics neutral
+CONTROL visitor: requested=8 stock=8 added=8 removed=8 gold=1200; diagnostics neutral
+Completed 18 native observations: 14 consistent controls, 4 RED API results (raw exit codes retained; no API fix).

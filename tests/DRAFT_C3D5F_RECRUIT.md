@@ -1,5 +1,10 @@
 # C3D5F DRAFT — recruitment receipt probe
 
+Historical draft instructions below. The draft was subsequently compiled and
+extended locally; completed observations were recovered and saved. Current status:
+see `RESULTS_C3D5F_FINAL.md`. The original draft source is retained in commit
+39d2cd4b497f22789f94a5db82cba8ca501b71c6; its replacement is `recruit_receipt_probe.cpp`.
+
 Base: 9e84baeb37a814d5487b126ad2b76231ec99fd3f (validated C3D5D).
 Source draft only: NOT compiled, NOT executed, NOT a validated checkpoint.
 No production code or global recruitment behavior is changed.
