@@ -3,9 +3,14 @@
 Parent I: `7e836c4c2204279dad1a4644d9fa21ae135d5b71`.
 Test-only policy/native primitive; no production caller or legacy AI transfer hook.
 
-Intermediate state: **240 native transfer processes / 120 diagnostic pairs pass**
-across four profiles and both directions. Compilation/link has no warnings.
-Sanitizer runs are pending at this intermediate checkpoint.
+Intermediate checkpoint: `43fac94427e33366dcbdca9899567cffbbfa96b3`, branch
+`knight-ai-lot-c3d5j-wip1-20261110`: 240 native processes passed; sanitizer runs
+were pending at that checkpoint.
+
+Final: **240 native transfer processes / 120 diagnostic pairs pass** across four
+profiles and both directions, plus the same **240 ASan+UBSan fixture/adapter
+processes**. RESULT records are identical. Native compilation/link has no warnings.
+Instrumented linking retains the known JPEG dependency warning, detailed below.
 
 ## Acceptance and evidence
 
@@ -106,6 +111,25 @@ No existing owner, recruitment/build policy or production source is modified.
 The old H/I results remain preserved; unchanged suites and historical balance
 campaigns need not be rerun merely to add this isolated policy.
 
+The 480 complete raw process logs are saved losslessly in two `*-raw.jsonl.gz`
+archives under `results/c3d5j/`. Each decompressed JSON line stores filename,
+original log text and SHA-256; every entry was checked against its source log.
+Observations, summaries, build outputs and source/archival hashes are retained.
+
+ASan+UBSan covers the fixture, new exact-transfer policy/primitive and instantiated
+shared owner only. Linked engine/game objects are uninstrumented. Leak detection
+is disabled; UBSan halts on error. This is not full-engine sanitizer or leak
+validation. The sanitized link warns that TIFF's libjpeg.so.62 may conflict with
+libjpeg.so.8; the warning is preserved in `sanitized-build.txt`. Image decoding is
+not exercised. All 240 instrumented controls completed without a reported
+ASan/UBSan error. No dependencies or game code were changed to hide that warning.
+
 Stop after the saved final checkpoint and bilan. Live accepted-program ownership,
 future-day/multi-town execution, persistence, uncertainty reconciliation and real
 map/KingdomTurn/legacy callback integration remain separate work.
+
+Proposed next bounded block: combine the three checked operations (supported
+Farm/TG build, recruitment and bound transfer) in one explicitly accepted local
+program, and verify refresh/order/partially executed effects when a later step
+fails. Remain in the native fixture before live AI integration. **Sol / High**
+recommended, only after the next explicit user go-ahead.

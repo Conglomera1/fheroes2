@@ -1,0 +1,46 @@
+{
+  "parent": "7e836c4c2204279dad1a4644d9fa21ae135d5b71",
+  "intermediate_commit": "43fac94427e33366dcbdca9899567cffbbfa96b3",
+  "production_src_tree": "94535930b5eddbd47ce224b47250c6fca10e2869",
+  "native_processes": 240,
+  "instrumented_processes": 240,
+  "diagnostic_pairs_per_matrix": 120,
+  "directions": [
+    "garrison",
+    "visitor"
+  ],
+  "profiles": [
+    "default",
+    "tg",
+    "custom",
+    "compatibility"
+  ],
+  "results_equal": true,
+  "synthetic_distinct_pure_oracles": 26,
+  "old_owner_and_policies_changed": false,
+  "old_suites_rerun": false,
+  "production_rebuilt": false,
+  "leak_detection": false,
+  "ubsan_halt_on_error": true,
+  "instrumentation_scope": "Fixture, test-only exact transfer policy/native primitive and instantiated shared owner only; linked production objects are uninstrumented",
+  "native_build_warning_lines": 0,
+  "sanitized_link_warning": "libjpeg.so.62 dependency of system libtiff may conflict with libjpeg.so.8; preserved in sanitized-build.txt. Image decoding not exercised.",
+  "counter_stress_taxation": "UINT32_MAX destination modes explicitly use temporary rate 0 to isolate troop-count guard from capped-income behavior",
+  "archives": {
+    "native-raw.jsonl.gz": {
+      "raw_logs": 240,
+      "bytes": 18095,
+      "sha256": "d1677a5987593ea5bcfcd43b393c4916b0282f4738df2100d7cdd65b311459c1"
+    },
+    "sanitized-raw.jsonl.gz": {
+      "raw_logs": 240,
+      "bytes": 18155,
+      "sha256": "cecd05e273bfa092d3aed036ea7aa0ca07f1c0cb2fe883e4f105afd59a989104"
+    }
+  },
+  "source_sha256": {
+    "tests/support/exact_transfer_fixture_adapter.h": "9895142691e6e682661af78fea9703aeda1f01a6c325b6566adb9d4c4568a683",
+    "tests/exact_transfer_adapter_engine_test.cpp": "ca1e24c19625bdc937cc09ca0b8cdabeb7b1c666953cbae068e308a7e5c1c2f8",
+    "tests/run_exact_transfer_adapter.py": "77e5d1c4f2be574545bc1e8bf58603f747d70a02df116694d07b455695179daa"
+  }
+}
