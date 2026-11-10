@@ -28,7 +28,7 @@ responsible for actual recruitment, hero movement and threatened towns.
   Seeded Green Knight town 5168 built TG on day 1, trained seventeen units through
   day 8, then paid for Farm reconversion on day 8. Forecasts favored the TG first
   and Farm later; production BUILD_ACTION receipts confirm both purchases.
-- This one seeded, revealed-map run establishes integration, not balanced or
+- This one seeded, normal-scouting run establishes integration, not balanced or
   stable behavior across maps. Weekly role switching remains a pilot heuristic.
 - The 2000-gold reserve applies to this role decision and hypothetical buying;
   the ordinary AI can spend below it afterwards (observed in the map run).
@@ -53,7 +53,9 @@ Build and run entry points:
   assets and an existing map through the normal game data layout. The KM resource
   archive is copied from files/data/resurrection.h2d under resurrectionKM.h2d,
   exactly as in .github/workflows/km-alpha.yml.
-- The map runner seeds one Knight town and treasury and reveals the map. It is
+- The map runner seeds one Knight town and treasury and initializes ordinary scouting. It is
   a controlled integration smoke, not an unchanged campaign or balance study.
 
 No proprietary map or original game asset is included in these results.
+
+Visibility correction from the observer audit: World::ClearFog scouts around owned towns, heroes and mines, rather than revealing the entire map.

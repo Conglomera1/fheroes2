@@ -1,0 +1,62 @@
+{
+  "native_full_observer_build": {
+    "exit_code": 0,
+    "warnings": 0
+  },
+  "release_syntax": {
+    "observer": 0,
+    "ordinary": 0,
+    "translation_units_each": 7,
+    "warnings": 0
+  },
+  "ui_isolation": {
+    "exit_code": 0,
+    "world_serialization_identical": true,
+    "serialized_bytes": 598506,
+    "ai_hidden_tiles_before_after": 11567,
+    "human_hidden_tiles_before_after": 11567,
+    "map_tiles": 11664,
+    "actual_ctrl_click_entry_tested": true,
+    "read_only_army_purchase_navigation_keys_tested": true
+  },
+  "map_smoke": {
+    "exit_code": 0,
+    "days": 14,
+    "elapsed_seconds": 13.46,
+    "json_records": 7594,
+    "log_bytes": 3095991,
+    "gameplay_visibility": "normal startup scouting",
+    "events": {
+      "OBSERVER_KINGDOM": 168,
+      "OBSERVER_TOWN": 303,
+      "OBSERVER_HERO": 505,
+      "AI_ACTION_COMPLETE": 795,
+      "AI_TARGET_EVALUATION": 1965,
+      "AI_HERO_ORDER": 802,
+      "AI_HERO_STEP": 1867,
+      "OBSERVER_BATTLE_RESULT": 47,
+      "KNIGHT_ROLE_REVIEW": 145,
+      "BUILD_ACTION": 106,
+      "TROOP_PURCHASE": 61,
+      "CONSCRIPTION_DAY": 13
+    }
+  },
+  "windows_package": {
+    "package_bytes": 3597738,
+    "package_sha256": "d72f481b86821cb88e315a0a92d51443d3bb8090db1e32baaa61edd918e136f0",
+    "source_commit": "eb94d12ada78a05a5b06c7633a65c75e3d1e3995",
+    "pe_machine": 332,
+    "package_files": [
+      "files/data/build_training_grounds.png",
+      "files/data/resurrectionKM.h2d",
+      "files/data/training_grounds.png",
+      "fheroes2KM-debug.exe",
+      "LICENCE",
+      "Observer_Readme.txt",
+      "SOURCE_COMMIT.txt"
+    ],
+    "workflow": "https://github.com/Conglomera1/fheroes2/actions/runs/42741240872",
+    "status": "success"
+  },
+  "raw_local_logs": "Not included: transient workspace was restored during interruption; results above were observed in the completed executions. GitHub Actions build logs remain available."
+}

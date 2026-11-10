@@ -22,7 +22,7 @@
     "END 14"
   ],
   "controlled": true,
-  "full_information": true,
+  "full_information": false,
   "seeded_town": 5168,
   "seeded_gold": 20000,
   "current_ai_objects": true,
@@ -157,5 +157,6 @@
     "OPENING_BALANCE": 6,
     "SESSION_BEGIN": 1,
     "TROOP_PURCHASE": 52
-  }
+  },
+  "visibility_correction": "World::ClearFog performs normal owned scouting, not full-map reveal. Observer presentation does not change gameplay fog."
 }

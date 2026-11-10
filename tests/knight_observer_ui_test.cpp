@@ -57,15 +57,17 @@ int main( int argc, char ** argv )
     Maps::FileInfo map; assert( map.readMP2Map( argv[1], false ) ); conf.setCurrentMapInfo( map ); conf.GetPlayers().Init( map ); conf.GetPlayers().SetStartGame();
     Players::SetPlayerControl( PlayerColor::BLUE, CONTROL_HUMAN );
     assert( world.LoadMapMP2( argv[1], map.version == GameVersion::SUCCESSION_WARS ) ); world.NewDay();
+    for ( auto color : PlayerColorsVector( conf.GetPlayers().GetColors() ) ) world.ClearFog( color ); // Ordinary game startup scouting.
     conf.SetCurrentColor( PlayerColor::BLUE );
-    auto & enemy = world.GetKingdom( PlayerColor::GREEN ); assert( enemy.isControlAI() && !enemy.GetCastles().empty() );
+    auto & enemy = world.GetKingdom( PlayerColor::RED ); assert( enemy.isControlAI() && !enemy.GetCastles().empty() );
     Castle & town = *enemy.GetCastles().front();
+    town.GetArmy().JoinTroop( Monster::PEASANT, 20, false ); town.GetArmy().JoinTroop( Monster::ARCHER, 5, false );
     uint32_t enemyHidden = 0, humanHidden = 0;
     for ( size_t i = 0; i < world.getSize(); ++i ) {
-        enemyHidden += world.getTile( static_cast<int32_t>( i ) ).isFog( PlayerColor::GREEN );
+        enemyHidden += world.getTile( static_cast<int32_t>( i ) ).isFog( PlayerColor::RED );
         humanHidden += world.getTile( static_cast<int32_t>( i ) ).isFog( PlayerColor::BLUE );
     }
-    assert( enemyHidden && humanHidden );
+    assert( enemyHidden && humanHidden && enemyHidden < world.getSize() && humanHidden < world.getSize() );
     auto & ui = Interface::AdventureMap::Get(); ui.reset(); ui.getStatusPanel().Reset(); ui.getRadar().Build(); ui.getRadar().SetHide( false );
     Interface::GameArea::updateMapFogDirections();
     const auto before = snapshot();

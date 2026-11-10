@@ -1,5 +1,5 @@
 // Bounded real-map smoke, derived from the earlier balance runner.
-// Full-information, all-AI control, one seeded Knight town; not an unchanged campaign.
+// All-AI control, one seeded Knight town; normal gameplay fog, not an unchanged campaign.
 #include "ai_planner.h"
 #include "map_format_info.h"
 #include "interface_gamearea.h"
@@ -67,7 +67,7 @@ int main(int argc,char**argv){
  for(auto color:colors) {
   Players::SetPlayerControl(color, CONTROL_HUMAN);
   Players::Get(color)->setAIAutoControlMode(true);
-  if ( !conf.isKnightObserverBuild() ) world.ClearFog(color);
+  world.ClearFog(color); // Normal initial scouting around owned towns/heroes/mines only.
  }
  GameOver::Result::Get().Reset();
  Interface::GameArea::updateMapFogDirections();
