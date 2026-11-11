@@ -44,6 +44,8 @@
 #include "heroes.h"
 #include "kingdom.h"
 #include "knight_economy.h"
+#include "knight_construction.h"
+#include "economy_project.h"
 #include "logging.h"
 #include "maps_tiles.h"
 #include "monster.h"
@@ -169,6 +171,141 @@ namespace
         return genericBuildOrder;
     }
 
+    namespace KC = AI::KnightConstruction;
+    namespace EP = AI::EconomyProject;
+    KC::Resources constructionResources( const Funds & f )
+    { return { f.gold, f.wood, f.ore, f.mercury, f.sulfur, f.crystal, f.gems }; }
+    const std::array<uint32_t, 10> knightPrimaryOrder{ BUILD_STATUE, DWELLING_MONSTER1, DWELLING_MONSTER2, BUILD_WELL,
+        DWELLING_MONSTER3, BUILD_TAVERN, DWELLING_MONSTER4, DWELLING_MONSTER6, DWELLING_MONSTER5, BUILD_WEL2 };
+    struct ConstructionContext { const Kingdom * kingdom; KC::Ledger ledger; };
+    thread_local std::optional<ConstructionContext> constructionContext;
+
+    bool primaryReady( const Castle & castle, const uint32_t building, const uint32_t day )
+    {
+        if ( !castle.isCastle() || castle.isBuild( building ) || castle.isBuildingDisabled( building )
+             || ( building == BUILD_WEL2 && castle.hasTrainingGrounds() )
+             || !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), day )
+             || !Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), static_cast<BuildingType>( building ) ) ) return false;
+        const auto required = static_cast<uint32_t>( fheroes2::getBuildingRequirement( castle.GetRace(), static_cast<BuildingType>( building ) ) );
+        for ( uint32_t bit = 1; bit; bit <<= 1 ) if ( ( required & bit ) && !castle.isBuild( bit ) ) return false;
+        const auto status = castle.CheckBuyBuilding( building );
+        return status == BuildingStatus::ALLOW_BUILD || status == BuildingStatus::LACK_RESOURCES || status == BuildingStatus::NOT_TODAY;
+    }
+
+    std::optional<KC::Resources> tomorrowFunds( const Kingdom & kingdom )
+    {
+        if ( world.CountDay() == UINT32_MAX ) return {};
+        const auto projection = Economy::forecast( kingdom.economySnapshot(), Conscription::settings(), 1 );
+        if ( !projection.complete ) return {};
+        return EP::funds( projection.end );
+    }
+
+    void reservePrimary( KC::Ledger & ledger, const Castle & castle, const KC::Resources & tomorrow, const size_t order )
+    {
+        if ( castle.GetRace() != Race::KNGT || world.CountDay() == UINT32_MAX ) return;
+        for ( size_t i = 0; i < knightPrimaryOrder.size(); ++i ) {
+            const auto building = knightPrimaryOrder[i];
+            if ( !primaryReady( castle, building, world.CountDay() + 1 ) ) continue;
+            const auto price = constructionResources( castle.getBuildingCost( building ) );
+            if ( ledger.book( castle.GetIndex(), KC::Promise{ building, i, order, price }, tomorrow ) ) {
+                ECONOMY_TRACE( 1, "CONSTRUCTION_RESERVE", ",\"kind\":\"planning\",\"player\":" << static_cast<int>( castle.GetColor() )
+                    << ",\"town\":" << castle.GetIndex() << ",\"building\":" << building << ",\"priority\":" << i
+                    << ",\"price\":" << Economy::arrayJson( price ) << ",\"tomorrow\":" << Economy::arrayJson( tomorrow ) );
+                return;
+            }
+        }
+    }
+
+    void reconcileConstruction( const Kingdom & kingdom, KC::Ledger & ledger, const KC::Resources & tomorrow )
+    {
+        for ( auto it = ledger.promises.begin(); it != ledger.promises.end(); ) {
+            const auto found = std::find_if( kingdom.GetCastles().begin(), kingdom.GetCastles().end(), [&]( const Castle * c ) {
+                return c && c->GetIndex() == it->first && c->GetColor() == kingdom.GetColor();
+            } );
+            if ( found == kingdom.GetCastles().end() || ( *found )->isBuild( it->second.building )
+                 || ( *found )->isBuildingDisabled( it->second.building ) ) it = ledger.promises.erase( it );
+            else ++it;
+        }
+        for ( const int town : ledger.reconcile( tomorrow ) ) {
+            ECONOMY_TRACE( 1, "CONSTRUCTION_RESERVE_RELEASED", ",\"town\":" << town << ",\"reason\":\"funds_changed\"" );
+        }
+    }
+
+    bool constructionAffordable( const Castle & castle, const uint32_t building, KC::Ledger & ledger )
+    {
+        if ( ledger.promises.empty() ) return true;
+        const auto baseline = tomorrowFunds( castle.GetKingdom() );
+        if ( !baseline ) {
+            ECONOMY_TRACE( 1, "CONSTRUCTION_WAIT", ",\"town\":" << castle.GetIndex() << ",\"candidate\":" << building
+                << ",\"reason\":\"forecast_unavailable\"" ); return false;
+        }
+        reconcileConstruction( castle.GetKingdom(), ledger, *baseline );
+        if ( ledger.promises.empty() ) return true;
+        // A reserved budget cannot be used for speculative marketplace exchanges.
+        if ( castle.CheckBuyBuilding( building ) != BuildingStatus::ALLOW_BUILD ) return false;
+        auto input = EP::capture( castle.GetKingdom(), world.CountDay() + 1 );
+        EP::Action a; a.id = a.project = 1; a.day = world.CountDay(); a.town = castle.GetIndex();
+        a.kind = EP::Kind::Build; a.building = building; input.actions = { a };
+        EP::WorkBudget work;
+        const auto projection = EP::project( input, work );
+        auto after = *baseline;
+        if ( projection.covered() ) after = EP::funds( projection.end.economy );
+        else if ( projection.reason == "unsupported_building" ) {
+            // Castle/shipyard have map effects outside the project catalog.
+            // Native legality was checked above; project their verified cash effect.
+            const auto price = constructionResources( castle.getBuildingCost( building ) );
+            auto snapshot = castle.GetKingdom().economySnapshot();
+            snapshot.gold -= price[0];
+            for ( size_t r = 0; r < snapshot.materials.size(); ++r ) snapshot.materials[r] -= price[r + 1];
+            if ( building == BUILD_CASTLE ) snapshot.nonTaxIncome += ProfitConditions::FromBuilding( BUILD_CASTLE, 0 ).gold
+                - ProfitConditions::FromBuilding( BUILD_TENT, 0 ).gold;
+            const auto cash = Economy::forecast( snapshot, Conscription::settings(), 1 );
+            if ( !cash.complete ) return false;
+            after = EP::funds( cash.end );
+        }
+        else {
+            ECONOMY_TRACE( 1, "CONSTRUCTION_WAIT", ",\"town\":" << castle.GetIndex() << ",\"candidate\":" << building
+                << ",\"reason\":\"projection_incomplete\",\"detail\":" << Economy::jsonQuote( projection.reason ) ); return false;
+        }
+        const bool allowed = ledger.allows( castle.GetIndex(), building, after );
+        if ( !allowed ) {
+            ECONOMY_TRACE( 1, "CONSTRUCTION_WAIT", ",\"kind\":\"decision\",\"town\":" << castle.GetIndex() << ",\"candidate\":" << building
+                << ",\"reason\":\"preserve_tomorrow_priority\",\"after\":" << Economy::arrayJson( after )
+                << ",\"reserved\":" << Economy::arrayJson( ledger.reserved( castle.GetIndex(), building ) ) );
+        }
+        return allowed;
+    }
+
+    enum class PrimaryResult { Fallback, Built, Wait };
+    PrimaryResult knightPrimaryDevelopment( Castle & castle )
+    {
+        if ( !castle.isCastle() || !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() ) )
+            return PrimaryResult::Fallback;
+        if ( !castle.Modes( Castle::ALLOW_TO_BUILD_TODAY ) ) return PrimaryResult::Wait;
+        KC::Ledger local;
+        auto * ledger = &local;
+        if ( constructionContext && constructionContext->kingdom == &castle.GetKingdom() ) ledger = &constructionContext->ledger;
+        // First enumerate today's choices in priority order. Reservations are
+        // considered only when deciding whether this present choice delays tomorrow.
+        std::vector<uint32_t> today;
+        for ( const uint32_t building : knightPrimaryOrder )
+            if ( primaryReady( castle, building, world.CountDay() ) && castle.CheckBuyBuilding( building ) == BuildingStatus::ALLOW_BUILD ) today.push_back( building );
+        const auto future = tomorrowFunds( castle.GetKingdom() );
+        if ( future ) {
+            reconcileConstruction( castle.GetKingdom(), *ledger, *future );
+            if ( !ledger->promises.count( castle.GetIndex() ) ) reservePrimary( *ledger, castle, *future, ledger->promises.size() );
+        }
+        for ( const auto building : today ) {
+            if ( !constructionAffordable( castle, building, *ledger ) ) continue;
+            const bool built = castle.BuyBuilding( building );
+            if ( built ) ledger->release( castle.GetIndex(), building );
+            ECONOMY_TRACE( 1, "KNIGHT_PRIMARY_BUILD", ",\"town\":" << castle.GetIndex() << ",\"building\":" << building
+                << ",\"built\":" << ( built ? "true" : "false" ) );
+            return built ? PrimaryResult::Built : PrimaryResult::Wait;
+        }
+        return PrimaryResult::Fallback;
+    }
+
     bool Build( Castle & castle, const std::vector<BuildOrder> & buildOrderList, const uint32_t multiplier = 1 )
     {
         const int gameDifficulty = Game::getDifficulty();
@@ -179,24 +316,11 @@ namespace
                 continue;
             }
 
-            if ( order.building == BUILD_CAPTAIN && castle.GetRace() == Race::KNGT
-                 && Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0
-                 && AI::knightFarmBeforeCaptain( castle.isBuild( BUILD_WEL2 ), castle.hasTrainingGrounds(), castle.isBuildingDisabled( BUILD_WEL2 ) ) ) {
-                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << castle.GetIndex() << ": Captain deferred for initial Farm" );
-                continue;
-            }
-
             if ( !Difficulty::allowAIToBuildCastleBuilding( gameDifficulty, isGameCampaign, order.building ) ) {
                 continue;
             }
 
-            uint32_t priority = order.priority;
-            if ( order.building == BUILD_WEL2 && castle.GetRace() == Race::KNGT && Kingdom::TaxpayerRequiresFarms()
-                 && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
-                // Prioritize the Farm when it unlocks Taxpayer income for this Knight town.
-                priority = 2;
-            }
-
+            const uint32_t priority = order.priority;
             const uint32_t fundsMultiplier = priority * multiplier;
             // Trace Knight town construction in both Taxpayer modes so their logs can be compared.
             const bool traceKnightBuild = castle.GetRace() == Race::KNGT && Settings::Get().taxpayerTestDiagnostics() >= 2;
@@ -215,6 +339,7 @@ namespace
                                    << ", cost " << castle.getBuildingCost( order.building ).String()
                                    << ", resources " << castle.GetKingdom().GetFunds().String() << ", multiplier " << fundsMultiplier );
             }
+            if ( !AI::KnightConstruction::canSpend( castle, order.building ) ) continue;
             bool built = false;
             if ( fundsMultiplier == 1 ) {
                 built = AI::BuildIfPossible( castle, order.building );
@@ -295,57 +420,21 @@ namespace
         }
     }
 
-    bool buildQuickPaybackFarm( Castle & castle, const bool garrisonOnly = false )
-    {
-        if ( castle.GetRace() != Race::KNGT || castle.isBuild( BUILD_WEL2 ) || isLegacyFarmReconversion( castle, BUILD_WEL2 ) ) {
-            return false;
-        }
-
-        const int32_t rate = Kingdom::GetTaxpayerGoldPerPeasantPerDay();
-        if ( !Kingdom::TaxpayerRequiresFarms() || rate <= 0 ) {
-            return false;
-        }
-
-        const Heroes * guest = castle.GetHero();
-        const uint64_t peasants = static_cast<uint64_t>( castle.GetArmy().GetCountMonsters( Monster::PEASANT ) )
-                                  + ( guest && !garrisonOnly ? guest->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
-        const uint64_t dailyIncome = peasants * static_cast<uint64_t>( rate );
-        const uint32_t farmCost = castle.getBuildingCost( BUILD_WEL2 ).gold;
-        const bool quickPayback = AI::taxpayerFarmPaysBackQuickly( dailyIncome, farmCost );
-        const bool initialFarm = !castle.isBuild( BUILD_CAPTAIN ) && castle.isBuild( DWELLING_MONSTER1 );
-        const uint64_t paybackDays = dailyIncome > 0 ? farmCost / dailyIncome + ( farmCost % dailyIncome != 0 ) : 0;
-        const BuildingStatus status = castle.CheckBuyBuilding( BUILD_WEL2 );
-        const bool difficultyAllows = Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), BUILD_WEL2 );
-        const bool built = ( quickPayback || initialFarm ) && difficultyAllows && AI::BuildIfPossible( castle, BUILD_WEL2 );
-
-        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
-                           << ": early Farm investment, Peasants " << peasants << ", daily tax " << dailyIncome << ", cost " << farmCost
-                           << ", initial Farm " << initialFarm << ", payback days " << paybackDays << ", quick payback " << quickPayback << ", difficulty allows " << difficultyAllows
-                           << ", status " << taxpayerBuildingStatus( status ) << ", funds multiplier 1, built " << built );
-        if ( built && Settings::Get().taxpayerTestDiagnostics() >= 2 ) {
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
-                                         << ": building id " << static_cast<uint32_t>( BUILD_WEL2 ) << " BUILT" );
-        }
-        return built;
-    }
-
     bool CastleDevelopment( Castle & castle, int safetyFactor, int spellLevel )
     {
         if ( !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() ) ) {
             return false;
         }
 
+        if ( castle.GetRace() == Race::KNGT ) {
+            const auto primary = knightPrimaryDevelopment( castle );
+            if ( primary != PrimaryResult::Fallback ) return primary == PrimaryResult::Built;
+        }
         if ( AI::KnightEconomy::develop( castle, safetyFactor > 0 ) ) {
             return true;
         }
 
-        // Defensive turns never enter this development path. Keep all building prerequisites,
-        // but examine a rapidly profitable Farm before ordinary development and budget multipliers.
-        if ( buildQuickPaybackFarm( castle ) ) {
-            return true;
-        }
-
-        if ( castle.isCastle() && !castle.isBuild( BUILD_WELL ) && world.CountDay() > 6 ) {
+        if ( castle.GetRace() != Race::KNGT && castle.isCastle() && !castle.isBuild( BUILD_WELL ) && world.CountDay() > 6 ) {
             // If you can't build Well, you won't be able to build anything else
             return AI::BuildIfPossible( castle, BUILD_WELL );
         }
@@ -834,11 +923,9 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
                      && castle.GetGarrisonStrength( enemy->second.hero ) < taxpayerViableDefenseRatio * enemy->second.strength ) investmentSafe = false;
             }
         }
-        if ( investmentSafe && castle.GetRace() == Race::KNGT && !castle.isBuild( BUILD_CAPTAIN )
-             && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
-             && castle.AllowBuyBuilding( BUILD_WEL2 )
-             && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, castle.getBuildingCost( BUILD_WEL2 ).gold ) ) {
-            buildQuickPaybackFarm( castle, true );
+        if ( investmentSafe && castle.GetRace() == Race::KNGT ) {
+            const auto primary = knightPrimaryDevelopment( castle );
+            if ( primary != PrimaryResult::Fallback ) return;
         }
 
         // Avoid building monster dwellings when defensive as they might fall into enemy's hands. Instead, try to build defensive structures if there is at least some
@@ -856,7 +943,7 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
                 && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, price.gold )
                 && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
                 && Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), BUILD_CASTLE )
-                && castle.AllowBuyBuilding( BUILD_CASTLE );
+                && castle.AllowBuyBuilding( BUILD_CASTLE ) && AI::KnightConstruction::canSpend( castle, BUILD_CASTLE );
             ECONOMY_TRACE( 1, "DEFENSIVE_CASTLE_REVIEW", ",\"player\":" << static_cast<int>( castle.GetColor() )
                 << ",\"town\":" << castle.GetIndex() << ",\"safe\":" << ( investmentSafe ? "true" : "false" )
                 << ",\"status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_CASTLE ) )
@@ -870,14 +957,6 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
             AI::KnightEconomy::develop( castle, investmentSafe );
         }
 
-        // Defense recruits and defenses have first use of this turn's funds.
-        // A persistent threat must not suppress a profitable existing population
-        // forever, but do not trade military resources or spend the gold reserve.
-        if ( investmentSafe && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
-             && castle.CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD
-             && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, castle.getBuildingCost( BUILD_WEL2 ).gold ) ) {
-            buildQuickPaybackFarm( castle, true );
-        }
     }
     else {
         const uint32_t regionID = world.getTile( castle.GetIndex() ).GetRegion();
@@ -886,4 +965,37 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
         CastleDevelopment( castle, stats.safetyFactor, stats.spellLevel );
         recruitTaxpayerPeasants( castle );
     }
+}
+
+AI::KnightConstruction::Scope::Scope( const Kingdom & kingdom, const std::vector<const Castle *> & order ) : kingdom_( &kingdom )
+{
+    if ( fheroes2::taxpayerSimulationDepth ) { kingdom_ = nullptr; return; }
+    assert( !constructionContext );
+    constructionContext.emplace( ConstructionContext{ &kingdom, {} } );
+    std::vector<const Castle *> cities = order;
+    if ( cities.empty() ) for ( const Castle * castle : kingdom.GetCastles() ) if ( castle ) cities.push_back( castle );
+    // Inventory today's choices before forecasting or reserving tomorrow's funds.
+    for ( const Castle * castle : cities ) {
+        if ( !castle || castle->GetRace() != Race::KNGT ) continue;
+        uint32_t today = 0;
+        for ( const auto building : knightPrimaryOrder ) {
+            if ( primaryReady( *castle, building, world.CountDay() ) && castle->CheckBuyBuilding( building ) == BuildingStatus::ALLOW_BUILD ) {
+                today = building; break;
+            }
+        }
+        ECONOMY_TRACE( 1, "CONSTRUCTION_TODAY_CHOICE", ",\"town\":" << castle->GetIndex() << ",\"candidate\":" << today );
+    }
+    const auto funds = tomorrowFunds( kingdom );
+    if ( !funds ) return;
+    size_t sequence = 0;
+    for ( const Castle * castle : cities ) if ( castle ) reservePrimary( constructionContext->ledger, *castle, *funds, sequence++ );
+}
+AI::KnightConstruction::Scope::~Scope()
+{
+    if ( kingdom_ && constructionContext && constructionContext->kingdom == kingdom_ ) constructionContext.reset();
+}
+bool AI::KnightConstruction::canSpend( const Castle & castle, const uint32_t building )
+{
+    if ( fheroes2::taxpayerSimulationDepth || !constructionContext || constructionContext->kingdom != &castle.GetKingdom() ) return true;
+    return constructionAffordable( castle, building, constructionContext->ledger );
 }

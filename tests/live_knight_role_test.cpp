@@ -1,4 +1,4 @@
-// Actual CastleDevelopment implementation, as in ai_building_test.cpp.
+// Actual Farm/TG decision adapter. Construction ordering has its own integration cases.
 // Link without ai_planner_castle.o and fheroes2.o.
 #include "../src/fheroes2/ai/ai_planner_castle.cpp"
 #include "map_format_info.h"
@@ -39,7 +39,7 @@ int main( int argc, char ** argv )
     if ( mode == "rich" || mode == "mobile" || mode == "recover" || mode == "expensive" || mode == "custom_cost" ) {
         const auto expected = ( mode == "rich" || mode == "mobile" || mode == "custom_cost" ) ? BUILD_TRAINING_GROUNDS : BUILD_WEL2;
         assert( decision.building == expected ); const auto price = castle->getBuildingCost( expected );
-        assert( CastleDevelopment( *castle, 1, 0 ) ); // Real production development path, diagnostics may be zero.
+        assert( AI::KnightEconomy::develop( *castle, true ) ); // Real production role adapter, diagnostics may be zero.
         assert( castle->isBuild( expected ) && !castle->isBuild( expected == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS ) );
         assert( kingdom.GetFunds() == before - price && !castle->Modes( Castle::ALLOW_TO_BUILD_TODAY ) );
         assert( castle->conscriptionDaySnapshot().garrison == armyBefore.garrison && castle->conscriptionDaySnapshot().pools == armyBefore.pools );

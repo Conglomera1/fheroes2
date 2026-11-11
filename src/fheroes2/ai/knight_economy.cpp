@@ -1,4 +1,5 @@
 #include "knight_economy.h"
+#include "knight_construction.h"
 #include "economy_candidates.h"
 #include "economy_military.h"
 #include "economy_trace.h"
@@ -150,7 +151,7 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
         << ",\"temporary_training\":" << ( decision.temporaryTraining ? "true" : "false" )
         << ",\"keep_force\":" << decision.keepForce << ",\"switch_force\":" << decision.switchForce
         << ",\"keep_gold\":" << decision.keepGold << ",\"switch_gold\":" << decision.switchGold << ",\"projections\":" << decision.projections );
-    if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) ) return false;
+    if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) || !KnightConstruction::canSpend( castle, decision.building ) ) return false;
     // One immediate, synchronous purchase. Comparisons above issue no future
     // recruitment/transfer orders and do not create persistent commitments.
     return castle.BuyBuilding( decision.building );

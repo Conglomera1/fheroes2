@@ -4,10 +4,6 @@
 
 int main()
 {
-    static_assert( AI::knightFarmBeforeCaptain( false, false, false ) );
-    static_assert( !AI::knightFarmBeforeCaptain( true, false, false ) );
-    static_assert( !AI::knightFarmBeforeCaptain( false, true, false ) );
-    static_assert( !AI::knightFarmBeforeCaptain( false, false, true ) );
     // Fountainhead/Avalon: all-faction castle income, not the total 1000.
     static_assert( AI::taxpayerFarmPaysBackQuickly( 1000 - 250, 5000 ) );
     static_assert( AI::taxpayerDefensiveFarmAffordable( 16516, 5000 ) );

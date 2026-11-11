@@ -46,4 +46,4 @@ for mode, ini in profiles.items():
     assert pair[0] == pair[1], pair
     print("PASS", pair[0][0], pair[0][1], flush=True)
 (output / "observations.json").write_text(json.dumps(records, indent=2) + "\n")
-print("PASS 20 development-path processes, diagnostics neutral")
+print("PASS 20 role-adapter processes, diagnostics neutral")

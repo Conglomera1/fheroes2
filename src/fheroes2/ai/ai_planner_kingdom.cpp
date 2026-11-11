@@ -35,7 +35,8 @@
 #include "taxpayer_test.h"
 
 #include "ai_common.h"
-#include "ai_planner.h" // IWYU pragma: associated
+#include "ai_planner.h"
+#include "knight_construction.h" // IWYU pragma: associated
 #include "ai_planner_internals.h"
 #include "economy_inputs.h"
 #include "economy_pipeline.h"
@@ -957,13 +958,14 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         sortedCastleList = getSortedCastleList( castles, castlesInDanger );
     }
 
-    // Perform the castle development
-    for ( const AICastle & entry : sortedCastleList ) {
-        if ( entry.castle == nullptr ) {
-            continue;
+    {
+        std::vector<const Castle *> constructionOrder;
+        for ( const AICastle & entry : sortedCastleList ) if ( entry.castle ) constructionOrder.push_back( entry.castle );
+        AI::KnightConstruction::Scope constructionBudget( kingdom, constructionOrder );
+        // Perform castle development with the shared construction budget.
+        for ( const AICastle & entry : sortedCastleList ) {
+            if ( entry.castle ) CastleTurn( *entry.castle, entry.underThreat );
         }
-
-        CastleTurn( *entry.castle, entry.underThreat );
     }
 
     // For heroes in castles or towns, transfer their slowest troops to the garrison at the end of the turn to try to get a movement bonus on the next turn

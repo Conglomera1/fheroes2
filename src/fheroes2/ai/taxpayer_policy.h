@@ -5,11 +5,6 @@
 
 namespace AI
 {
-    constexpr bool knightFarmBeforeCaptain( const bool farm, const bool training, const bool farmDisabled )
-    {
-        return !farm && !training && !farmDisabled;
-    }
-
     constexpr bool taxpayerDefensiveFarmAffordable( const int64_t gold, const uint32_t cost )
     {
         return cost > 0 && gold - static_cast<int64_t>( cost ) >= 2000;

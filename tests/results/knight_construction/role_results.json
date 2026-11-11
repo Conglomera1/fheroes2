@@ -1,0 +1,202 @@
+[
+  {
+    "mode": "rich",
+    "farm": 0,
+    "tg": 1,
+    "paid": 2500,
+    "projections": 118,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=rich reason=military_gain building=8192 force=545.026/838.287 gold=22560/9420 projections=118",
+    "exit_code": 0
+  },
+  {
+    "mode": "rich",
+    "farm": 0,
+    "tg": 1,
+    "paid": 2500,
+    "projections": 118,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=rich reason=military_gain building=8192 force=545.026/838.287 gold=22560/9420 projections=118",
+    "exit_code": 0
+  },
+  {
+    "mode": "poor",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=poor reason=treasury_reserve building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "poor",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=poor reason=treasury_reserve building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "danger",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=danger reason=unsafe_or_other_faction building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "danger",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=danger reason=unsafe_or_other_faction building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "prerequisite",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=prerequisite reason=building_unavailable building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "prerequisite",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=prerequisite reason=building_unavailable building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "weekday",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=weekday reason=weekly_review building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "weekday",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 0,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=weekday reason=weekly_review building=0 force=0/0 gold=0/0 projections=0",
+    "exit_code": 0
+  },
+  {
+    "mode": "mobile",
+    "farm": 0,
+    "tg": 1,
+    "paid": 2500,
+    "projections": 118,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=mobile reason=military_gain building=8192 force=545.026/838.287 gold=22560/9420 projections=118",
+    "exit_code": 0
+  },
+  {
+    "mode": "mobile",
+    "farm": 0,
+    "tg": 1,
+    "paid": 2500,
+    "projections": 118,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=mobile reason=military_gain building=8192 force=545.026/838.287 gold=22560/9420 projections=118",
+    "exit_code": 0
+  },
+  {
+    "mode": "unproductive",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 73,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=unproductive reason=keep_current_role building=0 force=545.026/528.698 gold=22560/15820 projections=73",
+    "exit_code": 0
+  },
+  {
+    "mode": "unproductive",
+    "farm": 1,
+    "tg": 0,
+    "paid": 0,
+    "projections": 73,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=unproductive reason=keep_current_role building=0 force=545.026/528.698 gold=22560/15820 projections=73",
+    "exit_code": 0
+  },
+  {
+    "mode": "recover",
+    "farm": 1,
+    "tg": 0,
+    "paid": 1500,
+    "projections": 48,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=recover reason=economic_gain building=256 force=631.692/631.692 gold=22000/23300 projections=48",
+    "exit_code": 0
+  },
+  {
+    "mode": "recover",
+    "farm": 1,
+    "tg": 0,
+    "paid": 1500,
+    "projections": 48,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=recover reason=economic_gain building=256 force=631.692/631.692 gold=22000/23300 projections=48",
+    "exit_code": 0
+  },
+  {
+    "mode": "expensive",
+    "farm": 1,
+    "tg": 0,
+    "paid": 1500,
+    "projections": 59,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=expensive reason=restore_reserve building=256 force=687.764/631.692 gold=0/23300 projections=59",
+    "exit_code": 0
+  },
+  {
+    "mode": "expensive",
+    "farm": 1,
+    "tg": 0,
+    "paid": 1500,
+    "projections": 59,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=expensive reason=restore_reserve building=256 force=687.764/631.692 gold=0/23300 projections=59",
+    "exit_code": 0
+  },
+  {
+    "mode": "custom_cost",
+    "farm": 0,
+    "tg": 1,
+    "paid": 3456,
+    "projections": 118,
+    "diagnostics": 0,
+    "choice": "CHOICE mode=custom_cost reason=military_gain building=8192 force=545.026/838.287 gold=22560/8464 projections=118",
+    "exit_code": 0
+  },
+  {
+    "mode": "custom_cost",
+    "farm": 0,
+    "tg": 1,
+    "paid": 3456,
+    "projections": 118,
+    "diagnostics": 2,
+    "choice": "CHOICE mode=custom_cost reason=military_gain building=8192 force=545.026/838.287 gold=22560/8464 projections=118",
+    "exit_code": 0
+  }
+]
