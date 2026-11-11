@@ -21,7 +21,7 @@ namespace AI::EconomyMilitary
     };
     struct Value { bool complete = false; double force = 0; std::string reason; };
     using Scorer = std::function<Value( const P::Town &, Slot )>;
-    Value localArmyValue( const Kingdom & kingdom, const P::Town & town, Slot slot );
+    Value localArmyValue( const Kingdom & kingdom, const P::Town & town, Slot slot, bool includeVisitor = true );
     struct Budget
     {
         size_t projections = 256;

@@ -26,7 +26,7 @@ namespace
     }
 }
 
-AI::EconomyMilitary::Value AI::EconomyMilitary::localArmyValue( const Kingdom & kingdom, const P::Town & town, const Slot slot )
+AI::EconomyMilitary::Value AI::EconomyMilitary::localArmyValue( const Kingdom & kingdom, const P::Town & town, const Slot slot, const bool includeVisitor )
 {
     const fheroes2::TaxpayerSimulationScope simulation;
     const auto found = std::find_if( kingdom.GetCastles().begin(), kingdom.GetCastles().end(), [&]( const Castle * c ) { return c && c->GetIndex() == town.tile; } );
@@ -35,6 +35,7 @@ AI::EconomyMilitary::Value AI::EconomyMilitary::localArmyValue( const Kingdom & 
     if ( castle.GetRace() != town.race ) return { false, 0, "town_race_changed" };
     const auto * hero = castle.GetHero();
     if ( ( hero ? hero->GetID() : -1 ) != town.hero || ( hero && hero->GetColor() != kingdom.GetColor() ) ) return { false, 0, "visitor_context_changed" };
+    if ( !includeVisitor ) hero = nullptr;
     if ( slot == Slot::Visitor && !hero ) return { false, 0, "visitor_missing" };
     if ( slot != Slot::Visitor && slot != Slot::TownArmy ) return { false, 0, "unsupported_army_slot" };
     // Do not read spells stored for an unbuilt guild/library: these are hidden future information.

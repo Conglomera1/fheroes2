@@ -34,7 +34,7 @@ for mode, ini in profiles.items():
             result = next(line for line in p.stdout.splitlines() if line.startswith("RESULT "))
             raw = dict(field.split("=", 1) for field in result.split()[1:])
             result = {k: v if k == "mode" else int(v) for k, v in raw.items()}
-            expected = 2500 if mode == "rich" else 3456 if mode == "custom_cost" else 1500 if mode in {"recover", "expensive"} else 0
+            expected = 2500 if mode in {"rich", "mobile"} else 3456 if mode == "custom_cost" else 1500 if mode in {"recover", "expensive"} else 0
             assert result["paid"] == expected, (mode, result)
             inside = p.stdout.split("LIVE_BEGIN\n", 1)[1].split("LIVE_END\n", 1)[0]
             rows = [json.loads(line.split("[KNIGHT ECONOMY] ", 1)[1]) for line in inside.splitlines() if "[KNIGHT ECONOMY] " in line]

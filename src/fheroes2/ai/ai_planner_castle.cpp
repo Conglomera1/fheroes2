@@ -179,6 +179,13 @@ namespace
                 continue;
             }
 
+            if ( order.building == BUILD_CAPTAIN && castle.GetRace() == Race::KNGT
+                 && Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0
+                 && knightFarmBeforeCaptain( castle.isBuild( BUILD_WEL2 ), castle.hasTrainingGrounds(), castle.isBuildingDisabled( BUILD_WEL2 ) ) ) {
+                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << castle.GetIndex() << ": Captain deferred for initial Farm" );
+                continue;
+            }
+
             if ( !Difficulty::allowAIToBuildCastleBuilding( gameDifficulty, isGameCampaign, order.building ) ) {
                 continue;
             }
@@ -305,14 +312,15 @@ namespace
         const uint64_t dailyIncome = peasants * static_cast<uint64_t>( rate );
         const uint32_t farmCost = castle.getBuildingCost( BUILD_WEL2 ).gold;
         const bool quickPayback = AI::taxpayerFarmPaysBackQuickly( dailyIncome, farmCost );
+        const bool initialFarm = !castle.isBuild( BUILD_CAPTAIN ) && castle.isBuild( DWELLING_MONSTER1 );
         const uint64_t paybackDays = dailyIncome > 0 ? farmCost / dailyIncome + ( farmCost % dailyIncome != 0 ) : 0;
         const BuildingStatus status = castle.CheckBuyBuilding( BUILD_WEL2 );
         const bool difficultyAllows = Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), BUILD_WEL2 );
-        const bool built = quickPayback && difficultyAllows && AI::BuildIfPossible( castle, BUILD_WEL2 );
+        const bool built = ( quickPayback || initialFarm ) && difficultyAllows && AI::BuildIfPossible( castle, BUILD_WEL2 );
 
         TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( castle.GetColor() ) << ", town " << castle.GetIndex()
                            << ": early Farm investment, Peasants " << peasants << ", daily tax " << dailyIncome << ", cost " << farmCost
-                           << ", payback days " << paybackDays << ", quick payback " << quickPayback << ", difficulty allows " << difficultyAllows
+                           << ", initial Farm " << initialFarm << ", payback days " << paybackDays << ", quick payback " << quickPayback << ", difficulty allows " << difficultyAllows
                            << ", status " << taxpayerBuildingStatus( status ) << ", funds multiplier 1, built " << built );
         if ( built && Settings::Get().taxpayerTestDiagnostics() >= 2 ) {
             COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
@@ -817,13 +825,6 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
         // captures the castle, therefore, it is worth starting with hiring.
         reinforceCastle( castle, true );
 
-        // Avoid building monster dwellings when defensive as they might fall into enemy's hands. Instead, try to build defensive structures if there is at least some
-        // kind of garrison in the castle.
-        if ( castle.GetActualArmy().getTotalCount() > 0 ) {
-            Build( castle, defensiveStructures );
-            Build( castle, supportingDefensiveStructures );
-        }
-
         bool investmentSafe = true;
         const auto task = _priorityTargets.find( castle.GetIndex() );
         if ( task != _priorityTargets.end() && task->second.type == PriorityTaskType::DEFEND ) {
@@ -833,6 +834,20 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
                      && castle.GetGarrisonStrength( enemy->second.hero ) < taxpayerViableDefenseRatio * enemy->second.strength ) investmentSafe = false;
             }
         }
+        if ( investmentSafe && castle.GetRace() == Race::KNGT && !castle.isBuild( BUILD_CAPTAIN )
+             && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
+             && castle.AllowBuyBuilding( BUILD_WEL2 )
+             && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, castle.getBuildingCost( BUILD_WEL2 ).gold ) ) {
+            buildQuickPaybackFarm( castle, true );
+        }
+
+        // Avoid building monster dwellings when defensive as they might fall into enemy's hands. Instead, try to build defensive structures if there is at least some
+        // kind of garrison in the castle.
+        if ( castle.GetActualArmy().getTotalCount() > 0 ) {
+            Build( castle, defensiveStructures );
+            Build( castle, supportingDefensiveStructures );
+        }
+
         if ( !castle.isCastle() ) {
             const auto price = castle.getBuildingCost( BUILD_CASTLE );
             const auto gain = ProfitConditions::FromBuilding( BUILD_CASTLE, castle.GetRace() ).gold
@@ -850,8 +865,9 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
             if ( invest ) castle.BuyBuilding( BUILD_CASTLE );
         }
 
-        if ( investmentSafe && castle.hasTrainingGrounds() ) {
-            AI::KnightEconomy::develop( castle, true );
+        if ( castle.GetRace() == Race::KNGT ) {
+            // Log an explicit safety refusal as well as successful economic reviews.
+            AI::KnightEconomy::develop( castle, investmentSafe );
         }
 
         // Defense recruits and defenses have first use of this turn's funds.

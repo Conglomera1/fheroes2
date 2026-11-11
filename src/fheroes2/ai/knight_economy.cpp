@@ -29,7 +29,7 @@ namespace
         if ( !result.covered() ) return false;
         state = result.end; return true;
     }
-    Rollout rollout( const Kingdom & kingdom, const P::Input & captured, size_t townIndex, uint32_t building, Work & work, const bool returnToFarm = false )
+    Rollout rollout( const Kingdom & kingdom, const P::Input & captured, size_t townIndex, uint32_t building, Work & work, const bool returnToFarm = false, const bool includeVisitor = true )
     {
         auto state = captured.start; const auto today = state.economy.day;
         std::vector<P::Action> initial;
@@ -64,12 +64,12 @@ namespace
                 uint64_t count = P::stock( state, townIndex, pool );
                 for ( size_t r = 0; r < 7; ++r ) if ( creature.price[r] > 0 ) count = std::min<uint64_t>( count, funds[r] / creature.price[r] );
                 const auto capacity = G::capacity( t.garrison, creature.id );
-                count = std::min<uint64_t>( count, capacity ? capacity : t.hero >= 0 ? G::capacity( t.visitor, creature.id ) : 0 );
+                count = std::min<uint64_t>( count, capacity ? capacity : includeVisitor && t.hero >= 0 ? G::capacity( t.visitor, creature.id ) : 0 );
                 if ( !count ) continue;
                 P::Action a = G::recruit( t.tile, pool, static_cast<uint32_t>( count ), day ); a.id = a.project = 1;
                 if ( !advance( state, captured.config, day, { a }, work ) ) return {};
             }
-            const auto force = M::localArmyValue( kingdom, state.towns[townIndex], M::Slot::TownArmy );
+            const auto force = M::localArmyValue( kingdom, state.towns[townIndex], M::Slot::TownArmy, includeVisitor );
             if ( !force.complete || !std::isfinite( force.force ) ) return {};
             if ( day > today ) sum += force.force;
         }
@@ -93,21 +93,24 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     if ( !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), day ) ) { out.reason = "difficulty_day_gate"; return out; }
     if ( !Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), building ) ) { out.reason = "difficulty_building_gate"; return out; }
     if ( !castle.AllowBuyBuilding( building ) ) { out.reason = "building_unavailable"; return out; }
-    if ( const auto * visitor = castle.GetHero(); visitor && ( !visitor->Modes( Heroes::PATROL ) || visitor->GetPatrolDistance() ) ) {
-        out.reason = "mobile_visitor"; return out;
-    }
+    const auto * visitor = castle.GetHero();
+    const bool includeVisitor = !visitor || ( visitor->Modes( Heroes::PATROL ) && !visitor->GetPatrolDistance() );
     const auto price = castle.getBuildingCost( building );
     if ( !training && ( int64_t{ kingdom.GetFunds().gold } - price.gold < reserveGold
          || price.gold > kingdom.GetFunds().gold / 4 ) ) { out.reason = "treasury_reserve"; return out; }
-    const auto input = P::capture( kingdom, day + horizon );
+    auto input = P::capture( kingdom, day + horizon );
     const auto town = std::find_if( input.start.towns.begin(), input.start.towns.end(), [&]( const auto & t ) { return t.tile == castle.GetIndex(); } );
     if ( town == input.start.towns.end() ) { out.reason = "town_missing"; return out; }
     const size_t index = static_cast<size_t>( town - input.start.towns.begin() );
+    if ( !includeVisitor ) {
+        input.start.towns[index].visitor = {};
+        if ( !P::refresh( input.start ) ) { out.reason = "visitor_projection_incomplete"; return out; }
+    }
     Work work;
-    const auto keep = rollout( kingdom, input, index, 0, work );
-    auto change = rollout( kingdom, input, index, building, work );
+    const auto keep = rollout( kingdom, input, index, 0, work, false, includeVisitor );
+    auto change = rollout( kingdom, input, index, building, work, false, includeVisitor );
     if ( !training ) {
-        const auto cycle = rollout( kingdom, input, index, building, work, true );
+        const auto cycle = rollout( kingdom, input, index, building, work, true, includeVisitor );
         out.cycleValid = cycle.valid; out.cycleForce = cycle.force; out.cycleGold = cycle.gold;
         const auto worthwhile = [&]( const Rollout & r ) {
             const double margin = 0.10 * std::max( { 1.0, keep.force, r.force } );

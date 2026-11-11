@@ -36,8 +36,8 @@ int main( int argc, char ** argv )
         << " force=" << decision.keepForce << "/" << decision.switchForce << " gold=" << decision.keepGold << "/" << decision.switchGold
         << " projections=" << decision.projections << std::endl;
     std::cout << "LIVE_BEGIN" << std::endl;
-    if ( mode == "rich" || mode == "recover" || mode == "expensive" || mode == "custom_cost" ) {
-        const auto expected = ( mode == "rich" || mode == "custom_cost" ) ? BUILD_TRAINING_GROUNDS : BUILD_WEL2;
+    if ( mode == "rich" || mode == "mobile" || mode == "recover" || mode == "expensive" || mode == "custom_cost" ) {
+        const auto expected = ( mode == "rich" || mode == "mobile" || mode == "custom_cost" ) ? BUILD_TRAINING_GROUNDS : BUILD_WEL2;
         assert( decision.building == expected ); const auto price = castle->getBuildingCost( expected );
         assert( CastleDevelopment( *castle, 1, 0 ) ); // Real production development path, diagnostics may be zero.
         assert( castle->isBuild( expected ) && !castle->isBuild( expected == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS ) );
