@@ -163,5 +163,17 @@ int main()
             assert( result.end.economy.towns[0].troops.pools == passive.end.towns[0].troops.pools );
             ++checks;
         }
+    // A temporary TG creates pools that survive the return to Farm.
+    input = fixture(); input.throughDay = 21;
+    input.actions = { action( 1, 7, P::Kind::Build, 42, BUILD_TRAINING_GROUNDS ), action( 2, 14, P::Kind::Build, 42, BUILD_WEL2 ) };
+    result = run( input );
+    assert( result.covered() && result.end.towns[0].mask & BUILD_WEL2 );
+    assert( !( result.end.towns[0].mask & BUILD_TRAINING_GROUNDS ) );
+    assert( result.end.economy.towns[0].troops.pools[0] > input.start.economy.towns[0].troops.pools[0] ); ++checks;
+    // Human recovery case: pay 1500 from 2002, then recover through income.
+    input = fixture( true ); input.start.economy.gold = 2002; input.config.farmGold = 1500;
+    input.throughDay = 21; input.actions = { action( 1, 7, P::Kind::Build, 42, BUILD_WEL2 ) };
+    result = run( input );
+    assert( result.covered() && result.end.economy.gold > 2002 && result.end.towns[0].mask & BUILD_WEL2 ); ++checks;
     std::cout << "PASS " << checks << " dated-project cases (copies, exact conditional fees, actions and C1 reconciliation)\n";
 }

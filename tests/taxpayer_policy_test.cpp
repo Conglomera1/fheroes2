@@ -4,6 +4,11 @@
 
 int main()
 {
+    // Fountainhead/Avalon: all-faction castle income, not the total 1000.
+    static_assert( AI::taxpayerFarmPaysBackQuickly( 1000 - 250, 5000 ) );
+    static_assert( AI::taxpayerDefensiveFarmAffordable( 16516, 5000 ) );
+    static_assert( !AI::taxpayerDefensiveFarmAffordable( 6999, 5000 ) );
+    static_assert( !AI::taxpayerFarmPaysBackQuickly( 250, 5000 ) );
     // Fountainhead J208: 328 residents, 22328 gold, actual Farm cost 1000.
     static_assert( AI::taxpayerFarmPaysBackQuickly( 328 * 2, 1000 ) );
     static_assert( AI::taxpayerDefensiveFarmAffordable( 22328, 1000 ) );

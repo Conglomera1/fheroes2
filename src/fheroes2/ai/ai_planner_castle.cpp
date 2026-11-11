@@ -48,6 +48,8 @@
 #include "maps_tiles.h"
 #include "monster.h"
 #include "payment.h"
+#include "profit.h"
+#include "economy_trace.h"
 #include "race.h"
 #include "resource.h"
 #include "world.h"
@@ -822,10 +824,40 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
             Build( castle, supportingDefensiveStructures );
         }
 
+        bool investmentSafe = true;
+        const auto task = _priorityTargets.find( castle.GetIndex() );
+        if ( task != _priorityTargets.end() && task->second.type == PriorityTaskType::DEFEND ) {
+            for ( const int32_t tile : task->second.secondaryTaskTileId ) {
+                const auto enemy = _enemyArmies.find( tile );
+                if ( enemy != _enemyArmies.end() && enemy->second.strength > 0
+                     && castle.GetGarrisonStrength( enemy->second.hero ) < taxpayerViableDefenseRatio * enemy->second.strength ) investmentSafe = false;
+            }
+        }
+        if ( !castle.isCastle() ) {
+            const auto price = castle.getBuildingCost( BUILD_CASTLE );
+            const auto gain = ProfitConditions::FromBuilding( BUILD_CASTLE, castle.GetRace() ).gold
+                              - ProfitConditions::FromBuilding( BUILD_TENT, castle.GetRace() ).gold;
+            const bool invest = investmentSafe && gain > 0 && taxpayerFarmPaysBackQuickly( gain, price.gold )
+                && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, price.gold )
+                && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
+                && Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), BUILD_CASTLE )
+                && castle.AllowBuyBuilding( BUILD_CASTLE );
+            ECONOMY_TRACE( 1, "DEFENSIVE_CASTLE_REVIEW", ",\"player\":" << static_cast<int>( castle.GetColor() )
+                << ",\"town\":" << castle.GetIndex() << ",\"safe\":" << ( investmentSafe ? "true" : "false" )
+                << ",\"status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_CASTLE ) )
+                << ",\"funds\":" << Economy::fundsJson( castle.GetKingdom().GetFunds() )
+                << ",\"income_gain\":" << gain << ",\"invest\":" << ( invest ? "true" : "false" ) );
+            if ( invest ) castle.BuyBuilding( BUILD_CASTLE );
+        }
+
+        if ( investmentSafe && castle.hasTrainingGrounds() ) {
+            AI::KnightEconomy::develop( castle, true );
+        }
+
         // Defense recruits and defenses have first use of this turn's funds.
         // A persistent threat must not suppress a profitable existing population
         // forever, but do not trade military resources or spend the gold reserve.
-        if ( Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
+        if ( investmentSafe && Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
              && castle.CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD
              && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, castle.getBuildingCost( BUILD_WEL2 ).gold ) ) {
             buildQuickPaybackFarm( castle, true );

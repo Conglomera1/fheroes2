@@ -22,14 +22,14 @@ namespace
     struct Rollout { bool valid = false; double force = 0; int64_t gold = 0; };
     bool advance( P::State & state, const Conscription::Settings & config, uint32_t day, std::vector<P::Action> actions, Work & work )
     {
-        if ( work.projections >= 256 ) return false;
+        if ( work.projections >= 384 ) return false;
         ++work.projections;
         P::Input input; input.start = state; input.config = config; input.throughDay = day; input.actions = std::move( actions );
         const auto result = P::project( input, work.mechanics );
         if ( !result.covered() ) return false;
         state = result.end; return true;
     }
-    Rollout rollout( const Kingdom & kingdom, const P::Input & captured, size_t townIndex, uint32_t building, Work & work )
+    Rollout rollout( const Kingdom & kingdom, const P::Input & captured, size_t townIndex, uint32_t building, Work & work, const bool returnToFarm = false )
     {
         auto state = captured.start; const auto today = state.economy.day;
         std::vector<P::Action> initial;
@@ -42,6 +42,11 @@ namespace
         for ( uint64_t date = today; date <= captured.throughDay; ++date ) {
             const auto day = static_cast<uint32_t>( date );
             if ( day != today && !advance( state, captured.config, day, {}, work ) ) return {};
+            if ( returnToFarm && day == today + 7 ) {
+                P::Action a; a.id = a.project = 1; a.day = day; a.town = state.towns[townIndex].tile;
+                a.kind = P::Kind::Build; a.building = BUILD_WEL2;
+                if ( !advance( state, captured.config, day, { a }, work ) ) return {};
+            }
             // Identical ordinary military outlet in both comparisons. Presort by
             // native unit strength/gold; Project checks all seven actual resources,
             // stocks and army slots. No gold-to-force score or virtual funds.
@@ -78,8 +83,9 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     if ( castle.GetRace() != Race::KNGT || !safe ) { out.reason = "unsafe_or_other_faction"; return out; }
     const auto day = world.CountDay();
     // One weekly role review limits oscillation without a new saved policy state.
-    if ( !day || ( day - 1 ) % 7 || day > UINT32_MAX - horizon ) { out.reason = "weekly_review"; return out; }
     const bool training = castle.hasTrainingGrounds();
+    const bool lowCashRecovery = training && int64_t{ castle.GetKingdom().GetFunds().gold } < reserveGold + castle.getBuildingCost( BUILD_WEL2 ).gold;
+    if ( !day || ( ( day - 1 ) % 7 && !lowCashRecovery ) || day > UINT32_MAX - horizon ) { out.reason = "weekly_review"; return out; }
     if ( !training && !castle.isBuild( BUILD_WEL2 ) ) { out.reason = "ordinary_farm_development"; return out; }
     const auto building = training ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS;
     const auto & kingdom = castle.GetKingdom();
@@ -91,15 +97,27 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
         out.reason = "mobile_visitor"; return out;
     }
     const auto price = castle.getBuildingCost( building );
-    if ( int64_t{ kingdom.GetFunds().gold } - price.gold < reserveGold
-         || ( !training && price.gold > kingdom.GetFunds().gold / 4 ) ) { out.reason = "treasury_reserve"; return out; }
+    if ( !training && ( int64_t{ kingdom.GetFunds().gold } - price.gold < reserveGold
+         || price.gold > kingdom.GetFunds().gold / 4 ) ) { out.reason = "treasury_reserve"; return out; }
     const auto input = P::capture( kingdom, day + horizon );
     const auto town = std::find_if( input.start.towns.begin(), input.start.towns.end(), [&]( const auto & t ) { return t.tile == castle.GetIndex(); } );
     if ( town == input.start.towns.end() ) { out.reason = "town_missing"; return out; }
     const size_t index = static_cast<size_t>( town - input.start.towns.begin() );
     Work work;
     const auto keep = rollout( kingdom, input, index, 0, work );
-    const auto change = rollout( kingdom, input, index, building, work );
+    auto change = rollout( kingdom, input, index, building, work );
+    if ( !training ) {
+        const auto cycle = rollout( kingdom, input, index, building, work, true );
+        out.cycleValid = cycle.valid; out.cycleForce = cycle.force; out.cycleGold = cycle.gold;
+        const auto worthwhile = [&]( const Rollout & r ) {
+            const double margin = 0.10 * std::max( { 1.0, keep.force, r.force } );
+            return keep.valid && r.valid && r.gold >= reserveGold
+                && ( r.force - keep.force > margin || ( r.force >= keep.force && r.gold - keep.gold > std::max<int64_t>( 1, price.gold / 10 ) ) );
+        };
+        if ( worthwhile( cycle ) && ( !worthwhile( change ) || ( cycle.force >= 0.90 * change.force && cycle.gold > change.gold ) ) ) {
+            change = cycle; out.temporaryTraining = true;
+        }
+    }
     out.projections = work.projections;
     if ( !keep.valid || !change.valid ) { out.reason = "forecast_incomplete"; return out; }
     out.keepForce = keep.force; out.switchForce = change.force; out.keepGold = keep.gold; out.switchGold = change.gold;
@@ -108,9 +126,9 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     const double margin = 0.10 * std::max( { 1.0, keep.force, change.force } );
     const bool stronger = change.force - keep.force > margin;
     const bool economical = change.force >= keep.force && change.gold - keep.gold > std::max<int64_t>( 1, price.gold / 10 );
-    const bool recovery = training && keep.gold < reserveGold && change.force >= 0.90 * keep.force;
+    const bool recovery = training && ( keep.gold < reserveGold || lowCashRecovery ) && change.gold > keep.gold && change.force >= 0.90 * keep.force;
     if ( change.gold >= reserveGold && ( stronger || economical || recovery ) ) {
-        out.building = building; out.reason = recovery ? "restore_reserve" : stronger ? "military_gain" : "economic_gain";
+        out.building = building; out.reason = recovery ? "restore_reserve" : out.temporaryTraining ? "temporary_training" : stronger ? "military_gain" : "economic_gain";
     }
     else out.reason = "keep_current_role";
     return out;
@@ -124,6 +142,9 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
         << ",\"farm_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_WEL2 ) )
         << ",\"tg_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_TRAINING_GROUNDS ) )
         << ",\"funds\":" << Economy::fundsJson( castle.GetKingdom().GetFunds() )
+        << ",\"cycle_valid\":" << ( decision.cycleValid ? "true" : "false" )
+        << ",\"cycle_force\":" << decision.cycleForce << ",\"cycle_gold\":" << decision.cycleGold
+        << ",\"temporary_training\":" << ( decision.temporaryTraining ? "true" : "false" )
         << ",\"keep_force\":" << decision.keepForce << ",\"switch_force\":" << decision.switchForce
         << ",\"keep_gold\":" << decision.keepGold << ",\"switch_gold\":" << decision.switchGold << ",\"projections\":" << decision.projections );
     if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) ) return false;
