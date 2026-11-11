@@ -1449,9 +1449,9 @@ void Army::JoinStrongestFromArmy( Army & giver )
     const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
     const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
         if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( giver ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
-            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"JoinStrongestFromArmy\",\"source_player\":" << giver.GetColor()
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"JoinStrongestFromArmy\",\"source_player\":" << static_cast<int>( giver.GetColor() )
                 << ",\"source_tile\":" << giver.GetCommander()->GetIndex() << ",\"source_hero\":" << ( giver.GetCommander()->isHeroes() ? "true" : "false" )
-                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_player\":" << static_cast<int>( GetColor() ) << ",\"destination_tile\":" << GetCommander()->GetIndex()
                 << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
                 << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( giver )
                 << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );
@@ -1481,9 +1481,9 @@ void Army::MoveTroops( Army & from, const int monsterIdToKeep )
     const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
     const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
         if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( from ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
-            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"MoveTroops\",\"source_player\":" << from.GetColor()
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"MoveTroops\",\"source_player\":" << static_cast<int>( from.GetColor() )
                 << ",\"source_tile\":" << from.GetCommander()->GetIndex() << ",\"source_hero\":" << ( from.GetCommander()->isHeroes() ? "true" : "false" )
-                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_player\":" << static_cast<int>( GetColor() ) << ",\"destination_tile\":" << GetCommander()->GetIndex()
                 << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
                 << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( from )
                 << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );
@@ -1603,9 +1603,9 @@ void Army::SwapTroops( Army & from )
     const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
     const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
         if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( from ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
-            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"SwapTroops\",\"source_player\":" << from.GetColor()
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"SwapTroops\",\"source_player\":" << static_cast<int>( from.GetColor() )
                 << ",\"source_tile\":" << from.GetCommander()->GetIndex() << ",\"source_hero\":" << ( from.GetCommander()->isHeroes() ? "true" : "false" )
-                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_player\":" << static_cast<int>( GetColor() ) << ",\"destination_tile\":" << GetCommander()->GetIndex()
                 << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
                 << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( from )
                 << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );

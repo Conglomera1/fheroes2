@@ -234,7 +234,7 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
         const uint32_t garrisonBefore = garrison.GetCountMonsters( Monster::PEASANT );
         if ( countToTransfer == 0 || !garrison.JoinTroop( troop->GetMonster(), countToTransfer, true ) ) {
             if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER_REFUSED", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
-                << hero->GetColor() << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
+                << static_cast<int>( hero->GetColor() ) << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
                 << ",\"requested\":" << countToTransfer << ",\"hero_army\":" << heroBefore << ",\"garrison\":" << townBefore );
             TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
                                << ", town " << castle->GetIndex() << ": deposit refused, last unit " << ( countToTransfer == 0 )
@@ -250,7 +250,7 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
         }
 
         if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
-            << hero->GetColor() << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
+            << static_cast<int>( hero->GetColor() ) << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
             << ",\"quantity\":" << countToTransfer << ",\"source_before\":" << heroBefore << ",\"source_after\":" << KnightObserver::armyJson( heroArmy )
             << ",\"destination_before\":" << townBefore << ",\"destination_after\":" << KnightObserver::armyJson( garrison ) );
 
