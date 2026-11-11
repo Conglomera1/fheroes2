@@ -181,7 +181,7 @@ namespace
 
             if ( order.building == BUILD_CAPTAIN && castle.GetRace() == Race::KNGT
                  && Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0
-                 && knightFarmBeforeCaptain( castle.isBuild( BUILD_WEL2 ), castle.hasTrainingGrounds(), castle.isBuildingDisabled( BUILD_WEL2 ) ) ) {
+                 && AI::knightFarmBeforeCaptain( castle.isBuild( BUILD_WEL2 ), castle.hasTrainingGrounds(), castle.isBuildingDisabled( BUILD_WEL2 ) ) ) {
                 TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << castle.GetIndex() << ": Captain deferred for initial Farm" );
                 continue;
             }
