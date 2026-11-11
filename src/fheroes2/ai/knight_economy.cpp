@@ -83,10 +83,10 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     if ( !training && !castle.isBuild( BUILD_WEL2 ) ) { out.reason = "ordinary_farm_development"; return out; }
     const auto building = training ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS;
     const auto & kingdom = castle.GetKingdom();
-    if ( kingdom.GetCastles().size() > 64 || !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), day )
-         || !Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), building ) || !castle.AllowBuyBuilding( building ) ) {
-        out.reason = "building_unavailable"; return out;
-    }
+    if ( kingdom.GetCastles().size() > 64 ) { out.reason = "town_limit"; return out; }
+    if ( !Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), day ) ) { out.reason = "difficulty_day_gate"; return out; }
+    if ( !Difficulty::allowAIToBuildCastleBuilding( Game::getDifficulty(), Game::isCampaign(), building ) ) { out.reason = "difficulty_building_gate"; return out; }
+    if ( !castle.AllowBuyBuilding( building ) ) { out.reason = "building_unavailable"; return out; }
     if ( const auto * visitor = castle.GetHero(); visitor && ( !visitor->Modes( Heroes::PATROL ) || visitor->GetPatrolDistance() ) ) {
         out.reason = "mobile_visitor"; return out;
     }
@@ -121,6 +121,9 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
     const auto decision = choose( castle, safe );
     ECONOMY_TRACE( 1, "KNIGHT_ROLE_REVIEW", ",\"kind\":\"evaluation\",\"town\":" << castle.GetIndex()
         << ",\"reason\":" << Economy::jsonQuote( decision.reason ) << ",\"building\":" << decision.building
+        << ",\"farm_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_WEL2 ) )
+        << ",\"tg_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_TRAINING_GROUNDS ) )
+        << ",\"funds\":" << Economy::fundsJson( castle.GetKingdom().GetFunds() )
         << ",\"keep_force\":" << decision.keepForce << ",\"switch_force\":" << decision.switchForce
         << ",\"keep_gold\":" << decision.keepGold << ",\"switch_gold\":" << decision.switchGold << ",\"projections\":" << decision.projections );
     if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) ) return false;

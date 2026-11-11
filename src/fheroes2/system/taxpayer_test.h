@@ -6,7 +6,7 @@
 
 #define TAXPAYER_TRACE( level, message ) \
     do { \
-        if ( Settings::Get().taxpayerTestDiagnostics() >= ( level ) ) { \
+        if ( Settings::Get().taxpayerTraceDetail() >= ( level ) && fheroes2::taxpayerSimulationDepth == 0 ) { \
             COUT( Logging::GetTimeString() << ": [TAXPAYER DIAG] " << message ); \
         } \
     } while ( false )

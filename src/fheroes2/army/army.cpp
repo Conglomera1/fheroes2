@@ -48,6 +48,8 @@
 #include "heroes.h"
 #include "heroes_base.h"
 #include "kingdom.h"
+#include "knight_observer.h"
+#include "economy_trace.h"
 #include "logging.h"
 #include "luck.h"
 #include "maps_tiles.h"
@@ -1442,6 +1444,18 @@ std::string Army::String() const
 
 void Army::JoinStrongestFromArmy( Army & giver )
 {
+    const bool observeTransfer = Settings::Get().isKnightObserverBuild() && !fheroes2::taxpayerSimulationDepth && giver.GetCommander() && GetCommander();
+    const std::string sourceArmyBefore = observeTransfer ? KnightObserver::armyJson( giver ) : std::string{};
+    const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
+    const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
+        if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( giver ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"JoinStrongestFromArmy\",\"source_player\":" << giver.GetColor()
+                << ",\"source_tile\":" << giver.GetCommander()->GetIndex() << ",\"source_hero\":" << ( giver.GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( giver )
+                << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );
+    } );
     const uint32_t taxpayerSourceBefore = giver.GetCountMonsters( Monster::PEASANT );
     const uint32_t taxpayerDestinationBefore = GetCountMonsters( Monster::PEASANT );
     const fheroes2::TaxpayerTraceScope transferTrace( [&]() {
@@ -1462,6 +1476,18 @@ void Army::JoinStrongestFromArmy( Army & giver )
 
 void Army::MoveTroops( Army & from, const int monsterIdToKeep )
 {
+    const bool observeTransfer = Settings::Get().isKnightObserverBuild() && !fheroes2::taxpayerSimulationDepth && from.GetCommander() && GetCommander();
+    const std::string sourceArmyBefore = observeTransfer ? KnightObserver::armyJson( from ) : std::string{};
+    const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
+    const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
+        if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( from ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"MoveTroops\",\"source_player\":" << from.GetColor()
+                << ",\"source_tile\":" << from.GetCommander()->GetIndex() << ",\"source_hero\":" << ( from.GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( from )
+                << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );
+    } );
     const uint32_t taxpayerSourceBefore = from.GetCountMonsters( Monster::PEASANT );
     const uint32_t taxpayerDestinationBefore = GetCountMonsters( Monster::PEASANT );
     const fheroes2::TaxpayerTraceScope transferTrace( [&]() {
@@ -1572,6 +1598,18 @@ void Army::MoveTroops( Army & from, const int monsterIdToKeep )
 
 void Army::SwapTroops( Army & from )
 {
+    const bool observeTransfer = Settings::Get().isKnightObserverBuild() && !fheroes2::taxpayerSimulationDepth && from.GetCommander() && GetCommander();
+    const std::string sourceArmyBefore = observeTransfer ? KnightObserver::armyJson( from ) : std::string{};
+    const std::string destinationArmyBefore = observeTransfer ? KnightObserver::armyJson( *this ) : std::string{};
+    const fheroes2::TaxpayerTraceScope observerTrace( [&]() {
+        if ( observeTransfer && ( sourceArmyBefore != KnightObserver::armyJson( from ) || destinationArmyBefore != KnightObserver::armyJson( *this ) ) )
+            ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"SwapTroops\",\"source_player\":" << from.GetColor()
+                << ",\"source_tile\":" << from.GetCommander()->GetIndex() << ",\"source_hero\":" << ( from.GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"destination_player\":" << GetColor() << ",\"destination_tile\":" << GetCommander()->GetIndex()
+                << ",\"destination_hero\":" << ( GetCommander()->isHeroes() ? "true" : "false" )
+                << ",\"source_before\":" << sourceArmyBefore << ",\"source_after\":" << KnightObserver::armyJson( from )
+                << ",\"destination_before\":" << destinationArmyBefore << ",\"destination_after\":" << KnightObserver::armyJson( *this ) );
+    } );
     const uint32_t taxpayerSourceBefore = from.GetCountMonsters( Monster::PEASANT );
     const uint32_t taxpayerDestinationBefore = GetCountMonsters( Monster::PEASANT );
     const fheroes2::TaxpayerTraceScope transferTrace( [&]() {

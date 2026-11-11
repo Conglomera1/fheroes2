@@ -165,6 +165,17 @@ public:
 #endif
     }
 
+    // Actual decision and transfer details are cheap to record. Keep the
+    // legacy level-2 planner experiments on the separate switch above.
+    int taxpayerTraceDetail() const
+    {
+#ifdef FHEROES2_KNIGHT_OBSERVER
+        return 2;
+#else
+        return taxpayerTestDiagnostics();
+#endif
+    }
+
     bool isKnightObserverBuild() const
     {
 #ifdef FHEROES2_KNIGHT_OBSERVER
