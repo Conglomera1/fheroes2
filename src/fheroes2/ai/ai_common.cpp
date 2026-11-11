@@ -45,6 +45,7 @@
 #include "game_static.h"
 #include "heroes.h"
 #include "kingdom.h"
+#include "knight_observer.h"
 #include "logging.h"
 #include "maps.h"
 #include "maps_tiles.h"
@@ -225,10 +226,16 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
         }
 
         const uint32_t initialCount = troop->GetCount();
+        const bool observeDeposit = Settings::Get().isKnightObserverBuild() && !fheroes2::taxpayerSimulationDepth;
+        const std::string heroBefore = observeDeposit ? KnightObserver::armyJson( heroArmy ) : std::string{};
+        const std::string townBefore = observeDeposit ? KnightObserver::armyJson( garrison ) : std::string{};
         // The hero must retain at least one unit if this is the only occupied army slot.
         const uint32_t countToTransfer = heroArmy.GetOccupiedSlotCount() == 1 ? initialCount - 1 : initialCount;
         const uint32_t garrisonBefore = garrison.GetCountMonsters( Monster::PEASANT );
         if ( countToTransfer == 0 || !garrison.JoinTroop( troop->GetMonster(), countToTransfer, true ) ) {
+            if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER_REFUSED", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
+                << hero->GetColor() << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
+                << ",\"requested\":" << countToTransfer << ",\"hero_army\":" << heroBefore << ",\"garrison\":" << townBefore );
             TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
                                << ", town " << castle->GetIndex() << ": deposit refused, last unit " << ( countToTransfer == 0 )
                                << ", occupied garrison slots " << garrison.GetOccupiedSlotCount() );
@@ -241,6 +248,11 @@ void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
         else {
             troop->SetCount( initialCount - countToTransfer );
         }
+
+        if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
+            << hero->GetColor() << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
+            << ",\"quantity\":" << countToTransfer << ",\"source_before\":" << heroBefore << ",\"source_after\":" << KnightObserver::armyJson( heroArmy )
+            << ",\"destination_before\":" << townBefore << ",\"destination_after\":" << KnightObserver::armyJson( garrison ) );
 
         TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
                            << ", town " << castle->GetIndex() << ": deposit balance, hero " << initialCount << " -> " << heroArmy.GetCountMonsters( Monster::PEASANT )
