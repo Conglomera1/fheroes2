@@ -5,6 +5,15 @@
 
 namespace AI
 {
+    constexpr bool taxpayerDefensiveFarmAffordable( const int64_t gold, const uint32_t cost )
+    {
+        return cost > 0 && gold - static_cast<int64_t>( cost ) >= 2000;
+    }
+
+    constexpr bool taxpayerKeepTrainingPopulation( const bool training, const bool enabled, const bool knownDefenseTask )
+    {
+        return training && enabled && !knownDefenseTask;
+    }
     // Promote an existing population's Farm only if it recovers its cost within seven daily credits.
     constexpr bool taxpayerFarmPaysBackQuickly( const uint64_t dailyIncome, const uint32_t farmCost )
     {

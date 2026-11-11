@@ -4,6 +4,17 @@
 
 int main()
 {
+    // Fountainhead J208: 328 residents, 22328 gold, actual Farm cost 1000.
+    static_assert( AI::taxpayerFarmPaysBackQuickly( 328 * 2, 1000 ) );
+    static_assert( AI::taxpayerDefensiveFarmAffordable( 22328, 1000 ) );
+    static_assert( !AI::taxpayerDefensiveFarmAffordable( 2999, 1000 ) );
+    static_assert( AI::taxpayerDefensiveFarmAffordable( 3000, 1000 ) );
+    // Dragontooth J94: protect TG population during routine reinforcement,
+    // release it for an explicit defense task; disabled TG has no reservation.
+    static_assert( AI::taxpayerKeepTrainingPopulation( true, true, false ) );
+    static_assert( !AI::taxpayerKeepTrainingPopulation( true, true, true ) );
+    static_assert( !AI::taxpayerKeepTrainingPopulation( true, false, false ) );
+    static_assert( !AI::taxpayerKeepTrainingPopulation( false, true, false ) );
     // Farm investment uses configurable daily income and the actual building cost.
     static_assert( AI::taxpayerFarmPaysBackQuickly( 180, 1000 ) ); // 90 Peasants at 2 gold: six credits.
     static_assert( !AI::taxpayerFarmPaysBackQuickly( 142, 1000 ) );

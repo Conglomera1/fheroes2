@@ -38,6 +38,7 @@
 #include "army_troop.h"
 #include "castle.h"
 #include "castle_building_info.h"
+#include "conscription.h"
 #include "difficulty.h"
 #include "game.h"
 #include "heroes.h"
@@ -285,7 +286,7 @@ namespace
         }
     }
 
-    bool buildQuickPaybackFarm( Castle & castle )
+    bool buildQuickPaybackFarm( Castle & castle, const bool garrisonOnly = false )
     {
         if ( castle.GetRace() != Race::KNGT || castle.isBuild( BUILD_WEL2 ) || isLegacyFarmReconversion( castle, BUILD_WEL2 ) ) {
             return false;
@@ -298,7 +299,7 @@ namespace
 
         const Heroes * guest = castle.GetHero();
         const uint64_t peasants = static_cast<uint64_t>( castle.GetArmy().GetCountMonsters( Monster::PEASANT ) )
-                                  + ( guest ? guest->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
+                                  + ( guest && !garrisonOnly ? guest->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
         const uint64_t dailyIncome = peasants * static_cast<uint64_t>( rate );
         const uint32_t farmCost = castle.getBuildingCost( BUILD_WEL2 ).gold;
         const bool quickPayback = AI::taxpayerFarmPaysBackQuickly( dailyIncome, farmCost );
@@ -483,6 +484,11 @@ void AI::Planner::updateKingdomBudget( const Kingdom & kingdom )
 
 bool AI::Planner::shouldKeepTaxpayersInGarrison( const Castle & castle ) const
 {
+    const auto task = _priorityTargets.find( castle.GetIndex() );
+    const bool defenseTask = task != _priorityTargets.end() && task->second.type == PriorityTaskType::DEFEND;
+    if ( taxpayerKeepTrainingPopulation( castle.hasTrainingGrounds(), Conscription::settings().enabled, defenseTask ) ) {
+        return true;
+    }
     return castle.GetRace() == Race::KNGT && castle.isBuild( BUILD_WEL2 ) && Kingdom::TaxpayerRequiresFarms()
            && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0;
 }
@@ -814,6 +820,15 @@ void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
         if ( castle.GetActualArmy().getTotalCount() > 0 ) {
             Build( castle, defensiveStructures );
             Build( castle, supportingDefensiveStructures );
+        }
+
+        // Defense recruits and defenses have first use of this turn's funds.
+        // A persistent threat must not suppress a profitable existing population
+        // forever, but do not trade military resources or spend the gold reserve.
+        if ( Difficulty::allowAIToDevelopCastlesOnDay( Game::getDifficulty(), Game::isCampaign(), world.CountDay() )
+             && castle.CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD
+             && taxpayerDefensiveFarmAffordable( castle.GetKingdom().GetFunds().gold, castle.getBuildingCost( BUILD_WEL2 ).gold ) ) {
+            buildQuickPaybackFarm( castle, true );
         }
     }
     else {
