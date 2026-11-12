@@ -1,0 +1,172 @@
+[
+  {
+    "case": "wood",
+    "diagnostics": 0,
+    "result": "PASS v7 wood gold=9500"
+  },
+  {
+    "case": "wood",
+    "diagnostics": 2,
+    "result": "PASS v7 wood gold=9500"
+  },
+  {
+    "case": "sawmill",
+    "diagnostics": 0,
+    "result": "PASS v7 sawmill gold=9500"
+  },
+  {
+    "case": "sawmill",
+    "diagnostics": 2,
+    "result": "PASS v7 sawmill gold=9500"
+  },
+  {
+    "case": "boat_budget",
+    "diagnostics": 0,
+    "result": "PASS v7 boat_budget gold=12094"
+  },
+  {
+    "case": "boat_budget",
+    "diagnostics": 2,
+    "result": "PASS v7 boat_budget gold=12094"
+  },
+  {
+    "case": "mobilization",
+    "diagnostics": 0,
+    "result": "PASS v7 mobilization gold=12094"
+  },
+  {
+    "case": "mobilization",
+    "diagnostics": 2,
+    "result": "PASS v7 mobilization gold=12094"
+  },
+  {
+    "case": "recovery",
+    "diagnostics": 0,
+    "result": "PASS v7 recovery gold=624"
+  },
+  {
+    "case": "recovery",
+    "diagnostics": 2,
+    "result": "PASS v7 recovery gold=624"
+  },
+  {
+    "case": "unsafe_recovery",
+    "diagnostics": 0,
+    "result": "PASS v7 unsafe_recovery gold=2124"
+  },
+  {
+    "case": "unsafe_recovery",
+    "diagnostics": 2,
+    "result": "PASS v7 unsafe_recovery gold=2124"
+  },
+  {
+    "case": "roles",
+    "diagnostics": 0,
+    "result": "PASS v7 roles gold=18250"
+  },
+  {
+    "case": "roles",
+    "diagnostics": 2,
+    "result": "PASS v7 roles gold=18250"
+  },
+  {
+    "case": "statue_wait",
+    "diagnostics": 0,
+    "result": "PASS v7 statue_wait gold=500"
+  },
+  {
+    "case": "statue_wait",
+    "diagnostics": 2,
+    "result": "PASS v7 statue_wait gold=500"
+  },
+  {
+    "case": "statue_exception",
+    "diagnostics": 0,
+    "result": "PASS v7 statue_exception gold=300"
+  },
+  {
+    "case": "statue_exception",
+    "diagnostics": 2,
+    "result": "PASS v7 statue_exception gold=300"
+  },
+  {
+    "case": "routine_budget",
+    "diagnostics": 0,
+    "result": "PASS v7 routine_budget gold=3550"
+  },
+  {
+    "case": "routine_budget",
+    "diagnostics": 2,
+    "result": "PASS v7 routine_budget gold=3550"
+  },
+  {
+    "case": "emergency",
+    "diagnostics": 0,
+    "result": "PASS v7 emergency gold=2800"
+  },
+  {
+    "case": "emergency",
+    "diagnostics": 2,
+    "result": "PASS v7 emergency gold=2800"
+  },
+  {
+    "case": "human",
+    "diagnostics": 0,
+    "result": "PASS v7 human gold=2800"
+  },
+  {
+    "case": "human",
+    "diagnostics": 2,
+    "result": "PASS v7 human gold=2800"
+  },
+  {
+    "case": "shared_forecast",
+    "diagnostics": 0,
+    "result": "PASS v7 shared_forecast gold=16463"
+  },
+  {
+    "case": "shared_forecast",
+    "diagnostics": 2,
+    "result": "PASS v7 shared_forecast gold=16463"
+  },
+  {
+    "case": "overhead",
+    "diagnostics": 0,
+    "result": "PASS v7 overhead gold=19300"
+  },
+  {
+    "case": "overhead",
+    "diagnostics": 2,
+    "result": "PASS v7 overhead gold=19300"
+  },
+  {
+    "case": "no_naval_use",
+    "diagnostics": 0,
+    "result": "PASS v7 no_naval_use gold=20000"
+  },
+  {
+    "case": "no_naval_use",
+    "diagnostics": 2,
+    "result": "PASS v7 no_naval_use gold=20000"
+  },
+  {
+    "case": "naval_use",
+    "diagnostics": 0,
+    "result": "PASS v7 naval_use gold=19000"
+  },
+  {
+    "case": "naval_use",
+    "diagnostics": 2,
+    "result": "PASS v7 naval_use gold=19000"
+  },
+  {
+    "case": "hidden_naval_object",
+    "diagnostics": 0,
+    "result": "PASS v7 hidden_naval_object gold=20000"
+  },
+  {
+    "case": "hidden_naval_object",
+    "diagnostics": 2,
+    "result": "PASS v7 hidden_naval_object gold=20000"
+  }
+]

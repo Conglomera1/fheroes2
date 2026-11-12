@@ -58,6 +58,9 @@
 #include "interface_base.h"
 #include "interface_gamearea.h"
 #include "kingdom.h"
+#include "knight_construction.h"
+#include "knight_observer.h"
+#include "economy_trace.h"
 #include "localevent.h"
 #include "logging.h"
 #include "m82.h"
@@ -433,11 +436,17 @@ namespace
         }
 
         const auto captureCastle = [&hero, dstIndex, castle]() {
+            const int oldOwner = static_cast<int>( castle->GetColor() );
+            const auto before = KnightObserver::armyJson( castle->GetArmy() );
             castle->GetKingdom().RemoveCastle( castle );
             hero.GetKingdom().AddCastle( castle );
             world.CaptureObject( dstIndex, hero.GetColor() );
 
             castle->Scout();
+            AI::KnightConstruction::refresh();
+            ECONOMY_TRACE( 1, "TOWN_CAPTURE", ",\"town\":" << dstIndex << ",\"old_player\":" << oldOwner
+                << ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"garrison_before\":" << before
+                << ",\"garrison_after\":" << KnightObserver::armyJson( castle->GetArmy() ) );
         };
 
         Army & army = castle->GetActualArmy();

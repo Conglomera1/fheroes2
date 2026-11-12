@@ -1,8 +1,15 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v7 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
+
+V7 TEST
+Start AoW and Utopeia again from day 1 with the same factions and existing INI.
+Keep the log through elimination, or aim for day 168-175 if play continues.
+Revision 7 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+This version coordinates routine spending, mobilisation and Farm recovery,
+adds economic roles to secondary Knight towns and requires useful naval missions.
 
 CONTROLS
 - Map and radar show the whole world, including objects and enemy heroes.
@@ -33,7 +40,10 @@ planner experiments are not activated. The trace includes:
 - AI selected targets/scores, movement orders, tile steps and completed actions;
 - battle armies before/after, results and experience;
 - actual gameplay fog count/hash per faction for checking isolation;
-- Farm/TG forecasts, decision reasons and actual building purchases.
+- Farm/TG forecasts, decision reasons and actual building purchases;
+- shared budgets, emergency exceptions and economic/military town roles;
+- boat purchases and naval missions, unit upgrades and hero waiting reasons;
+- garrisons selected for defense and garrisons before/after capture.
 
 This is not a deterministic replay or a trace of every rejected tactical idea.
 The log may become large on long games. It is LOCAL; nothing is sent online.

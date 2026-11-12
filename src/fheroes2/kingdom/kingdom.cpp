@@ -24,6 +24,7 @@
 #include "taxpayer_test.h"
 #include "economy_forecast.h"
 #include "economy_trace.h"
+#include "knight_economy.h"
 
 #include "kingdom.h"
 
@@ -404,7 +405,7 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
         const auto projection = Economy::forecast( economySnapshot(), Conscription::settings(), 14 );
         ECONOMY_TRACE( 2, "FORECAST", ",\"kind\":\"forecast\",\"phase\":\"after_daily_update\",\"player\":" << static_cast<int>( GetColor() )
                        << ",\"requested_days\":14,\"projected_days\":" << projection.days.size() << ",\"complete\":" << ( projection.complete ? "true" : "false" )
-                       << ",\"assumptions\":\"" << projection.reason << "\",\"closing_gold\":" << projection.end.gold
+                       << ",\"scope\":\"passive_income_and_conscripting_only\",\"assumptions\":\"" << projection.reason << "\",\"closing_gold\":" << projection.end.gold
                        << ",\"closing_materials\":[" << projection.end.materials[0] << ',' << projection.end.materials[1] << ',' << projection.end.materials[2]
                        << ',' << projection.end.materials[3] << ',' << projection.end.materials[4] << ',' << projection.end.materials[5] << ']' );
         for ( const auto & day : projection.days ) {
@@ -635,6 +636,7 @@ void Kingdom::OddFundsResource( const Funds & funds )
     Economy::observeOpeningFunds( static_cast<int>( GetColor() ), before );
     resource = resource - funds;
     resource.Trim();
+    AI::KnightEconomy::recordDebit( *this, before, resource, Economy::traceState().cause );
     ECONOMY_TRACE( 1, "FUNDS_DEBIT", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() ) << ",\"before\":" << Economy::fundsJson( before )
                    << ",\"requested\":" << Economy::fundsJson( requested ) << ",\"after\":" << Economy::fundsJson( resource ) );
 }

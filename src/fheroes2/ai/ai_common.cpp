@@ -46,6 +46,7 @@
 #include "heroes.h"
 #include "kingdom.h"
 #include "knight_observer.h"
+#include "knight_construction.h"
 #include "logging.h"
 #include "maps.h"
 #include "maps_tiles.h"
@@ -60,6 +61,7 @@
 
 bool AI::BuildIfPossible( Castle & castle, const BuildingType building )
 {
+    if ( !AI::KnightConstruction::canSpend( castle, building ) ) return false;
     switch ( castle.CheckBuyBuilding( building ) ) {
     case BuildingStatus::LACK_RESOURCES: {
         const Funds payment = castle.getBuildingCost( building );
@@ -438,6 +440,7 @@ bool AI::tradeAtMarketplace( Kingdom & kingdom, const Funds & fundsToObtain )
     }
 
     assert( kingdom.AllowPayment( *transaction ) );
+    if ( !AI::KnightConstruction::allowsPayment( kingdom, *transaction, "market_trade" ) ) return false;
 
     DEBUG_LOG( DBG_AI, DBG_INFO,
                Color::String( kingdom.GetColor() ) << " having funds " << kingdom.GetFunds().String() << " obtains funds " << fundsToObtain.String()

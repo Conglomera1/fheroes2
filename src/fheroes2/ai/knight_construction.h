@@ -8,6 +8,8 @@
 #include <vector>
 class Castle;
 class Kingdom;
+class Funds;
+class Heroes;
 namespace AI::KnightConstruction
 {
     using Resources = std::array<int64_t, 7>;
@@ -55,7 +57,7 @@ namespace AI::KnightConstruction
         }
         std::map<int, Promise> promises;
     };
-    // Active only during the actual kingdom-wide castle development pass.
+    // Active throughout the actual AI turn, including hero visits and purchases.
     class Scope
     {
     public:
@@ -67,4 +69,21 @@ namespace AI::KnightConstruction
         const Kingdom * kingdom_;
     };
     bool canSpend( const Castle & castle, uint32_t building );
+    // Shared live budget, used before routine recruitment, upgrades and exchanges.
+    Funds spendable( const Kingdom & kingdom );
+    bool allowsPayment( const Kingdom & kingdom, const Funds & cost, const char * purpose );
+    bool mobilizationPreservesDevelopment( const Castle & castle );
+    bool economicTown( const Castle & castle );
+    void setRoles( const Kingdom & kingdom, const std::vector<int> & knownFront, const std::vector<int> & endangered );
+    void refresh();
+    bool active( const Kingdom & kingdom );
+    class Emergency
+    {
+    public:
+        explicit Emergency( bool active );
+        ~Emergency();
+    private:
+        bool active_;
+    };
+    int navalTarget( const Heroes & hero );
 }

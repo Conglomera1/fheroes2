@@ -2,6 +2,9 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <array>
+class Kingdom;
+class Funds;
 class Castle;
 namespace AI::KnightEconomy
 {
@@ -15,7 +18,11 @@ namespace AI::KnightEconomy
         double cycleForce = 0;
         int64_t cycleGold = 0;
         std::string reason;
+        uint32_t towns = 0;
+        std::array<int64_t, 7> dailyOverhead{};
     };
     Decision choose( const Castle & castle, bool safe );
     bool develop( Castle & castle, bool safe );
+    void recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const char * cause );
+    std::array<int64_t, 7> overhead( const Kingdom & kingdom );
 }

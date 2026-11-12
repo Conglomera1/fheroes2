@@ -836,6 +836,17 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
     evaluateRegionSafety();
 
     updateKingdomBudget( kingdom );
+    // Protect the common budget before hero visits, upgrades and recruitment.
+    AI::KnightConstruction::Scope constructionBudget( kingdom );
+    const auto configureKnightRoles = [&]() {
+        std::vector<int> knownFront, endangered;
+        const auto currentDanger = findCastlesInDanger( kingdom );
+        endangered.assign( currentDanger.begin(), currentDanger.end() );
+        for ( const auto & entry : _enemyArmies ) knownFront.push_back( entry.first );
+        for ( const auto & entry : _priorityTargets ) if ( entry.second.type == PriorityTaskType::DEFEND ) endangered.push_back( entry.first );
+        AI::KnightConstruction::setRoles( kingdom, knownFront, endangered );
+    };
+    configureKnightRoles();
 
     uint32_t currentProgressValue = 1;
     status.drawAITurnProgress( currentProgressValue );
@@ -959,9 +970,8 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
     }
 
     {
-        std::vector<const Castle *> constructionOrder;
-        for ( const AICastle & entry : sortedCastleList ) if ( entry.castle ) constructionOrder.push_back( entry.castle );
-        AI::KnightConstruction::Scope constructionBudget( kingdom, constructionOrder );
+        configureKnightRoles();
+        AI::KnightConstruction::refresh();
         // Perform castle development with the shared construction budget.
         for ( const AICastle & entry : sortedCastleList ) {
             if ( entry.castle ) CastleTurn( *entry.castle, entry.underThreat );

@@ -53,6 +53,7 @@
 #include "icn.h"
 #include "image.h"
 #include "kingdom.h"
+#include "knight_construction.h"
 #include "logging.h"
 #include "luck.h"
 #include "m82.h"
@@ -1023,6 +1024,7 @@ Heroes * Castle::RecruitHero( Heroes * hero )
         return nullptr;
     }
 
+    if ( !GetKingdom().GetHeroes().empty() && !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::RecruitHero(), "hero_purchase" ) ) return nullptr;
     if ( !hero->Recruit( *this ) ) {
         return nullptr;
     }
@@ -1081,7 +1083,7 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
     const Funds paymentCosts = troop.GetTotalCost();
     Kingdom & kingdom = GetKingdom();
 
-    if ( !kingdom.AllowPayment( paymentCosts ) ) {
+    if ( !kingdom.AllowPayment( paymentCosts ) || !AI::KnightConstruction::allowsPayment( kingdom, paymentCosts, "troop_purchase" ) ) {
         return false;
     }
 
@@ -1115,7 +1117,12 @@ uint32_t Castle::getRecruitLimit( const Monster & monster, const Funds & budget 
 
     const uint32_t available = getMonstersInDwelling( monster.GetDwelling() );
 
-    uint32_t willRecruit = budget.getLowestQuotient( monster.GetCost() );
+    const Funds purchaseBudget = AI::KnightConstruction::spendable( GetKingdom() );
+    Funds limited = budget;
+    limited.gold = std::min( limited.gold, purchaseBudget.gold ); limited.wood = std::min( limited.wood, purchaseBudget.wood ); limited.ore = std::min( limited.ore, purchaseBudget.ore );
+    limited.mercury = std::min( limited.mercury, purchaseBudget.mercury ); limited.sulfur = std::min( limited.sulfur, purchaseBudget.sulfur );
+    limited.crystal = std::min( limited.crystal, purchaseBudget.crystal ); limited.gems = std::min( limited.gems, purchaseBudget.gems );
+    uint32_t willRecruit = limited.getLowestQuotient( monster.GetCost() );
     if ( available < willRecruit )
         return available;
 
@@ -1282,7 +1289,8 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
         return false;
     }
 
-    const Economy::CauseScope cause( "building_purchase", GetIndex() );
+    const bool conversion = _race == Race::KNGT && ( buildingType == BUILD_TRAINING_GROUNDS || ( buildingType == BUILD_WEL2 && hasTrainingGrounds() ) );
+    const Economy::CauseScope cause( conversion ? "role_conversion" : "building_purchase", GetIndex() );
     const Funds payment = getBuildingCost( buildingType );
     GetKingdom().OddFundsResource( payment );
     if ( _race == Race::KNGT ) {
@@ -2195,7 +2203,8 @@ bool Castle::AllowBuyBoat( const bool checkPayment ) const
 
 bool Castle::BuyBoat() const
 {
-    if ( !AllowBuyBoat( true ) ) {
+    const Economy::CauseScope cause( "boat_purchase", GetIndex() );
+    if ( !AllowBuyBoat( true ) || !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::BuyBoat(), "boat_purchase" ) ) {
         return false;
     }
 
@@ -2214,6 +2223,8 @@ bool Castle::BuyBoat() const
     Kingdom & kingdom = GetKingdom();
     kingdom.OddFundsResource( PaymentConditions::BuyBoat() );
     world.getTile( index ).setBoat( Direction::RIGHT, kingdom.GetColor() );
+    ECONOMY_TRACE( 1, "BOAT_PURCHASE", ",\"player\":" << static_cast<int>( GetColor() ) << ",\"town\":" << GetIndex() << ",\"tile\":" << index
+        << ",\"cost\":" << Economy::fundsJson( PaymentConditions::BuyBoat() ) );
 
     return true;
 }

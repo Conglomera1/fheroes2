@@ -59,6 +59,7 @@
 #include "heroes_base.h"
 #include "interface_status.h"
 #include "kingdom.h"
+#include "knight_construction.h"
 #include "logging.h"
 #include "luck.h"
 #include "maps.h"
@@ -2526,6 +2527,11 @@ int AI::Planner::getCourierMainTarget( const Heroes & hero, const double lowestP
 
 int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
 {
+    const int naval = KnightConstruction::navalTarget( hero );
+    if ( naval >= 0 ) {
+        _pathfinder.reEvaluateIfNeeded( hero );
+        if ( _pathfinder.getDistance( naval ) > 0 ) { maxPriority = 100000; return naval; }
+    }
     DEBUG_LOG( DBG_AI, DBG_INFO, "Find Adventure Map target for hero " << hero.GetName() << " at current position " << hero.GetIndex() )
 
     const double lowestPossibleValue = -1.0 * Maps::Ground::slowestMovePenalty * world.getSize();
@@ -2984,7 +2990,12 @@ void AI::Planner::updatePriorityTargets( Heroes & hero, int32_t tileIndex, const
         // How is it even possible that a hero died while simply moving into a castle?
         assert( hero.isActive() );
 
+        if ( taskType == PriorityTaskType::REINFORCE && KnightConstruction::navalTarget( hero ) >= 0 ) {
+            _priorityTargets.erase( tileIndex ); return;
+        }
         hero.SetModes( Heroes::SLEEPER );
+        ECONOMY_TRACE( 1, "AI_HERO_WAIT", ",\"hero\":" << hero.GetID() << ",\"town\":" << tileIndex
+            << ",\"reason\":\"" << ( taskType == PriorityTaskType::DEFEND ? "defense" : "reinforcement" ) << "\",\"moves\":" << hero.GetMovePoints() );
         TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
                            << ", town " << tileIndex << ": waiting for " << ( taskType == PriorityTaskType::DEFEND ? "defense" : "reinforcement" )
                            << ", Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
@@ -3373,6 +3384,10 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
                 TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( waitingHero->GetColor() ) << ", hero id " << waitingHero->GetID()
                                    << ", tile " << waitingHero->GetIndex() << ": no reachable target selected, moves " << waitingHero->GetMovePoints()
                                    << ", army strength " << waitingHero->GetArmy().GetStrength() );
+            }
+            for ( const auto * waitingHero : availableHeroes ) {
+                ECONOMY_TRACE( 1, "AI_HERO_WAIT", ",\"hero\":" << waitingHero->GetID() << ",\"tile\":" << waitingHero->GetIndex()
+                    << ",\"reason\":\"no_reachable_target\",\"moves\":" << waitingHero->GetMovePoints() );
             }
             // Nothing to do. Stop everything.
             break;

@@ -43,6 +43,8 @@
 #include "game.h"
 #include "heroes.h"
 #include "kingdom.h"
+#include "knight_observer.h"
+#include "economy_trace.h"
 #include "knight_economy.h"
 #include "knight_construction.h"
 #include "economy_project.h"
@@ -55,6 +57,7 @@
 #include "race.h"
 #include "resource.h"
 #include "world.h"
+#include "world_pathfinding.h"
 #include "world_regions.h"
 
 namespace
@@ -177,9 +180,74 @@ namespace
     { return { f.gold, f.wood, f.ore, f.mercury, f.sulfur, f.crystal, f.gems }; }
     const std::array<uint32_t, 10> knightPrimaryOrder{ BUILD_STATUE, DWELLING_MONSTER1, DWELLING_MONSTER2, BUILD_WELL,
         DWELLING_MONSTER3, BUILD_TAVERN, DWELLING_MONSTER4, DWELLING_MONSTER6, DWELLING_MONSTER5, BUILD_WEL2 };
-    struct ConstructionContext { const Kingdom * kingdom; KC::Ledger ledger; };
+    struct ConstructionContext { const Kingdom * kingdom; KC::Ledger ledger; std::set<int> economic, endangered; };
+    thread_local uint32_t emergencyDepth = 0;
     thread_local std::optional<ConstructionContext> constructionContext;
 
+    struct NavalMission { int hero = -1, home = -1, boat = -1, target = -1; MP2::MapObjectType object = MP2::OBJ_NONE; uint32_t day = 0, seed = 0; uint64_t segment = 0; int owner = -1; };
+    std::map<int, NavalMission> navalMissions;
+    NavalMission navalUse( const Castle & castle )
+    {
+        NavalMission best;
+        const int boat = castle.getTileIndexToPlaceBoat();
+        if ( boat < 0 ) return best;
+        const auto & kingdom = castle.GetKingdom(); const auto color = kingdom.GetColor();
+        if ( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) ) return best;
+        std::vector<int> targets;
+        for ( int tile = 0; tile < static_cast<int>( world.getSize() ); ++tile ) {
+            const auto & cell = world.getTile( tile );
+            if ( cell.isFog( color ) || !cell.isWater() || tile == boat ) continue;
+            const auto object = cell.getMainObjectType( false );
+            bool useful = object == MP2::OBJ_FLOTSAM || object == MP2::OBJ_SEA_CHEST || object == MP2::OBJ_SHIPWRECK_SURVIVOR;
+            if ( object == MP2::OBJ_NONE ) {
+                for ( int dy = -1; dy <= 1 && !useful; ++dy ) for ( int dx = -1; dx <= 1 && !useful; ++dx ) {
+                    const int x = tile % world.w() + dx, y = tile / world.w() + dy;
+                    if ( x >= 0 && x < world.w() && y >= 0 && y < world.h() ) useful = world.getTile( y * world.w() + x ).isFog( color );
+                }
+            }
+            if ( useful ) targets.push_back( tile );
+        }
+        std::stable_sort( targets.begin(), targets.end(), [&]( int a, int b ) {
+            return std::abs( a % world.w() - boat % world.w() ) + std::abs( a / world.w() - boat / world.w() )
+                 < std::abs( b % world.w() - boat % world.w() ) + std::abs( b / world.w() - boat / world.w() );
+        } );
+        if ( targets.size() > 12 ) targets.resize( 12 );
+        uint64_t bestCost = UINT64_MAX;
+        for ( const auto * hero : kingdom.GetHeroes() ) {
+            if ( !hero || !hero->isActive() || hero->isShipMaster() || hero->Modes( Heroes::PATROL ) || navalMissions.count( hero->GetID() ) ) continue;
+            AIWorldPathfinder land; land.reset(); land.reEvaluateIfNeeded( *hero );
+            uint32_t walk = UINT32_MAX;
+            for ( int dy = -1; dy <= 1; ++dy ) for ( int dx = -1; dx <= 1; ++dx ) {
+                const int x = boat % world.w() + dx, y = boat / world.w() + dy;
+                if ( x < 0 || x >= world.w() || y < 0 || y >= world.h() ) continue;
+                const int shore = y * world.w() + x; const auto & cell = world.getTile( shore );
+                if ( cell.isFog( color ) || cell.isWater() ) continue;
+                const uint32_t distance = land.getDistance( shore );
+                if ( shore == hero->GetIndex() || distance ) walk = std::min( walk, distance );
+            }
+            if ( walk == UINT32_MAX || walk > hero->GetMaxMovePoints() * 2 ) continue;
+            AIWorldPathfinder sea; sea.reset(); sea.reEvaluateIfNeeded( boat, color, hero->GetArmy().GetStrength(), Skill::Level::BASIC );
+            for ( const int target : targets ) {
+                const auto sail = sea.getDistance( target );
+                if ( !sail || sail > 4500 || uint64_t{ walk } + sail >= bestCost ) continue;
+                bestCost = uint64_t{ walk } + sail;
+                best = { hero->GetID(), castle.GetIndex(), boat, target, world.getTile( target ).getMainObjectType( false ), world.CountDay(), world.GetMapSeed(), Economy::traceState().segment, static_cast<int>( color ) };
+            }
+        }
+        return best;
+    }
+    std::vector<uint32_t> primaryOrder( const Castle & castle )
+    {
+        if ( KC::economicTown( castle ) ) return { BUILD_STATUE, BUILD_MARKETPLACE, DWELLING_MONSTER1, BUILD_WELL, BUILD_WEL2 };
+        return { knightPrimaryOrder.begin(), knightPrimaryOrder.end() };
+    }
+    bool woodPreserved( const Castle & castle, const uint32_t building )
+    {
+        if ( building == BUILD_MARKETPLACE || castle.isBuild( BUILD_MARKETPLACE )
+             || world.CountCapturedMines( Resource::WOOD, castle.GetColor() ) > 0 ) return true;
+        const auto price = castle.getBuildingCost( building );
+        return price.wood <= 0 || castle.GetKingdom().GetFunds().wood - price.wood >= 5;
+    }
     bool primaryReady( const Castle & castle, const uint32_t building, const uint32_t day )
     {
         if ( !castle.isCastle() || castle.isBuild( building ) || castle.isBuildingDisabled( building )
@@ -203,9 +271,10 @@ namespace
     void reservePrimary( KC::Ledger & ledger, const Castle & castle, const KC::Resources & tomorrow, const size_t order )
     {
         if ( castle.GetRace() != Race::KNGT || world.CountDay() == UINT32_MAX ) return;
-        for ( size_t i = 0; i < knightPrimaryOrder.size(); ++i ) {
-            const auto building = knightPrimaryOrder[i];
-            if ( !primaryReady( castle, building, world.CountDay() + 1 ) ) continue;
+        const auto orderList = primaryOrder( castle );
+        for ( size_t i = 0; i < orderList.size(); ++i ) {
+            const auto building = orderList[i];
+            if ( !primaryReady( castle, building, world.CountDay() + 1 ) || !woodPreserved( castle, building ) ) continue;
             const auto price = constructionResources( castle.getBuildingCost( building ) );
             if ( ledger.book( castle.GetIndex(), KC::Promise{ building, i, order, price }, tomorrow ) ) {
                 ECONOMY_TRACE( 1, "CONSTRUCTION_RESERVE", ",\"kind\":\"planning\",\"player\":" << static_cast<int>( castle.GetColor() )
@@ -233,6 +302,11 @@ namespace
 
     bool constructionAffordable( const Castle & castle, const uint32_t building, KC::Ledger & ledger )
     {
+        if ( emergencyDepth ) return true;
+        if ( !woodPreserved( castle, building ) ) {
+            ECONOMY_TRACE( 1, "CONSTRUCTION_WAIT", ",\"town\":" << castle.GetIndex() << ",\"candidate\":" << building << ",\"reason\":\"preserve_market_wood\"" );
+            return false;
+        }
         if ( ledger.promises.empty() ) return true;
         const auto baseline = tomorrowFunds( castle.GetKingdom() );
         if ( !baseline ) {
@@ -288,7 +362,7 @@ namespace
         // First enumerate today's choices in priority order. Reservations are
         // considered only when deciding whether this present choice delays tomorrow.
         std::vector<uint32_t> today;
-        for ( const uint32_t building : knightPrimaryOrder )
+        for ( const uint32_t building : primaryOrder( castle ) )
             if ( primaryReady( castle, building, world.CountDay() ) && castle.CheckBuyBuilding( building ) == BuildingStatus::ALLOW_BUILD ) today.push_back( building );
         const auto future = tomorrowFunds( castle.GetKingdom() );
         if ( future ) {
@@ -303,6 +377,11 @@ namespace
                 << ",\"built\":" << ( built ? "true" : "false" ) );
             return built ? PrimaryResult::Built : PrimaryResult::Wait;
         }
+        if ( !castle.isBuild( BUILD_MARKETPLACE ) && castle.CheckBuyBuilding( BUILD_MARKETPLACE ) == BuildingStatus::ALLOW_BUILD
+             && std::any_of( today.begin(), today.end(), [&]( uint32_t b ) { return !woodPreserved( castle, b ); } )
+             && constructionAffordable( castle, BUILD_MARKETPLACE, *ledger ) ) {
+            return castle.BuyBuilding( BUILD_MARKETPLACE ) ? PrimaryResult::Built : PrimaryResult::Wait;
+        }
         return PrimaryResult::Fallback;
     }
 
@@ -312,6 +391,9 @@ namespace
         const bool isGameCampaign = Game::isCampaign();
 
         for ( const BuildOrder & order : buildOrderList ) {
+            if ( order.building == BUILD_SHIPYARD && navalUse( castle ).hero < 0 ) continue;
+            if ( KC::economicTown( castle ) && ( static_cast<uint32_t>( order.building ) & DWELLING_MONSTERS )
+                 && order.building != DWELLING_MONSTER1 ) continue;
             if ( isLegacyFarmReconversion( castle, order.building ) ) {
                 continue;
             }
@@ -447,7 +529,7 @@ namespace
         const bool islandOrPeninsula = neighbourRegions < 3;
 
         // Force building a shipyard, +1 to cost check since we can have 0 neighbours
-        if ( islandOrPeninsula && AI::BuildIfEnoughFunds( castle, BUILD_SHIPYARD, static_cast<uint32_t>( neighbourRegions + 1 ) ) ) {
+        if ( islandOrPeninsula && navalUse( castle ).hero >= 0 && AI::BuildIfEnoughFunds( castle, BUILD_SHIPYARD, static_cast<uint32_t>( neighbourRegions + 1 ) ) ) {
             return true;
         }
 
@@ -463,8 +545,11 @@ namespace
             }
         }
 
-        // Check whether it is worth buying a boat
-        const bool buyBoat = [&castle, islandOrPeninsula]() {
+        const NavalMission mission = castle.AllowBuyBoat( false ) && KC::allowsPayment( castle.GetKingdom(), PaymentConditions::BuyBoat(), "boat_purchase" )
+            ? navalUse( castle ) : NavalMission{};
+        // Keep the native affordability threshold, but require a real mission and budget.
+        const bool buyBoat = [&castle, islandOrPeninsula, &mission]() {
+            if ( mission.hero < 0 ) return false;
             // Check if it is possible to build a boat in this castle at all (except for the solvency check)
             if ( !castle.AllowBuyBoat( false ) ) {
                 return false;
@@ -504,8 +589,10 @@ namespace
         }();
 
         // If yes, then buy a boat
-        if ( buyBoat ) {
-            castle.BuyBoat();
+        if ( buyBoat && castle.BuyBoat() ) {
+            navalMissions[mission.hero] = mission;
+            ECONOMY_TRACE( 1, "NAVAL_MISSION", ",\"town\":" << mission.home << ",\"hero\":" << mission.hero << ",\"boat\":" << mission.boat
+                << ",\"target\":" << mission.target << ",\"object\":" << static_cast<int>( mission.object ) );
         }
 
         if ( Build( castle, defensiveStructures, 10 ) ) {
@@ -524,6 +611,12 @@ void AI::Planner::CastlePreBattle( Castle & castle )
     }
 
     Army & army = hero->GetArmy();
+    const auto beforeHero = KnightObserver::armyJson( army ), beforeGarrison = KnightObserver::armyJson( castle.GetArmy() );
+    const fheroes2::TaxpayerTraceScope selectionTrace( [&]() {
+        ECONOMY_TRACE( 1, "CASTLE_DEFENSE_SELECTION", ",\"town\":" << castle.GetIndex() << ",\"hero\":" << hero->GetID()
+            << ",\"hero_before\":" << beforeHero << ",\"garrison_before\":" << beforeGarrison
+            << ",\"hero_after\":" << KnightObserver::armyJson( army ) << ",\"garrison_after\":" << KnightObserver::armyJson( castle.GetArmy() ) );
+    } );
 
     if ( !army.ArrangeForCastleDefense( castle.GetArmy() ) ) {
         return;
@@ -636,6 +729,11 @@ bool AI::Planner::shouldPreserveTaxpayerPeasants( const Castle & castle, const T
 void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy )
 {
     assert( castle.isControlAI() );
+    const uint32_t region = world.getTile( castle.GetIndex() ).GetRegion();
+    const bool urgent = ( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) )
+        || ( defensiveStrategy && ( isCriticalTask( castle.GetIndex() ) || ( region < _regions.size() && _regions[region].safetyFactor < 0 ) ) );
+    const AI::KnightConstruction::Emergency emergency( urgent );
+    if ( urgent ) ECONOMY_TRACE( 1, "BUDGET_EMERGENCY", ",\"town\":" << castle.GetIndex() << ",\"reason\":\"known_military_threat\"" );
 
     const uint32_t taxpayerBeforeGarrison = castle.GetArmy().GetCountMonsters( Monster::PEASANT );
     const Heroes * taxpayerGuest = castle.GetHero();
@@ -909,6 +1007,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
 
 void AI::Planner::CastleTurn( Castle & castle, const bool defensiveStrategy )
 {
+    const KC::Emergency emergency( defensiveStrategy && constructionContext && constructionContext->endangered.count( castle.GetIndex() ) );
     if ( defensiveStrategy ) {
         // If the castle is potentially under threat, then it makes sense to try to hire the maximum number of troops so that the enemy cannot hire them even if he
         // captures the castle, therefore, it is worth starting with hiring.
@@ -971,14 +1070,14 @@ AI::KnightConstruction::Scope::Scope( const Kingdom & kingdom, const std::vector
 {
     if ( fheroes2::taxpayerSimulationDepth ) { kingdom_ = nullptr; return; }
     assert( !constructionContext );
-    constructionContext.emplace( ConstructionContext{ &kingdom, {} } );
+    constructionContext.emplace( ConstructionContext{ &kingdom, {}, {}, {} } );
     std::vector<const Castle *> cities = order;
     if ( cities.empty() ) for ( const Castle * castle : kingdom.GetCastles() ) if ( castle ) cities.push_back( castle );
     // Inventory today's choices before forecasting or reserving tomorrow's funds.
     for ( const Castle * castle : cities ) {
         if ( !castle || castle->GetRace() != Race::KNGT ) continue;
         uint32_t today = 0;
-        for ( const auto building : knightPrimaryOrder ) {
+        for ( const auto building : primaryOrder( *castle ) ) {
             if ( primaryReady( *castle, building, world.CountDay() ) && castle->CheckBuyBuilding( building ) == BuildingStatus::ALLOW_BUILD ) {
                 today = building; break;
             }
@@ -988,6 +1087,10 @@ AI::KnightConstruction::Scope::Scope( const Kingdom & kingdom, const std::vector
     const auto funds = tomorrowFunds( kingdom );
     if ( !funds ) return;
     size_t sequence = 0;
+    for ( const Castle * castle : cities ) {
+        if ( castle && castle->hasTrainingGrounds() && castle->CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD )
+            constructionContext->ledger.book( castle->GetIndex(), KC::Promise{ BUILD_WEL2, 0, sequence++, constructionResources( castle->getBuildingCost( BUILD_WEL2 ) ) }, *funds );
+    }
     for ( const Castle * castle : cities ) if ( castle ) reservePrimary( constructionContext->ledger, *castle, *funds, sequence++ );
 }
 AI::KnightConstruction::Scope::~Scope()
@@ -996,6 +1099,137 @@ AI::KnightConstruction::Scope::~Scope()
 }
 bool AI::KnightConstruction::canSpend( const Castle & castle, const uint32_t building )
 {
-    if ( fheroes2::taxpayerSimulationDepth || !constructionContext || constructionContext->kingdom != &castle.GetKingdom() ) return true;
+    if ( fheroes2::taxpayerSimulationDepth || emergencyDepth ) return true;
+    if ( !woodPreserved( castle, building ) ) return false;
+    if ( !constructionContext || constructionContext->kingdom != &castle.GetKingdom() ) return true;
     return constructionAffordable( castle, building, constructionContext->ledger );
 }
+
+AI::KnightConstruction::Emergency::Emergency( const bool active ) : active_( active ) { if ( active_ ) ++emergencyDepth; }
+AI::KnightConstruction::Emergency::~Emergency() { if ( active_ ) --emergencyDepth; }
+bool AI::KnightConstruction::economicTown( const Castle & castle )
+{
+    return constructionContext && constructionContext->kingdom == &castle.GetKingdom() && constructionContext->economic.count( castle.GetIndex() );
+}
+void AI::KnightConstruction::setRoles( const Kingdom & kingdom, const std::vector<int> & front, const std::vector<int> & danger )
+{
+    if ( !constructionContext || constructionContext->kingdom != &kingdom ) return;
+    auto & economic = constructionContext->economic; economic.clear();
+    constructionContext->endangered = { danger.begin(), danger.end() };
+    std::vector<const Castle *> cities;
+    for ( const auto * castle : kingdom.GetCastles() ) if ( castle && castle->GetRace() == Race::KNGT ) cities.push_back( castle );
+    if ( cities.size() < 2 ) return;
+    const int width = world.w();
+    const auto distance = [&]( const Castle * c ) {
+        int value = std::numeric_limits<int>::max();
+        for ( const int tile : front ) value = std::min( value, std::abs( tile % width - c->GetIndex() % width ) + std::abs( tile / width - c->GetIndex() / width ) );
+        return value;
+    };
+    std::stable_sort( cities.begin(), cities.end(), [&]( const Castle * a, const Castle * b ) {
+        const int da = distance( a ), db = distance( b );
+        if ( da != db ) return da < db;
+        if ( a->hasTrainingGrounds() != b->hasTrainingGrounds() ) return a->hasTrainingGrounds();
+        return a->getBuildingValue() > b->getBuildingValue();
+    } );
+    for ( size_t i = 0; i < cities.size(); ++i ) {
+        const auto * c = cities[i];
+        const bool rear = i > 0 && std::find( danger.begin(), danger.end(), c->GetIndex() ) == danger.end();
+        if ( rear ) economic.insert( c->GetIndex() );
+        ECONOMY_TRACE( 1, "KNIGHT_TOWN_ROLE", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << c->GetIndex()
+            << ",\"economic\":" << ( rear ? "true" : "false" ) << ",\"known_front_distance\":" << ( front.empty() ? -1 : distance( c ) ) );
+    }
+    refresh();
+}
+void AI::KnightConstruction::refresh()
+{
+    if ( !constructionContext ) return;
+    const auto & kingdom = *constructionContext->kingdom;
+    const auto future = tomorrowFunds( kingdom );
+    if ( !future ) return;
+    constructionContext->ledger.promises.clear();
+    size_t order = 0;
+    for ( const auto * castle : kingdom.GetCastles() ) {
+        if ( !castle ) continue;
+        if ( castle->hasTrainingGrounds() && castle->CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD )
+            constructionContext->ledger.book( castle->GetIndex(), Promise{ BUILD_WEL2, 0, order++, constructionResources( castle->getBuildingCost( BUILD_WEL2 ) ) }, *future );
+    }
+    for ( const auto * castle : kingdom.GetCastles() ) if ( castle ) reservePrimary( constructionContext->ledger, *castle, *future, order++ );
+}
+Funds AI::KnightConstruction::spendable( const Kingdom & kingdom )
+{
+    Funds available = kingdom.GetFunds();
+    if ( fheroes2::taxpayerSimulationDepth || emergencyDepth || !kingdom.isControlAI() ) return available;
+    bool knight = false; int64_t recovery = 0;
+    for ( const auto * c : kingdom.GetCastles() ) if ( c && c->GetRace() == Race::KNGT ) {
+        knight = true; if ( c->hasTrainingGrounds() ) recovery += c->getBuildingCost( BUILD_WEL2 ).gold;
+    }
+    if ( !knight ) return available;
+    Resources reserve{};
+    if ( constructionContext && constructionContext->kingdom == &kingdom ) {
+        for ( const auto & entry : constructionContext->ledger.promises ) {
+            const auto found = std::find_if( kingdom.GetCastles().begin(), kingdom.GetCastles().end(), [&]( const Castle * c ) { return c && c->GetIndex() == entry.first; } );
+            if ( found == kingdom.GetCastles().end() || ( *found )->isBuild( entry.second.building ) ) continue;
+            for ( size_t r = 0; r < reserve.size(); ++r ) reserve[r] += entry.second.cost[r];
+        }
+    }
+    reserve[0] = std::max<int64_t>( reserve[0], 2000 + recovery );
+    const auto balance = constructionResources( available );
+    Resources result{};
+    for ( size_t r = 0; r < result.size(); ++r ) result[r] = std::max<int64_t>( 0, balance[r] - reserve[r] );
+    available.gold = static_cast<int32_t>( result[0] ); available.wood = static_cast<int32_t>( result[1] ); available.ore = static_cast<int32_t>( result[2] );
+    available.mercury = static_cast<int32_t>( result[3] ); available.sulfur = static_cast<int32_t>( result[4] );
+    available.crystal = static_cast<int32_t>( result[5] ); available.gems = static_cast<int32_t>( result[6] );
+    return available;
+}
+bool AI::KnightConstruction::allowsPayment( const Kingdom & kingdom, const Funds & cost, const char * purpose )
+{
+    if ( fheroes2::taxpayerSimulationDepth || emergencyDepth || !kingdom.isControlAI() ) return true;
+    const auto budget = constructionResources( spendable( kingdom ) ); const auto price = constructionResources( cost );
+    const bool allowed = covers( budget, price );
+    if ( !allowed ) ECONOMY_TRACE( 1, "BUDGET_WAIT", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"purpose\":" << Economy::jsonQuote( purpose )
+        << ",\"cost\":" << Economy::arrayJson( price ) << ",\"spendable\":" << Economy::arrayJson( budget ) );
+    return allowed;
+}
+bool AI::KnightConstruction::mobilizationPreservesDevelopment( const Castle & castle )
+{
+    const auto & kingdom = castle.GetKingdom();
+    const auto price = constructionResources( castle.getBuildingCost( BUILD_TRAINING_GROUNDS ) );
+    auto before = constructionResources( kingdom.GetFunds() ); auto after = before;
+    for ( size_t r = 0; r < after.size(); ++r ) after[r] -= price[r];
+    const auto income = constructionResources( kingdom.GetIncome( Kingdom::INCOME_ALL ) );
+    for ( const auto * c : kingdom.GetCastles() ) {
+        if ( !c || c->GetRace() != Race::KNGT ) continue;
+        for ( const auto building : primaryOrder( *c ) ) {
+            if ( !primaryReady( *c, building, world.CountDay() ) ) continue;
+            const auto cost = constructionResources( c->getBuildingCost( building ) );
+            int first = -1, changed = -1;
+            auto a = before, b = after;
+            for ( int day = 0; day <= 7; ++day ) {
+                if ( first < 0 && covers( a, cost ) ) first = day;
+                if ( changed < 0 && covers( b, cost ) ) changed = day;
+                for ( size_t r = 0; r < a.size(); ++r ) { a[r] += income[r]; b[r] += income[r]; }
+            }
+            if ( first >= 0 && ( changed < 0 || changed > first ) ) return false;
+        }
+    }
+    return true;
+}
+
+int AI::KnightConstruction::navalTarget( const Heroes & hero )
+{
+    const auto it = navalMissions.find( hero.GetID() ); if ( it == navalMissions.end() ) return -1;
+    const auto & m = it->second;
+    const bool cancelled = m.owner != static_cast<int>( hero.GetColor() ) || m.seed != world.GetMapSeed() || m.segment != Economy::traceState().segment || world.CountDay() < m.day || world.CountDay() > m.day + 7
+        || ( constructionContext && constructionContext->endangered.count( m.home ) )
+        || std::none_of( hero.GetKingdom().GetCastles().begin(), hero.GetKingdom().GetCastles().end(), [&]( const Castle * c ) { return c && c->GetIndex() == m.home; } )
+        || world.getTile( m.target ).isFog( hero.GetColor() ) || hero.GetIndex() == m.target
+        || ( m.object != MP2::OBJ_NONE && world.getTile( m.target ).getMainObjectType( false ) != m.object );
+    if ( cancelled ) {
+        ECONOMY_TRACE( 1, "NAVAL_MISSION_END", ",\"hero\":" << hero.GetID() << ",\"target\":" << m.target << ",\"tile\":" << hero.GetIndex() );
+        navalMissions.erase( it ); return -1;
+    }
+    return m.target;
+}
+
+bool AI::KnightConstruction::active( const Kingdom & kingdom )
+{ return constructionContext && constructionContext->kingdom == &kingdom; }

@@ -49,6 +49,7 @@
 #include "heroes_base.h"
 #include "kingdom.h"
 #include "knight_observer.h"
+#include "knight_construction.h"
 #include "economy_trace.h"
 #include "logging.h"
 #include "luck.h"
@@ -553,13 +554,16 @@ void Troops::UpgradeTroops( const Castle & castle ) const
         Kingdom & kingdom = castle.GetKingdom();
 
         const Funds payment = troop->GetTotalUpgradeCost();
-        if ( !kingdom.AllowPayment( payment ) ) {
+        if ( !kingdom.AllowPayment( payment ) || !AI::KnightConstruction::allowsPayment( kingdom, payment, "unit_upgrade" ) ) {
             continue;
         }
 
+        const Economy::CauseScope cause( "unit_upgrade", castle.GetIndex() );
+        const int before = troop->GetID();
         kingdom.OddFundsResource( payment );
-
         troop->Upgrade();
+        ECONOMY_TRACE( 1, "TROOP_UPGRADE", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << castle.GetIndex()
+            << ",\"from\":" << before << ",\"to\":" << troop->GetID() << ",\"count\":" << troop->GetCount() << ",\"cost\":" << Economy::fundsJson( payment ) );
     }
 }
 

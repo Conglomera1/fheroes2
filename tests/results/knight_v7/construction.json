@@ -1,0 +1,122 @@
+[
+  {
+    "case": "statue",
+    "diagnostics": 0,
+    "result": "PASS real construction statue gold=18750",
+    "exit_code": 0
+  },
+  {
+    "case": "statue",
+    "diagnostics": 2,
+    "result": "PASS real construction statue gold=18750",
+    "exit_code": 0
+  },
+  {
+    "case": "hut",
+    "diagnostics": 0,
+    "result": "PASS real construction hut gold=19800",
+    "exit_code": 0
+  },
+  {
+    "case": "hut",
+    "diagnostics": 2,
+    "result": "PASS real construction hut gold=19800",
+    "exit_code": 0
+  },
+  {
+    "case": "archer",
+    "diagnostics": 0,
+    "result": "PASS real construction archer gold=19000",
+    "exit_code": 0
+  },
+  {
+    "case": "archer",
+    "diagnostics": 2,
+    "result": "PASS real construction archer gold=19000",
+    "exit_code": 0
+  },
+  {
+    "case": "well",
+    "diagnostics": 0,
+    "result": "PASS real construction well gold=19500",
+    "exit_code": 0
+  },
+  {
+    "case": "well",
+    "diagnostics": 2,
+    "result": "PASS real construction well gold=19500",
+    "exit_code": 0
+  },
+  {
+    "case": "growth",
+    "diagnostics": 0,
+    "result": "PASS real construction growth gold=19000",
+    "exit_code": 0
+  },
+  {
+    "case": "growth",
+    "diagnostics": 2,
+    "result": "PASS real construction growth gold=19000",
+    "exit_code": 0
+  },
+  {
+    "case": "farm_1000",
+    "diagnostics": 0,
+    "result": "PASS real construction farm_1000 gold=0",
+    "exit_code": 0
+  },
+  {
+    "case": "farm_1000",
+    "diagnostics": 2,
+    "result": "PASS real construction farm_1000 gold=0",
+    "exit_code": 0
+  },
+  {
+    "case": "wait",
+    "diagnostics": 0,
+    "result": "PASS real construction wait gold=1750",
+    "exit_code": 0
+  },
+  {
+    "case": "wait",
+    "diagnostics": 2,
+    "result": "PASS real construction wait gold=1750",
+    "exit_code": 0
+  },
+  {
+    "case": "shared",
+    "diagnostics": 0,
+    "result": "PASS real construction shared gold=500",
+    "exit_code": 0
+  },
+  {
+    "case": "shared",
+    "diagnostics": 2,
+    "result": "PASS real construction shared gold=500",
+    "exit_code": 0
+  },
+  {
+    "case": "futurewood",
+    "diagnostics": 0,
+    "result": "PASS real construction futurewood gold=4000",
+    "exit_code": 0
+  },
+  {
+    "case": "futurewood",
+    "diagnostics": 2,
+    "result": "PASS real construction futurewood gold=4000",
+    "exit_code": 0
+  },
+  {
+    "case": "castle_income",
+    "diagnostics": 0,
+    "result": "PASS real construction castle_income gold=1000",
+    "exit_code": 0
+  },
+  {
+    "case": "castle_income",
+    "diagnostics": 2,
+    "result": "PASS real construction castle_income gold=1000",
+    "exit_code": 0
+  }
+]

@@ -22,7 +22,7 @@ int main( int argc, char ** argv )
         Castle * castle = world.getCastle( { tile % 36, tile / 36 } ); assert( castle );
         kingdom.GetCastles().push_back( castle ); world.getTile( tile ).setMainObjectType( MP2::OBJ_CASTLE );
         Maps::Map_Format::CastleMetadata meta; meta.customBuildings = true;
-        meta.builtBuildings = {};
+        meta.builtBuildings = { BUILD_MARKETPLACE };
         if ( mode != "castle_income" || tile != 250 ) meta.builtBuildings.push_back( BUILD_CASTLE );
         if ( mode != "hut" ) meta.builtBuildings.push_back( DWELLING_MONSTER1 );
         if ( mode != "statue" ) meta.builtBuildings.push_back( BUILD_STATUE );
