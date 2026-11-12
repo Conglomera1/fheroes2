@@ -8,7 +8,7 @@
 #include <vector>
 class Castle;
 class Kingdom;
-class Funds;
+struct Funds;
 class Heroes;
 namespace AI::KnightConstruction
 {

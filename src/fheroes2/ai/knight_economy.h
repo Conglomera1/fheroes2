@@ -4,7 +4,7 @@
 #include <string>
 #include <array>
 class Kingdom;
-class Funds;
+struct Funds;
 class Castle;
 namespace AI::KnightEconomy
 {
