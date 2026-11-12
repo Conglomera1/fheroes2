@@ -2523,6 +2523,8 @@ int32_t AI::HeroesCastSummonBoat( Heroes & hero, const int32_t boatDestinationIn
 
     tileDest.setBoat( Direction::RIGHT, heroColor );
     tileSource.resetBoatOwnerColor();
+    ECONOMY_TRACE( 1, "BOAT_SUMMON", ",\"player\":" << static_cast<int>( heroColor ) << ",\"hero\":" << hero.GetID()
+        << ",\"source\":" << boatSource << ",\"destination\":" << boatDestinationIndex << ",\"mana_after\":" << hero.GetSpellPoints() );
 
     if ( AIIsShowAnimationForTile( tileDest, allianceColors ) ) {
         gameArea.SetCenter( Maps::GetPoint( boatDestinationIndex ) );

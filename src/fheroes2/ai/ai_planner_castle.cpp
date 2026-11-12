@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <optional>
+#include <queue>
 #include <ostream>
 #include <string>
 #include <vector>
@@ -184,15 +185,32 @@ namespace
     thread_local uint32_t emergencyDepth = 0;
     thread_local std::optional<ConstructionContext> constructionContext;
 
-    struct NavalMission { int hero = -1, home = -1, boat = -1, target = -1; MP2::MapObjectType object = MP2::OBJ_NONE; uint32_t day = 0, seed = 0; uint64_t segment = 0; int owner = -1; };
+    struct NavalMission { int hero = -1, home = -1, boat = -1, target = -1; MP2::MapObjectType object = MP2::OBJ_NONE; uint32_t day = 0, seed = 0; uint64_t segment = 0; int owner = -1; bool reuse = false; };
     std::map<int, NavalMission> navalMissions;
-    NavalMission navalUse( const Castle & castle )
+    NavalMission navalUse( const Castle & castle, const bool readyToday = true )
     {
         NavalMission best;
-        const int boat = castle.getTileIndexToPlaceBoat();
+        int boat = castle.getTileIndexToPlaceBoat();
+        // An occupied dock may have no placement tile, but its boat can still
+        // serve a native route. Never require an empty dock for reuse.
+        if ( boat < 0 ) {
+            const int y = castle.GetIndex() / world.w() + 2;
+            for ( int dx = -1; dx <= 1; ++dx ) {
+                const int x = castle.GetIndex() % world.w() + dx;
+                if ( x >= 0 && x < world.w() && y < world.h() && world.getTile( y * world.w() + x ).isWater() ) { boat = y * world.w() + x; break; }
+            }
+        }
         if ( boat < 0 ) return best;
         const auto & kingdom = castle.GetKingdom(); const auto color = kingdom.GetColor();
         if ( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) ) return best;
+        std::vector<const Heroes *> candidates;
+        for ( const auto * hero : kingdom.GetHeroes() ) {
+            if ( !hero || !hero->isActive() || ( readyToday && !hero->CanMove() ) || hero->isShipMaster() || hero->Modes( Heroes::PATROL | Heroes::SLEEPER )
+                 || navalMissions.count( hero->GetID() ) ) continue;
+            if ( constructionContext && constructionContext->endangered.count( hero->GetIndex() ) ) continue;
+            candidates.push_back( hero );
+        }
+        if ( candidates.empty() ) return best;
         std::vector<int> targets;
         for ( int tile = 0; tile < static_cast<int>( world.getSize() ); ++tile ) {
             const auto & cell = world.getTile( tile );
@@ -213,8 +231,7 @@ namespace
         } );
         if ( targets.size() > 12 ) targets.resize( 12 );
         uint64_t bestCost = UINT64_MAX;
-        for ( const auto * hero : kingdom.GetHeroes() ) {
-            if ( !hero || !hero->isActive() || hero->isShipMaster() || hero->Modes( Heroes::PATROL ) || navalMissions.count( hero->GetID() ) ) continue;
+        for ( const auto * hero : candidates ) {
             AIWorldPathfinder land; land.reset(); land.reEvaluateIfNeeded( *hero );
             uint32_t walk = UINT32_MAX;
             for ( int dy = -1; dy <= 1; ++dy ) for ( int dx = -1; dx <= 1; ++dx ) {
@@ -225,16 +242,33 @@ namespace
                 const uint32_t distance = land.getDistance( shore );
                 if ( shore == hero->GetIndex() || distance ) walk = std::min( walk, distance );
             }
-            if ( walk == UINT32_MAX || walk > hero->GetMaxMovePoints() * 2 ) continue;
             AIWorldPathfinder sea; sea.reset(); sea.reEvaluateIfNeeded( boat, color, hero->GetArmy().GetStrength(), Skill::Level::BASIC );
             for ( const int target : targets ) {
                 const auto sail = sea.getDistance( target );
-                if ( !sail || sail > 4500 || uint64_t{ walk } + sail >= bestCost ) continue;
-                bestCost = uint64_t{ walk } + sail;
+                if ( !sail || sail > 4500 ) continue;
+                // With the existing fleet, native pathfinding includes ordinary
+                // boarding and permitted Summon Boat routes. Prefer these over
+                // paying for another boat; don't invoke spells in this policy.
+                const auto existing = land.getDistance( target );
+                const bool reuse = existing > 0;
+                const uint64_t reach = readyToday ? hero->GetMovePoints() : uint64_t{ hero->GetMaxMovePoints() } * 2;
+                if ( !reuse && ( walk == UINT32_MAX || uint64_t{ walk } + 100 > reach ) ) continue;
+                const uint64_t cost = reuse ? existing : uint64_t{ walk } + sail;
+                if ( best.hero >= 0 && ( best.reuse > reuse || ( best.reuse == reuse && cost >= bestCost ) ) ) continue;
+                bestCost = cost;
                 best = { hero->GetID(), castle.GetIndex(), boat, target, world.getTile( target ).getMainObjectType( false ), world.CountDay(), world.GetMapSeed(), Economy::traceState().segment, static_cast<int>( color ) };
+                best.reuse = reuse;
             }
         }
         return best;
+    }
+    bool usefulShipyard( const Castle & castle )
+    {
+        if ( castle.isBuild( BUILD_SHIPYARD ) ) return false;
+        const auto mission = navalUse( castle, false );
+        if ( mission.hero < 0 || mission.reuse ) return false;
+        const Funds firstVoyage = castle.getBuildingCost( BUILD_SHIPYARD ) + PaymentConditions::BuyBoat();
+        return KC::allowsPayment( castle.GetKingdom(), firstVoyage, "shipyard_and_first_boat" );
     }
     std::vector<uint32_t> primaryOrder( const Castle & castle )
     {
@@ -391,7 +425,7 @@ namespace
         const bool isGameCampaign = Game::isCampaign();
 
         for ( const BuildOrder & order : buildOrderList ) {
-            if ( order.building == BUILD_SHIPYARD && navalUse( castle ).hero < 0 ) continue;
+            if ( order.building == BUILD_SHIPYARD && !usefulShipyard( castle ) ) continue;
             if ( KC::economicTown( castle ) && ( static_cast<uint32_t>( order.building ) & DWELLING_MONSTERS )
                  && order.building != DWELLING_MONSTER1 ) continue;
             if ( isLegacyFarmReconversion( castle, order.building ) ) {
@@ -529,7 +563,7 @@ namespace
         const bool islandOrPeninsula = neighbourRegions < 3;
 
         // Force building a shipyard, +1 to cost check since we can have 0 neighbours
-        if ( islandOrPeninsula && navalUse( castle ).hero >= 0 && AI::BuildIfEnoughFunds( castle, BUILD_SHIPYARD, static_cast<uint32_t>( neighbourRegions + 1 ) ) ) {
+        if ( islandOrPeninsula && usefulShipyard( castle ) && AI::BuildIfEnoughFunds( castle, BUILD_SHIPYARD, static_cast<uint32_t>( neighbourRegions + 1 ) ) ) {
             return true;
         }
 
@@ -545,55 +579,8 @@ namespace
             }
         }
 
-        const NavalMission mission = castle.AllowBuyBoat( false ) && KC::allowsPayment( castle.GetKingdom(), PaymentConditions::BuyBoat(), "boat_purchase" )
-            ? navalUse( castle ) : NavalMission{};
-        // Keep the native affordability threshold, but require a real mission and budget.
-        const bool buyBoat = [&castle, islandOrPeninsula, &mission]() {
-            if ( mission.hero < 0 ) return false;
-            // Check if it is possible to build a boat in this castle at all (except for the solvency check)
-            if ( !castle.AllowBuyBoat( false ) ) {
-                return false;
-            }
-
-            Kingdom & kingdom = castle.GetKingdom();
-
-            // If there are no active heroes in the kingdom, then there will be no one to use the boat
-            if ( kingdom.GetHeroes().empty() ) {
-                return false;
-            }
-
-            // Perhaps the kingdom already has the necessary supply of resources
-            const Funds requiredFunds = PaymentConditions::BuyBoat() * ( islandOrPeninsula ? 2 : 4 );
-            if ( kingdom.AllowPayment( requiredFunds ) ) {
-                return true;
-            }
-
-            // Even if the kingdom does not have the necessary supply of these resources right now, there may be enough resources of another type available to get the
-            // missing resources as a result of resource exchange
-            if ( !AI::calculateMarketplaceTransaction( kingdom, requiredFunds ) ) {
-                return false;
-            }
-
-            // There are resources available to buy a boat right now
-            if ( kingdom.AllowPayment( PaymentConditions::BuyBoat() ) ) {
-                return true;
-            }
-
-            // There are no available resources, but it is possible to make a resource exchange
-            if ( AI::tradeAtMarketplace( kingdom, PaymentConditions::BuyBoat() ) ) {
-                return true;
-            }
-
-            assert( 0 );
-            return false;
-        }();
-
-        // If yes, then buy a boat
-        if ( buyBoat && castle.BuyBoat() ) {
-            navalMissions[mission.hero] = mission;
-            ECONOMY_TRACE( 1, "NAVAL_MISSION", ",\"town\":" << mission.home << ",\"hero\":" << mission.hero << ",\"boat\":" << mission.boat
-                << ",\"target\":" << mission.target << ",\"object\":" << static_cast<int>( mission.object ) );
-        }
+        // Boats are considered before hero movement, independently of the daily
+        // building slot. They must not be purchased here after heroes have moved.
 
         if ( Build( castle, defensiveStructures, 10 ) ) {
             return true;
@@ -1221,6 +1208,7 @@ int AI::KnightConstruction::navalTarget( const Heroes & hero )
     const auto & m = it->second;
     const bool cancelled = m.owner != static_cast<int>( hero.GetColor() ) || m.seed != world.GetMapSeed() || m.segment != Economy::traceState().segment || world.CountDay() < m.day || world.CountDay() > m.day + 7
         || ( constructionContext && constructionContext->endangered.count( m.home ) )
+        || ( !hero.isShipMaster() && constructionContext && constructionContext->endangered.count( hero.GetIndex() ) )
         || std::none_of( hero.GetKingdom().GetCastles().begin(), hero.GetKingdom().GetCastles().end(), [&]( const Castle * c ) { return c && c->GetIndex() == m.home; } )
         || world.getTile( m.target ).isFog( hero.GetColor() ) || hero.GetIndex() == m.target
         || ( m.object != MP2::OBJ_NONE && world.getTile( m.target ).getMainObjectType( false ) != m.object );
@@ -1229,6 +1217,61 @@ int AI::KnightConstruction::navalTarget( const Heroes & hero )
         navalMissions.erase( it ); return -1;
     }
     return m.target;
+}
+
+std::vector<int> AI::KnightConstruction::prepareNaval( Kingdom & kingdom )
+{
+    std::vector<int> changed;
+    if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() ) return changed;
+    // Clear completed/stale missions before testing hero or fleet availability.
+    for ( const auto * hero : kingdom.GetHeroes() ) if ( hero ) (void)navalTarget( *hero );
+    const auto color = kingdom.GetColor();
+    for ( const auto * castle : kingdom.GetCastles() ) {
+        if ( !castle || !castle->isBuild( BUILD_SHIPYARD ) ) continue;
+        const auto mission = navalUse( *castle );
+        const char * reason = "no_available_hero_or_known_route";
+        bool assigned = false;
+        if ( mission.hero >= 0 ) {
+            // One explorer per connected KNOWN water area is enough. Pending
+            // missions count as well, so two ports cannot fund duplicate scouts.
+            std::vector<bool> water( world.getSize(), false );
+            std::queue<int> frontier; frontier.push( mission.boat ); water[mission.boat] = true;
+            while ( !frontier.empty() ) {
+                const int tile = frontier.front(); frontier.pop();
+                for ( int dy = -1; dy <= 1; ++dy ) for ( int dx = -1; dx <= 1; ++dx ) {
+                    const int x = tile % world.w() + dx, y = tile / world.w() + dy;
+                    if ( x < 0 || x >= world.w() || y < 0 || y >= world.h() ) continue;
+                    const int next = y * world.w() + x;
+                    if ( !water[next] && !world.getTile( next ).isFog( color ) && world.getTile( next ).isWater() ) {
+                        water[next] = true; frontier.push( next );
+                    }
+                }
+            }
+            bool explorer = false;
+            for ( const auto * hero : kingdom.GetHeroes() ) {
+                if ( hero && hero->isActive() && hero->isShipMaster() && water[hero->GetIndex()] ) explorer = true;
+            }
+            for ( const auto & [id, activeMission] : navalMissions ) {
+                (void)id;
+                if ( activeMission.owner == static_cast<int>( color ) && activeMission.seed == world.GetMapSeed()
+                     && activeMission.segment == Economy::traceState().segment && water[activeMission.target] ) explorer = true;
+            }
+            if ( explorer ) reason = "water_already_has_explorer";
+            else if ( mission.reuse ) { assigned = true; reason = "reuse_native_route"; }
+            else if ( !castle->AllowBuyBoat( false ) ) reason = "dock_unavailable";
+            else if ( !allowsPayment( kingdom, PaymentConditions::BuyBoat(), "boat_purchase" ) ) reason = "shared_budget";
+            else if ( castle->BuyBoat() ) { changed.push_back( mission.boat ); assigned = true; reason = "purchase_ready_to_board"; }
+            if ( assigned ) {
+                navalMissions[mission.hero] = mission;
+                ECONOMY_TRACE( 1, "NAVAL_MISSION", ",\"player\":" << static_cast<int>( color ) << ",\"town\":" << mission.home
+                    << ",\"hero\":" << mission.hero << ",\"boat\":" << mission.boat << ",\"target\":" << mission.target
+                    << ",\"object\":" << static_cast<int>( mission.object ) << ",\"reuse\":" << ( mission.reuse ? "true" : "false" ) );
+            }
+        }
+        ECONOMY_TRACE( 1, "NAVAL_REVIEW", ",\"player\":" << static_cast<int>( color ) << ",\"town\":" << castle->GetIndex()
+            << ",\"hero\":" << mission.hero << ",\"reason\":" << Economy::jsonQuote( reason ) << ",\"assigned\":" << ( assigned ? "true" : "false" ) );
+    }
+    return changed;
 }
 
 bool AI::KnightConstruction::active( const Kingdom & kingdom )

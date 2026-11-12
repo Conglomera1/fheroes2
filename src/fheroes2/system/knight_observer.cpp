@@ -36,7 +36,7 @@ void KnightObserver::kingdomState( const Kingdom & kingdom, const char * phase )
         << ",\"difficulty\":" << Settings::Get().GameDifficulty() << ",\"map_width\":" << world.w() << ",\"map_height\":" << world.h()
         << ",\"hidden_tiles\":" << hidden << ",\"gameplay_fog_hash\":\"" << fogHash << "\",\"observer_reveals_gameplay_fog\":false"
         << ",\"towns\":" << kingdom.GetCastles().size() << ",\"heroes\":" << kingdom.GetHeroes().size()
-        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":7,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
+        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":8,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
     auto captured = AI::EconomyProject::capture( kingdom, world.CountDay() );
     for ( size_t i = 0; i < captured.start.towns.size(); ++i ) {
         const auto & town = captured.start.towns[i];

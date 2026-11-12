@@ -54,14 +54,15 @@ namespace
                 a.kind = P::Kind::Build; a.building = BUILD_WEL2;
                 if ( !advance( state, captured.config, day, { a }, work ) ) return {};
             }
-            // Debit measured non-recruitment expenditure once per FUTURE day.
-            // No speculative income is added; negative market legs never mint funds.
+            // Historical outlays are an OPTIONAL gold allowance, not recurring
+            // obligations. Construction/trade materials must never be replayed
+            // daily. Scale discretionary spending down before consuming the
+            // operating reserve or the money needed to restore Farms.
             if ( day > today ) {
                 auto balance = P::funds( state.economy );
-                for ( size_t r = 0; r < balance.size(); ++r ) {
-                    if ( balance[r] < overhead[r] ) return { true, 0, -1 };
-                    balance[r] -= overhead[r];
-                }
+                int64_t floor = reserveGold;
+                for ( const auto & city : state.towns ) if ( city.race == Race::KNGT && ( city.mask & BUILD_TRAINING_GROUNDS ) ) floor += captured.config.farmGold;
+                balance[0] -= std::min( overhead[0], std::max<int64_t>( 0, balance[0] - floor ) );
                 P::setFunds( state.economy, balance );
             }
             // All towns compete for ONE treasury, in the same order in each scenario.
@@ -159,8 +160,9 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
         }
     }
     out.projections = work.projections;
-    if ( !keep.valid || !change.valid ) { out.reason = "forecast_incomplete"; return out; }
+    out.keepValid = keep.valid; out.switchValid = change.valid;
     out.keepForce = keep.force; out.switchForce = change.force; out.keepGold = keep.gold; out.switchGold = change.gold;
+    if ( !keep.valid || !change.valid ) { out.reason = "forecast_incomplete"; return out; }
     // Reuse the prior stability work's 10% margin. Cash breaks only comparisons
     // that do not reduce projected military force; no universal force/gold weight.
     const double margin = 0.10 * std::max( { 1.0, keep.force, change.force } );
@@ -182,6 +184,7 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
         << ",\"farm_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_WEL2 ) )
         << ",\"tg_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_TRAINING_GROUNDS ) )
         << ",\"funds\":" << Economy::fundsJson( castle.GetKingdom().GetFunds() )
+        << ",\"keep_valid\":" << ( decision.keepValid ? "true" : "false" ) << ",\"switch_valid\":" << ( decision.switchValid ? "true" : "false" )
         << ",\"cycle_valid\":" << ( decision.cycleValid ? "true" : "false" )
         << ",\"cycle_force\":" << decision.cycleForce << ",\"cycle_gold\":" << decision.cycleGold
         << ",\"temporary_training\":" << ( decision.temporaryTraining ? "true" : "false" )
@@ -213,10 +216,11 @@ void AI::KnightEconomy::recordDebit( const Kingdom & kingdom, const Funds & befo
 {
     if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() || !KnightConstruction::active( kingdom ) ) return;
     auto & h = history( kingdom );
-    if ( !std::strcmp( cause, "troop_purchase" ) || !std::strcmp( cause, "conscription" ) || !std::strcmp( cause, "role_conversion" ) ) return;
-    const AI::EconomyProject::Resources a{ before.gold, before.wood, before.ore, before.mercury, before.sulfur, before.crystal, before.gems };
-    const AI::EconomyProject::Resources b{ after.gold, after.wood, after.ore, after.mercury, after.sulfur, after.crystal, after.gems };
-    for ( size_t r = 0; r < a.size(); ++r ) h.days[world.CountDay()][r] += std::max<int64_t>( 0, a[r] - b[r] );
+    if ( !std::strcmp( cause, "troop_purchase" ) || !std::strcmp( cause, "conscription" ) || !std::strcmp( cause, "role_conversion" )
+         || !std::strcmp( cause, "building_purchase" ) || !std::strcmp( cause, "market_trade" ) ) return;
+    // Other gold outlays (heroes, upgrades, boats, unclassified actions) only
+    // inform the bounded discretionary allowance. No material is extrapolated.
+    h.days[world.CountDay()][0] += std::max<int64_t>( 0, int64_t{ before.gold } - after.gold );
 }
 std::array<int64_t, 7> AI::KnightEconomy::overhead( const Kingdom & kingdom )
 {

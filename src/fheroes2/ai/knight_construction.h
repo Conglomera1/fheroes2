@@ -86,4 +86,7 @@ namespace AI::KnightConstruction
         bool active_;
     };
     int navalTarget( const Heroes & hero );
+    // Called before movement (also after a new hero is hired). Return changed
+    // map tiles so the planner can refresh its native object/pathfinding caches.
+    std::vector<int> prepareNaval( Kingdom & kingdom );
 }

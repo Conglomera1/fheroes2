@@ -1,15 +1,21 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v7 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v8 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V7 TEST
+V8 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 7 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
-This version coordinates routine spending, mobilisation and Farm recovery,
-adds economic roles to secondary Knight towns and requires useful naval missions.
+Revision 8 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Farm/TG forecasts no longer repeat past construction/trade materials every day.
+Other historical gold spending is a discretionary allowance capped before
+consuming the operating/Farm recovery reserve. Forecast validity is explicit.
+Boats are considered before hero movement, separately from today's building.
+Available native routes (including Summon Boat) are preferred to new purchases.
+New purchases require a hero able to reach the coast this turn; heroes waiting
+in defense are excluded. One explorer is funded per connected known water area.
+This is an exploration policy, not a general multi-hero naval transport planner.
 
 CONTROLS
 - Map and radar show the whole world, including objects and enemy heroes.
@@ -42,7 +48,8 @@ planner experiments are not activated. The trace includes:
 - actual gameplay fog count/hash per faction for checking isolation;
 - Farm/TG forecasts, decision reasons and actual building purchases;
 - shared budgets, emergency exceptions and economic/military town roles;
-- boat purchases and naval missions, unit upgrades and hero waiting reasons;
+- boat purchases, naval reviews/missions, Summon Boat source/destination/mana;
+- unit upgrades and hero waiting reasons;
 - garrisons selected for defense and garrisons before/after capture.
 
 This is not a deterministic replay or a trace of every rejected tactical idea.

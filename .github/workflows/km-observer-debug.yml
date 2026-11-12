@@ -32,7 +32,7 @@ jobs:
           $pe = [BitConverter]::ToInt32($binary, 0x3c)
           if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne 332) { throw 'Expected x86 executable' }
           $strings = [Text.Encoding]::ASCII.GetString($binary)
-          foreach ($marker in @('resurrectionKM.h2d', 'KNIGHT_OBSERVER_20261110', 'OBSERVER_KINGDOM', 'AI_HERO_ORDER', 'KNIGHT_ROLE_REVIEW')) {
+          foreach ($marker in @('resurrectionKM.h2d', 'KNIGHT_OBSERVER_20261110', 'OBSERVER_KINGDOM', 'AI_HERO_ORDER', 'KNIGHT_ROLE_REVIEW', 'NAVAL_REVIEW', 'BOAT_SUMMON', 'keep_valid')) {
             if (-not $strings.Contains($marker)) { throw "Missing marker $marker" }
           }
           $files = @(Get-ChildItem package -Recurse -File)

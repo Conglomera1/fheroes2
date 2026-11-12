@@ -915,6 +915,13 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 
         sortedCastleList = getSortedCastleList( castles, castlesInDanger );
 
+        // Boat buying does not consume the building slot. Evaluate it while
+        // heroes can still embark, including the pass after hiring a new hero.
+        configureKnightRoles();
+        const auto navalChanges = AI::KnightConstruction::prepareNaval( kingdom );
+        if ( !navalChanges.empty() ) _pathfinder.reset();
+        for ( const int tile : navalChanges ) updateMapActionObjectCache( kingdom, tile );
+
         // If AI has less than three heroes at the start of the turn we assume
         // that he will buy another one in this turn and allow progress to increase only for 2 points.
         const uint32_t endProgressValue = ( currentProgressValue == 1 ) ? std::min<uint32_t>( ( static_cast<uint32_t>( heroes.size() ) * 2U ) + 1U, 8U )
