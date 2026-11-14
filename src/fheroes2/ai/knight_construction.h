@@ -72,6 +72,9 @@ namespace AI::KnightConstruction
     // Shared live budget, used before routine recruitment, upgrades and exchanges.
     Funds spendable( const Kingdom & kingdom );
     bool allowsPayment( const Kingdom & kingdom, const Funds & cost, const char * purpose );
+    bool canTradeForBuilding( const Castle & castle, uint32_t building, const Funds & transaction );
+    Resources reservedDevelopment( const Kingdom & kingdom );
+    int64_t operatingReserve( const Kingdom & kingdom );
     bool mobilizationPreservesDevelopment( const Castle & castle );
     bool economicTown( const Castle & castle );
     void setRoles( const Kingdom & kingdom, const std::vector<int> & knownFront, const std::vector<int> & endangered );
@@ -85,7 +88,8 @@ namespace AI::KnightConstruction
     private:
         bool active_;
     };
-    int navalTarget( const Heroes & hero );
+    int navalTarget( const Heroes & hero, bool renew = false );
+    void noteLandObjective( const Heroes & hero, int target );
     // Called before movement (also after a new hero is hired). Return changed
     // map tiles so the planner can refresh its native object/pathfinding caches.
     std::vector<int> prepareNaval( Kingdom & kingdom );

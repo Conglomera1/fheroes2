@@ -2527,10 +2527,15 @@ int AI::Planner::getCourierMainTarget( const Heroes & hero, const double lowestP
 
 int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
 {
-    const int naval = KnightConstruction::navalTarget( hero );
+    int naval = KnightConstruction::navalTarget( hero );
     if ( naval >= 0 ) {
         _pathfinder.reEvaluateIfNeeded( hero );
-        if ( _pathfinder.getDistance( naval ) > 0 ) { maxPriority = 100000; return naval; }
+        if ( hero.isShipMaster() ) {
+            const auto route = _pathfinder.buildPath( naval, false );
+            if ( route.empty() || std::any_of( route.begin(), route.end(), []( const auto & step ) { return !world.getTile( step.GetIndex() ).isWater(); } ) )
+                naval = KnightConstruction::navalTarget( hero, true );
+        }
+        if ( naval >= 0 && _pathfinder.getDistance( naval ) > 0 ) { maxPriority = 100000; return naval; }
     }
     DEBUG_LOG( DBG_AI, DBG_INFO, "Find Adventure Map target for hero " << hero.GetName() << " at current position " << hero.GetIndex() )
 
@@ -2889,6 +2894,7 @@ int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
             << ",\"hero\":" << hero.GetID() << ",\"tile\":" << hero.GetIndex() << ",\"target\":" << priorityTarget
             << ",\"score\":" << maxPriority << ",\"moves\":" << hero.GetMovePoints() );
     }
+    KnightConstruction::noteLandObjective( hero, priorityTarget );
     return priorityTarget;
 }
 

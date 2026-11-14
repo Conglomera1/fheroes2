@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v8 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v9 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V8 TEST
+V9 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 8 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 9 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -16,6 +16,21 @@ Available native routes (including Summon Boat) are preferred to new purchases.
 New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
+
+V9 CHANGES
+Naval missions continue from one sea objective to the next. Visible rewards
+are preferred to empty frontiers; continuation routes must remain on water.
+After a useful disembarkation is selected, a new naval order must not cancel
+the still-pending land objective on the following day.
+TG entry requires a meaningful military gain and funds for one week's known
+conscription and recruitment costs, Farm recovery and reserved development.
+The accepted forecast establishes a bounded mobilisation plan (14 days, or
+7 for a selected temporary cycle). Cash/strategic recovery remains possible;
+a failed plan is not immediately restarted on a temporary cash rebound.
+Routine spending protects upcoming conscription fees. A marketplace exchange
+and its following construction are reviewed together BEFORE either payment.
+Naval land objectives and mobilisation plans are transient AI memory; they
+reset on reload. Financial/gain checks still apply after loading a save.
 
 CONTROLS
 - Map and radar show the whole world, including objects and enemy heroes.
@@ -48,7 +63,9 @@ planner experiments are not activated. The trace includes:
 - actual gameplay fog count/hash per faction for checking isolation;
 - Farm/TG forecasts, decision reasons and actual building purchases;
 - shared budgets, emergency exceptions and economic/military town roles;
+- full exchange/building costs, mobilisation funding and plan boundaries;
 - boat purchases, naval reviews/missions, Summon Boat source/destination/mana;
+- successive sea stages and the objectives motivating disembarkation;
 - unit upgrades and hero waiting reasons;
 - garrisons selected for defense and garrisons before/after capture.
 

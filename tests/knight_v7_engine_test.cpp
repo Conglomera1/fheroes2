@@ -87,13 +87,15 @@ int main( int argc, char ** argv )
         else { assert( knightPrimaryDevelopment( *c ) == PrimaryResult::Built ); assert( c->isBuild( BUILD_MARKETPLACE ) ); }
     }
     else if ( mode == "routine_budget" || mode == "emergency" || mode == "human" ) {
-        auto buildings = complete; buildings.back() = BUILD_TRAINING_GROUNDS; auto * c = add( 150, buildings ); money( 4000 );
+        auto buildings = complete; buildings.back() = BUILD_TRAINING_GROUNDS; auto * c = add( 150, buildings );
+        assert( c->GetArmy().JoinTroop( Monster::PEASANT, 20, false ) );
+        money( mode == "routine_budget" ? 6000 : 4000 );
         KC::Scope scope( kingdom );
         if ( mode == "human" ) Players::Get( PlayerColor::BLUE )->SetControl( CONTROL_HUMAN );
         const KC::Emergency emergency( mode == "emergency" );
         const Monster archer( Monster::ARCHER ); const auto limit = c->getRecruitLimit( archer, kingdom.GetFunds() );
         assert( limit > 0 ); assert( c->RecruitMonster( Troop( archer, limit ), false ) );
-        if ( mode == "routine_budget" ) assert( kingdom.GetFunds().gold >= 3500 );
+        if ( mode == "routine_budget" ) assert( kingdom.GetFunds().gold >= 5200 );
         else assert( kingdom.GetFunds().gold < 3500 );
     }
     else if ( mode == "shared_forecast" ) {

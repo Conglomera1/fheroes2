@@ -19,8 +19,12 @@ namespace AI::KnightEconomy
         int64_t cycleGold = 0;
         std::string reason;
         uint32_t towns = 0;
+        uint32_t planUntil = 0;
         std::array<int64_t, 7> dailyOverhead{};
+        std::array<int64_t, 7> entryFunding{};
     };
+    struct WeekFunding { bool complete = false; std::array<int64_t, 7> fees{}, recruits{}; uint64_t trained = 0; };
+    WeekFunding weekFunding( const Castle & castle );
     Decision choose( const Castle & castle, bool safe );
     bool develop( Castle & castle, bool safe );
     void recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const char * cause );

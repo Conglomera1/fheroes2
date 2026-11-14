@@ -61,10 +61,15 @@
 
 bool AI::BuildIfPossible( Castle & castle, const BuildingType building )
 {
-    if ( !AI::KnightConstruction::canSpend( castle, building ) ) return false;
-    switch ( castle.CheckBuyBuilding( building ) ) {
+    const auto status = castle.CheckBuyBuilding( building );
+    if ( status != BuildingStatus::LACK_RESOURCES && !AI::KnightConstruction::canSpend( castle, building ) ) return false;
+    switch ( status ) {
     case BuildingStatus::LACK_RESOURCES: {
         const Funds payment = castle.getBuildingCost( building );
+        const auto exchange = AI::calculateMarketplaceTransaction( castle.GetKingdom(), payment );
+        // Review the signed exchange and the final building as ONE operation,
+        // before either mutation. Passing the exchange alone is insufficient.
+        if ( !exchange || !AI::KnightConstruction::canTradeForBuilding( castle, building, *exchange ) ) return false;
 
         if ( !AI::tradeAtMarketplace( castle.GetKingdom(), payment ) ) {
             return false;
