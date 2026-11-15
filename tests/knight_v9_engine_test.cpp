@@ -111,7 +111,7 @@ int main( int argc, char ** argv )
         auto * guild = add( 450, { BUILD_CASTLE, BUILD_MARKETPLACE }, Race::SORC );
         for ( int n = 0; n < ( mode == "trade_log" ? 1 : 7 ); ++n )
             add( 800 + ( n % 4 ) * 6 + ( n / 4 ) * 216, { BUILD_CASTLE, BUILD_MARKETPLACE }, Race::SORC );
-        money( mode == "trade_allow" ? 50000 : mode == "trade_log" ? 12518 : 11699, 1, 0 );
+        money( mode == "trade_allow" ? 50000 : mode == "trade_log" ? 12518 : 14899, 1, 0 );
         Funds set = kingdom.GetFunds();
         set.mercury = mode == "trade_log" ? 10 : 0; set.sulfur = mode == "trade_log" ? 4 : 0;
         set.crystal = mode == "trade_log" ? 5 : 0; set.gems = mode == "trade_log" ? 4 : 0;

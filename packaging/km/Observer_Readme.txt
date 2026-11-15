@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v9 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v10 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V9 TEST
+V10 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 9 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 10 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,33 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V9 CHANGES
+V10 CHANGES
+City roles are reviewed weekly, rather than replaced on every planning pass.
+Funded TG commitments survive a new front or an economic reclassification;
+real cash recovery remains possible. After the commitment, Farm/TG options
+are compared again rather than automatically replacing TG in a rear town.
+Mobilisation is examined before optional recruitment, while priority local
+construction keeps its daily building slot. Other cities preserve the coming
+conscription AND infantry recruitment envelope; the producing town can use
+its own infantry allocation.
+Population reserves bridge fourteen days of conscription using known Hut
+stocks and normal Hut/Well growth, without a prospective Farm growth bonus.
+Nearby couriers/scouts can move surplus to safe fiscal Farms or replenish
+an active TG. These are bounded land routes, not a new long-range transport AI.
+Before departure towards the sea from a Knight town, residents are reconciled
+even if the Farm is not built. A hero always keeps a valid army (one Peasant
+if that is its only troop). No population transfer is forced in known danger.
+New records: MOBILIZATION_EARLY_REVIEW, KNIGHT_POPULATION and population
+OBSERVER_ARMY_TRANSFER events; KNIGHT_TOWN_ROLE includes reason, role_until
+and known_front_cost (native path cost, not straight-line distance).
+Role history, naval objectives and mobilisation commitments reset on reload;
+existing TG are recognised when roles are rebuilt. Use continuous runs for
+stability tests, starting from day 1.
+Factory TG costs remain 2500 gold, 10 wood, 10 ore; Farm recovery 1500 gold.
+The ZIP does not replace knight_mod.ini. If your previous test used reduced
+costs, restore the desired values in that file before launching the game.
+
+PREVIOUS V9 CHANGES
 Naval missions continue from one sea objective to the next. Visible rewards
 are preferred to empty frontiers; continuation routes must remain on water.
 After a useful disembarkation is selected, a new naval order must not cancel

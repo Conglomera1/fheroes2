@@ -2343,7 +2343,8 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
         value = getFighterObjectValue( hero, index, valueToIgnore, distanceToObject );
         break;
     case Heroes::Role::COURIER:
-        return getCourierObjectValue( hero, index, valueToIgnore, distanceToObject );
+        value = getCourierObjectValue( hero, index, valueToIgnore, distanceToObject );
+        break;
     default:
         // If you set a new type of a hero you must add the logic here.
         assert( 0 );
@@ -2362,33 +2363,14 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
                            << ", town candidate " << index << ": " << visitReason << ", distance cost " << distanceToObject
                            << ", moves " << hero.GetMovePoints() << ", base value " << value << ", fiscal visit value " << tracedVisitBonus );
     } );
-    // Only a very nearby Farm may be an extra opportunity. Important tasks retain their higher values,
-    // and a Courier's transport assignment is never interrupted for a tax deposit.
-    const uint32_t localVisitLimit = std::min<uint32_t>( 300, hero.GetMovePoints() / 4 );
-    if ( objectType != MP2::OBJ_CASTLE || distanceToObject == 0 || distanceToObject > localVisitLimit || !Kingdom::TaxpayerRequiresFarms()
-         || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || isCriticalTask( index ) ) {
-        return value;
-    }
-
-    visitReason = "no fiscal bonus: ineligible, occupied or unsafe Farm";
+    if ( objectType != MP2::OBJ_CASTLE || isCriticalTask( index ) || distanceToObject == 0
+         || KnightConstruction::populationDestination( hero ) != index ) return value;
     const Castle * castle = world.getCastleEntrance( Maps::GetPoint( index ) );
-    if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetHero() != nullptr || castle->GetRace() != Race::KNGT
-         || !castle->isBuild( BUILD_WEL2 ) || _regions.at( world.getTile( index ).GetRegion() ).safetyFactor < 100 ) {
-        return value;
-    }
-
-    const uint32_t peasantCount = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
-    const uint64_t weeklyIncome = static_cast<uint64_t>( peasantCount ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
-    visitReason = "no fiscal bonus: weekly income below 1000";
-    if ( weeklyIncome < 1000 ) {
-        return value;
-    }
-
-    // Limit the bonus so that Taxpayer cannot turn a small optional stop into a strategic objective.
-    const double taxpayerVisitValue = std::min( 1250.0, static_cast<double>( weeklyIncome ) / 4.0 + 200.0 );
-    tracedVisitBonus = taxpayerVisitValue;
-    visitReason = "eligible fiscal visit";
-    return std::max( value, taxpayerVisitValue );
+    if ( !castle || castle->GetColor() != hero.GetColor() ) return value;
+    const uint64_t peasants = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+    tracedVisitBonus = std::min( 1250.0, double( peasants * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 ) / 4.0 + 200 );
+    visitReason = castle->hasTrainingGrounds() ? "conscription supply" : "taxpayer concentration";
+    return std::max( value, tracedVisitBonus );
 }
 
 double AI::Planner::getFutureObjectValue( const Heroes & hero, const int32_t index, const MP2::MapObjectType objectType, const double valueToIgnore,
@@ -3110,8 +3092,8 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
             }
 
             reinforceCastle( *castle );
-            if ( shouldKeepTaxpayersInGarrison( *castle ) ) {
-                depositTaxpayerPeasants( &hero, castle );
+            if ( KnightConstruction::populationSafe( *castle ) ) {
+                KnightConstruction::arrangePopulation( hero, *castle );
             }
             else if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
                 TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
@@ -3399,6 +3381,15 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
             break;
         }
 
+        if ( auto * home = bestHero->inCastleMutable(); home && home->GetRace() == Race::KNGT ) {
+            _pathfinder.reEvaluateIfNeeded( *bestHero );
+            const auto route = _pathfinder.buildPath( bestTargetIndex, false );
+            const bool embarking = !bestHero->isShipMaster() && std::any_of( route.begin(), route.end(), []( const auto & step ) {
+                return world.getTile( step.GetIndex() ).isWater();
+            } );
+            KnightConstruction::arrangePopulation( *bestHero, *home, bestTargetIndex, embarking );
+            _pathfinder.reset();
+        }
         const size_t heroesBefore = heroes.size();
         if ( Settings::Get().isKnightObserverBuild() ) {
             ECONOMY_TRACE( 1, "AI_HERO_ORDER", ",\"kind\":\"decision\",\"player\":" << static_cast<int>( bestHero->GetColor() )

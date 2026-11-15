@@ -214,62 +214,70 @@ void AI::OptimizeTroopsOrder( Army & army )
     }
 }
 
+void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, int destination, const bool embarking )
+{
+    if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
+         || hero.GetColor() != castle.GetColor()
+         || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
+    auto & garrison = castle.GetArmy(); auto & army = hero.GetArmy();
+    const Monster peasant( Monster::PEASANT );
+    const auto transfer = [&]( Army & source, Army & target, uint32_t quantity, const bool fromHero, const char * reason ) {
+        quantity = std::min( quantity, UINT32_MAX - target.GetCountMonsters( peasant ) );
+        if ( !quantity ) return;
+        const std::string beforeSource = KnightObserver::armyJson( source ), beforeTarget = KnightObserver::armyJson( target );
+        if ( !target.JoinTroop( peasant, quantity, false ) ) return;
+        uint32_t left = quantity;
+        for ( size_t slot = 0; slot < source.Size() && left; ++slot ) {
+            auto * troop = source.GetTroop( slot );
+            if ( !troop || troop->GetID() != Monster::PEASANT ) continue;
+            const uint32_t removed = std::min( left, troop->GetCount() );
+            if ( removed == troop->GetCount() ) troop->Reset(); else troop->SetCount( troop->GetCount() - removed );
+            left -= removed;
+        }
+        assert( left == 0 );
+        ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"knight_population\",\"player\":" << static_cast<int>( hero.GetColor() )
+            << ",\"hero\":" << hero.GetID() << ",\"town\":" << castle.GetIndex() << ",\"quantity\":" << quantity
+            << ",\"reason\":" << Economy::jsonQuote( reason ) << ",\"source_player\":" << static_cast<int>( hero.GetColor() )
+            << ",\"destination_player\":" << static_cast<int>( hero.GetColor() )
+            << ",\"source_hero\":" << ( fromHero ? "true" : "false" ) << ",\"destination_hero\":" << ( fromHero ? "false" : "true" )
+            << ",\"source_tile\":" << castle.GetIndex() << ",\"destination_tile\":" << castle.GetIndex()
+            << ",\"source_before\":" << beforeSource << ",\"source_after\":" << KnightObserver::armyJson( source )
+            << ",\"destination_before\":" << beforeTarget << ",\"destination_after\":" << KnightObserver::armyJson( target ) );
+    };
+    const uint32_t reserve = populationReserve( castle );
+    const uint32_t wanted = embarking ? UINT32_MAX : reserve;
+    const uint32_t held = garrison.GetCountMonsters( peasant );
+    const uint32_t carried = army.GetCountMonsters( peasant );
+    const uint32_t movable = army.GetOccupiedSlotCount() == 1 && carried ? carried - 1 : carried;
+    if ( wanted > held ) transfer( army, garrison, std::min( movable, wanted - held ), true, embarking ? "before_embarkation" : "population_deposit" );
+    if ( !embarking ) {
+        if ( destination < 0 ) destination = populationDestination( hero );
+        const auto found = std::find_if( castle.GetKingdom().GetCastles().begin(), castle.GetKingdom().GetCastles().end(),
+            [&]( const Castle * c ) { return c && c->GetIndex() == destination; } );
+        if ( found != castle.GetKingdom().GetCastles().end() && populationSafe( **found ) ) {
+            const auto & target = **found; uint32_t quantity = 0;
+            const uint32_t stock = garrison.GetCountMonsters( peasant );
+            if ( reserve != UINT32_MAX && economicTown( target ) && target.isBuild( BUILD_WEL2 ) && stock > reserve ) quantity = stock - reserve;
+            else if ( economicTown( castle ) && target.hasTrainingGrounds() ) {
+                const uint32_t need = populationReserve( target ), present = target.GetArmy().GetCountMonsters( peasant );
+                if ( need > present ) quantity = std::min( stock, need - present );
+            }
+            if ( quantity ) {
+                transfer( garrison, army, quantity, false, target.hasTrainingGrounds() ? "supply_conscription" : "export_taxpayer_surplus" );
+                notePopulationRoute( hero, destination );
+            }
+        }
+    }
+    ECONOMY_TRACE( 1, "KNIGHT_POPULATION", ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"hero\":" << hero.GetID()
+        << ",\"town\":" << castle.GetIndex() << ",\"destination\":" << destination << ",\"reserve_days\":14,\"reserve\":" << reserve
+        << ",\"garrison\":" << garrison.GetCountMonsters( peasant ) << ",\"carried\":" << army.GetCountMonsters( peasant )
+        << ",\"embarking\":" << ( embarking ? "true" : "false" ) );
+}
+
 void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
 {
-    assert( hero != nullptr && castle != nullptr );
-
-    if ( !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || castle->GetRace() != Race::KNGT
-         || !castle->isBuild( BUILD_WEL2 ) || hero->GetColor() != castle->GetColor() || castle->GetHero() != hero ) {
-        return;
-    }
-
-    Army & heroArmy = hero->GetArmy();
-    Army & garrison = castle->GetArmy();
-
-    for ( size_t i = 0; i < heroArmy.Size(); ++i ) {
-        Troop * troop = heroArmy.GetTroop( i );
-        if ( troop == nullptr || !troop->isValid() || troop->GetID() != Monster::PEASANT ) {
-            continue;
-        }
-
-        const uint32_t initialCount = troop->GetCount();
-        const bool observeDeposit = Settings::Get().isKnightObserverBuild() && !fheroes2::taxpayerSimulationDepth;
-        const std::string heroBefore = observeDeposit ? KnightObserver::armyJson( heroArmy ) : std::string{};
-        const std::string townBefore = observeDeposit ? KnightObserver::armyJson( garrison ) : std::string{};
-        // The hero must retain at least one unit if this is the only occupied army slot.
-        const uint32_t countToTransfer = heroArmy.GetOccupiedSlotCount() == 1 ? initialCount - 1 : initialCount;
-        const uint32_t garrisonBefore = garrison.GetCountMonsters( Monster::PEASANT );
-        if ( countToTransfer == 0 || !garrison.JoinTroop( troop->GetMonster(), countToTransfer, true ) ) {
-            if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER_REFUSED", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
-                << static_cast<int>( hero->GetColor() ) << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
-                << ",\"requested\":" << countToTransfer << ",\"hero_army\":" << heroBefore << ",\"garrison\":" << townBefore );
-            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
-                               << ", town " << castle->GetIndex() << ": deposit refused, last unit " << ( countToTransfer == 0 )
-                               << ", occupied garrison slots " << garrison.GetOccupiedSlotCount() );
-            return;
-        }
-
-        if ( countToTransfer == initialCount ) {
-            troop->Reset();
-        }
-        else {
-            troop->SetCount( initialCount - countToTransfer );
-        }
-
-        if ( observeDeposit ) ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"depositTaxpayerPeasants\",\"player\":"
-            << static_cast<int>( hero->GetColor() ) << ",\"hero\":" << hero->GetID() << ",\"town\":" << castle->GetIndex()
-            << ",\"quantity\":" << countToTransfer << ",\"source_before\":" << heroBefore << ",\"source_after\":" << KnightObserver::armyJson( heroArmy )
-            << ",\"destination_before\":" << townBefore << ",\"destination_after\":" << KnightObserver::armyJson( garrison ) );
-
-        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
-                           << ", town " << castle->GetIndex() << ": deposit balance, hero " << initialCount << " -> " << heroArmy.GetCountMonsters( Monster::PEASANT )
-                           << ", garrison " << garrisonBefore << " -> " << garrison.GetCountMonsters( Monster::PEASANT ) );
-        if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
-                                        << ": deposited " << countToTransfer << " Peasants from hero " << hero->GetName() );
-        }
-        return;
-    }
+    assert( hero && castle );
+    KnightConstruction::arrangePopulation( *hero, *castle );
 }
 
 void AI::transferSlowestTroopsToGarrison( Heroes * hero, Castle * castle )

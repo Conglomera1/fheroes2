@@ -36,7 +36,8 @@
 
 #include "ai_common.h"
 #include "ai_planner.h"
-#include "knight_construction.h" // IWYU pragma: associated
+#include "knight_construction.h"
+#include "knight_economy.h"
 #include "ai_planner_internals.h"
 #include "economy_inputs.h"
 #include "economy_pipeline.h"
@@ -842,10 +843,20 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         std::vector<int> knownFront, endangered;
         const auto currentDanger = findCastlesInDanger( kingdom );
         endangered.assign( currentDanger.begin(), currentDanger.end() );
+        for ( const Castle * c : castles ) if ( c && _regions.at( world.getTile( c->GetIndex() ).GetRegion() ).safetyFactor < 0 ) endangered.push_back( c->GetIndex() );
         for ( const auto & entry : _enemyArmies ) knownFront.push_back( entry.first );
         for ( const auto & entry : _priorityTargets ) if ( entry.second.type == PriorityTaskType::DEFEND ) endangered.push_back( entry.first );
         AI::KnightConstruction::setRoles( kingdom, knownFront, endangered );
     };
+    configureKnightRoles();
+    for ( Heroes * hero : heroes ) if ( hero && hero->isActive() ) {
+        if ( Castle * home = hero->inCastleMutable(); home && home->GetRace() == Race::KNGT ) AI::KnightConstruction::arrangePopulation( *hero, *home );
+    }
+    std::vector<int> safeMobilizationTowns;
+    const auto initialDanger = findCastlesInDanger( kingdom );
+    for ( const Castle * c : castles ) if ( c && _regions.at( world.getTile( c->GetIndex() ).GetRegion() ).safetyFactor > 0
+         && initialDanger.count( c->GetIndex() ) == 0 ) safeMobilizationTowns.push_back( c->GetIndex() );
+    AI::KnightEconomy::prepare( kingdom, safeMobilizationTowns );
     configureKnightRoles();
 
     uint32_t currentProgressValue = 1;

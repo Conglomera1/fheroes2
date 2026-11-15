@@ -1,4 +1,4 @@
-// One-turn construction funding. No saved orders and no gameplay mutations.
+// Shared funding, bounded city roles and physical population transfers.
 #pragma once
 #include <array>
 #include <cstddef>
@@ -76,7 +76,22 @@ namespace AI::KnightConstruction
     Resources reservedDevelopment( const Kingdom & kingdom );
     int64_t operatingReserve( const Kingdom & kingdom );
     bool mobilizationPreservesDevelopment( const Castle & castle );
+    bool hasPrimaryChoice( const Castle & castle );
     bool economicTown( const Castle & castle );
+    bool populationSafe( const Castle & castle );
+    uint32_t populationReserve( const Castle & castle );
+    int populationDestination( const Heroes & hero );
+    void notePopulationRoute( const Heroes & hero, int destination );
+    void arrangePopulation( Heroes & hero, Castle & castle, int destination = -1, bool embarking = false );
+    // Permit the producing town's infantry purchases to use its own envelope.
+    class Recruitment
+    {
+    public:
+        explicit Recruitment( const Castle & castle );
+        ~Recruitment();
+    private:
+        const Castle * previous_;
+    };
     void setRoles( const Kingdom & kingdom, const std::vector<int> & knownFront, const std::vector<int> & endangered );
     void refresh();
     bool active( const Kingdom & kingdom );

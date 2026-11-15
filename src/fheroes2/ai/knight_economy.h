@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <string>
 #include <array>
+#include <vector>
 class Kingdom;
 struct Funds;
 class Castle;
@@ -27,6 +28,9 @@ namespace AI::KnightEconomy
     WeekFunding weekFunding( const Castle & castle );
     Decision choose( const Castle & castle, bool safe );
     bool develop( Castle & castle, bool safe );
+    uint32_t commitmentUntil( const Castle & castle );
+    // Evaluate before optional reinforcement spends the common treasury.
+    void prepare( Kingdom & kingdom, const std::vector<int> & safeTowns );
     void recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const char * cause );
     std::array<int64_t, 7> overhead( const Kingdom & kingdom );
 }

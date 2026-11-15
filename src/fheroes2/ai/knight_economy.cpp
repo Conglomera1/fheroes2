@@ -37,7 +37,7 @@ namespace
     }
     struct Work { P::WorkBudget mechanics{ 512, 100000 }; uint32_t projections = 0; };
     struct Rollout { bool valid = false; double force = 0; int64_t gold = 0; bool sustained = false; };
-    int64_t projectedReserve( const P::State & state, const Conscription::Settings & config )
+    int64_t projectedReserve( const P::State & state, const Conscription::Settings & config, const size_t recruiting = SIZE_MAX )
     {
         int64_t reserve = reserveGold;
         for ( size_t i = 0; i < state.towns.size(); ++i ) {
@@ -48,6 +48,13 @@ namespace
             for ( uint32_t offset = 1; offset <= 7; ++offset )
                 Conscription::scheduleDay( days, gold, config, Monster( Monster::PEASANT ).GetCost().gold, state.economy.day + offset );
             reserve += config.farmGold + money - gold;
+            if ( recruiting != i ) {
+                for ( size_t pool = 0; pool < 3; ++pool ) {
+                    const auto & dwelling = state.towns[i].dwellings[pool + 1];
+                    reserve += dwelling.creature( state.towns[i].mask ).price[0]
+                        * static_cast<int64_t>( days[0].pools[pool] - state.economy.towns[i].troops.pools[pool] );
+                }
+            }
         }
         return reserve;
     }
@@ -107,7 +114,7 @@ namespace
                     const auto & creature = dwelling.creature( t.mask );
                     if ( !( t.mask & dwelling.base ) || !creature.id || !AI::EconomyBudget::validAmounts( creature.price ) ) continue;
                     auto funds = P::funds( planned.economy );
-                    const int64_t floor = projectedReserve( planned, captured.config );
+                    const int64_t floor = projectedReserve( planned, captured.config, city );
                     funds[0] = std::max<int64_t>( 0, funds[0] - floor );
                     uint64_t count = P::stock( planned, city, pool );
                     for ( size_t r = 0; r < funds.size(); ++r ) if ( creature.price[r] > 0 ) count = std::min<uint64_t>( count, funds[r] / creature.price[r] );
@@ -178,8 +185,8 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     if ( !castle.AllowBuyBuilding( building ) ) { out.reason = "building_unavailable"; return out; }
     const auto * currentPlan = activePlan( castle );
     if ( currentPlan ) out.planUntil = currentPlan->until;
-    if ( training && ( lowCashRecovery || KnightConstruction::economicTown( castle ) ) ) {
-        out.building = BUILD_WEL2; out.reason = lowCashRecovery ? "cash_recovery" : "economic_role_recovery";
+    if ( lowCashRecovery ) {
+        out.building = BUILD_WEL2; out.reason = "cash_recovery";
         return out;
     }
     if ( currentPlan ) {
@@ -275,6 +282,27 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
             << ",\"recovering\":" << ( plan->recovering ? "true" : "false" ) );
     }
     return true;
+}
+
+uint32_t AI::KnightEconomy::commitmentUntil( const Castle & castle )
+{
+    const auto * plan = activePlan( castle );
+    return plan && !plan->recovering && castle.hasTrainingGrounds() ? plan->until : 0;
+}
+
+void AI::KnightEconomy::prepare( Kingdom & kingdom, const std::vector<int> & safeTowns )
+{
+    if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() ) return;
+    for ( Castle * castle : kingdom.GetCastles() ) {
+        if ( !castle || castle->GetRace() != Race::KNGT || castle->hasTrainingGrounds()
+             || std::find( safeTowns.begin(), safeTowns.end(), castle->GetIndex() ) == safeTowns.end() ) continue;
+        // Primary development remains ahead of mobilisation. This call executes
+        // only a plan chosen by the ordinary comparator; it never books a guess.
+        if ( !castle->isBuild( BUILD_WEL2 ) || !castle->Modes( Castle::ALLOW_TO_BUILD_TODAY ) || KnightConstruction::hasPrimaryChoice( *castle ) ) continue;
+        ECONOMY_TRACE( 1, "MOBILIZATION_EARLY_REVIEW", ",\"player\":" << static_cast<int>( kingdom.GetColor() )
+            << ",\"town\":" << castle->GetIndex() << ",\"gold\":" << kingdom.GetFunds().gold );
+        (void)develop( *castle, true );
+    }
 }
 
 namespace
