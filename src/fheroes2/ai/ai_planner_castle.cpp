@@ -1403,7 +1403,8 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
                 const auto pickup = farm->GetIndex() == hero->GetIndex() ? 0U : pickupPath.getDistance( farm->GetIndex() );
                 if ( ( !pickup && farm->GetIndex() != hero->GetIndex() ) || pickup > std::min<uint32_t>( 1000, hero->GetMaxMovePoints() ) ) continue;
                 AIWorldPathfinder deliveryPath; deliveryPath.reset();
-                deliveryPath.reEvaluateIfNeeded( farm->GetIndex(), kingdom.GetColor(), hero->GetArmy().GetStrength(), hero->GetLevelSkill( Skill::Secondary::PATHFINDING ) );
+                deliveryPath.reEvaluateIfNeeded( farm->GetIndex(), kingdom.GetColor(), hero->GetArmy().GetStrength(),
+                    static_cast<uint8_t>( hero->GetLevelSkill( Skill::Secondary::PATHFINDING ) ) );
                 const auto delivery = deliveryPath.getDistance( target->GetIndex() );
                 const uint32_t limit = hero->getAIRole() == Heroes::Role::COURIER ? 3000 : 1000;
                 if ( !delivery || delivery > 2000 || uint64_t{ pickup } + delivery > limit || pickup + delivery >= best ) continue;
