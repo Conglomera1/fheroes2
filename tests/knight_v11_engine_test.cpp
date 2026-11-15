@@ -42,8 +42,9 @@ int main( int argc, char ** argv )
     hero->GetArmy().Clean(); auto & a = hero->GetArmy(); auto & g = c->GetArmy();
     const int low = sorc ? Monster::SPRITE : Monster::PEASANT;
     const int high = sorc ? Monster::DWARF : Monster::ARCHER;
-    if(mode != "no_t1" && mode != "garrison_t1") assert(a.JoinTroop(low, mode == "short" ? 3 : 40, false));
+    if(mode != "no_t1" && mode != "garrison_t1") assert(a.JoinTroop(low, (mode == "short" || mode == "mixed") ? 3 : 40, false));
     assert(a.JoinTroop(high, 8, false));
+    if(mode == "mixed") assert(g.JoinTroop(Monster::GOBLIN,4,false));
     if(mode == "garrison_t1") assert(g.JoinTroop(low, 40, false));
     if(mode == "full") for(int m : {Monster::GOBLIN, Monster::SPRITE, Monster::CENTAUR, Monster::SKELETON, Monster::DWARF}) assert(g.JoinTroop(m, 8, false));
     if(mode == "late") while(world.CountDay()<8) world.NewDay();
@@ -69,7 +70,8 @@ int main( int argc, char ** argv )
         else {
             const unsigned wanted=mode=="no_t1" ? 1 : mode=="short" ? 3 : 5;
             const int unit=mode=="no_t1" ? high : low;
-            assert(a.GetCountMonsters(unit)==wanted);
+            assert(a.GetCountMonsters(unit)==(mode=="mixed" ? 3 : wanted));
+            if(mode=="mixed") assert(a.GetCountMonsters(Monster::GOBLIN)==2 && g.GetCountMonsters(Monster::GOBLIN)==2);
             unsigned stacks=0; for(size_t n=0;n<a.Size();++n) if(a.GetTroop(n)->isValid()) {++stacks;assert(a.GetTroop(n)->GetCount()==1);}
             assert(stacks==wanted && KC::isOpeningSeaExplorer(*hero));
             assert(g.GetCountMonsters(high)==(mode=="no_t1" ? 7 : 8));

@@ -1,7 +1,7 @@
-"""Multi-turn roles, physical population transfers and real embarkation."""
+"""Opening sea crews, ordinary population retention and troop conservation."""
 import json, os, pathlib, subprocess, sys, tempfile, collections
 binary=pathlib.Path(sys.argv[1]).resolve(); out=pathlib.Path(sys.argv[2]).resolve(); out.mkdir(parents=True,exist_ok=True)
-cases=['ordinary','ordinary_embark','crew','sorceress','garrison_t1','short','no_t1','full','late','human','danger','no_shipyard','recover','voyage','unreachable','same_player','native_merge','first_only']
+cases=['ordinary','ordinary_embark','crew','sorceress','garrison_t1','short','no_t1','full','late','human','danger','no_shipyard','recover','voyage','unreachable','same_player','native_merge','first_only','mixed']
 profiles=[('default','# Default\n',cases)]
 records=[]
 def army(values):

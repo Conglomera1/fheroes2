@@ -1442,39 +1442,41 @@ bool AI::KnightConstruction::prepareOpeningExplorer( Heroes & hero, Castle & por
     if ( launched != openingLaunches.end() && launched->second.seed == world.GetMapSeed() && launched->second.segment == Economy::traceState().segment
          && ( launched->second.hero != hero.GetID() || !isOpeningSeaExplorer( hero ) ) ) return false;
     auto & army = hero.GetArmy(); auto & garrison = port.GetArmy();
-    int chosen = Monster::UNKNOWN; int price = INT32_MAX;
-    // Only existing creatures: no purchases, deletion or invented reinforcements.
+    std::vector<int> candidates;
+    // Existing level-one creatures only, cheapest first; mixed crews can fill
+    // all five slots when no single type is numerous enough.
     for ( const Army * pool : { &army, &garrison } ) for ( size_t slot = 0; slot < pool->Size(); ++slot ) {
-        const auto * troop = pool->GetTroop( slot ); if ( !troop->isValid() || troop->GetMonster().GetMonsterLevel() != 1 ) continue;
-        const auto cost = troop->GetMonster().GetCost().gold;
-        if ( cost < price ) { price = cost; chosen = troop->GetID(); }
+        const auto * troop = pool->GetTroop( slot );
+        if ( troop->isValid() && troop->GetMonster().GetMonsterLevel() == 1
+             && std::find( candidates.begin(), candidates.end(), troop->GetID() ) == candidates.end() ) candidates.push_back( troop->GetID() );
     }
-    if ( chosen == Monster::UNKNOWN ) {
+    std::sort( candidates.begin(), candidates.end(), []( const int a, const int b ) {
+        const auto ca = Monster( a ).GetCost().gold, cb = Monster( b ).GetCost().gold;
+        return ca != cb ? ca < cb : a < b;
+    } );
+    const bool levelOne = !candidates.empty();
+    if ( !levelOne ) {
         const auto * weakest = army.GetWeakestTroop(); if ( !weakest || !weakest->isValid() ) return false;
-        chosen = weakest->GetID();
+        candidates.push_back( weakest->GetID() );
     }
-    const Monster unit( chosen );
-    const uint32_t wanted = unit.GetMonsterLevel() == 1 ? static_cast<uint32_t>( std::min<uint64_t>( 5,
-        uint64_t{ army.GetCountMonsters( unit ) } + garrison.GetCountMonsters( unit ) ) ) : 1;
-    if ( !wanted ) return false;
     const Troops beforeArmy( army.getTroops() ), beforeGarrison( garrison.getTroops() );
-    Troops shore( garrison.getTroops() ), crew( army.getTroops() );
-    crew.Clean();
-    uint32_t remaining = wanted;
-    for ( size_t slot = 0; slot < army.Size(); ++slot ) {
-        const auto * troop = army.GetTroop( slot ); if ( !troop->isValid() ) continue;
-        const auto keep = troop->GetID() == chosen ? std::min( remaining, troop->GetCount() ) : 0U;
-        remaining -= keep;
-        if ( troop->GetCount() > keep && !shore.JoinTroop( unit.GetID() == troop->GetID() ? unit : troop->GetMonster(), troop->GetCount() - keep, false ) ) return false;
+    Troops shore( garrison.getTroops() ), surplus( army.getTroops() ), crew( army.getTroops() ); crew.Clean();
+    uint32_t wanted = 0;
+    const uint32_t limit = levelOne ? 5 : 1;
+    for ( const int id : candidates ) {
+        for ( Troops * pool : { &surplus, &shore } ) for ( size_t slot = 0; slot < pool->Size() && wanted < limit; ++slot ) {
+            auto * troop = pool->GetTroop( slot ); if ( troop->GetID() != id || !troop->isValid() ) continue;
+            const auto take = std::min( limit - wanted, troop->GetCount() );
+            for ( uint32_t n = 0; n < take; ++n ) crew.GetTroop( wanted++ )->Set( Monster( id ), 1 );
+            if ( take == troop->GetCount() ) troop->Reset(); else troop->SetCount( troop->GetCount() - take );
+        }
     }
-    for ( size_t slot = 0; slot < shore.Size() && remaining; ++slot ) {
-        auto * troop = shore.GetTroop( slot ); if ( troop->GetID() != chosen ) continue;
-        const auto take = std::min( remaining, troop->GetCount() );
-        if ( take == troop->GetCount() ) troop->Reset(); else troop->SetCount( troop->GetCount() - take );
-        remaining -= take;
+    if ( !wanted ) return false;
+    for ( size_t slot = 0; slot < surplus.Size(); ++slot ) {
+        const auto * troop = surplus.GetTroop( slot );
+        if ( troop->isValid() && !shore.JoinTroop( troop->GetMonster(), troop->GetCount(), false ) ) return false;
     }
-    if ( remaining ) return false;
-    for ( uint32_t slot = 0; slot < wanted; ++slot ) crew.GetTroop( slot )->Set( unit, 1 );
+    const int chosen = candidates.front();
     const auto armyBefore = KnightObserver::armyJson( army ), townBefore = KnightObserver::armyJson( garrison );
     army.Assign( crew ); garrison.Assign( shore );
     if ( target >= 0 ) {
