@@ -358,7 +358,7 @@ namespace
 
         const Funds singleMonsterCost = troop.GetCost();
 
-        uint32_t recruitTroopCount = kingdom.GetFunds().getLowestQuotient( singleMonsterCost );
+        uint32_t recruitTroopCount = AI::KnightConstruction::spendable( kingdom ).getLowestQuotient( singleMonsterCost );
         if ( recruitTroopCount == 0 ) {
             // We do not have resources to hire even a single creature.
             return false;
@@ -420,7 +420,7 @@ namespace
             return !hero.isObjectTypeVisited( objectType ) && hero.GetMorale() < Morale::BLOOD && !army.AllTroopsAreUndead();
 
         case MP2::OBJ_MAGELLANS_MAPS:
-            return !kingdom.isVisited( objectType ) && kingdom.AllowPayment( PaymentConditions::getMagellansMapsPurchasePrice() );
+            return !kingdom.isVisited( objectType ) && kingdom.AllowPayment( PaymentConditions::getMagellansMapsPurchasePrice() ) && AI::KnightConstruction::allowsPayment( kingdom, PaymentConditions::getMagellansMapsPurchasePrice(), "map_purchase" );
 
         case MP2::OBJ_ALCHEMIST_LAB:
         case MP2::OBJ_LIGHTHOUSE:
@@ -462,7 +462,7 @@ namespace
             const Maps::ArtifactCaptureCondition condition = getArtifactCaptureCondition( tile );
 
             if ( condition >= Maps::ArtifactCaptureCondition::PAY_2000_GOLD && condition <= Maps::ArtifactCaptureCondition::PAY_3000_GOLD_AND_5_RESOURCES ) {
-                return kingdom.AllowPayment( getArtifactResourceRequirement( tile ) );
+                return kingdom.AllowPayment( getArtifactResourceRequirement( tile ) ) && AI::KnightConstruction::allowsPayment( kingdom, getArtifactResourceRequirement( tile ), "artifact_purchase" );
             }
 
             if ( condition == Maps::ArtifactCaptureCondition::HAVE_WISDOM_SKILL || condition == Maps::ArtifactCaptureCondition::HAVE_LEADERSHIP_SKILL ) {
@@ -597,7 +597,7 @@ namespace
             if ( !hero.isVisited( tile ) ) {
                 const Funds & rc = getTreeOfKnowledgeRequirement( tile );
                 // If the payment is required, do not waste all resources from the kingdom. Use them wisely.
-                if ( rc.GetValidItemsCount() == 0 || kingdom.AllowPayment( rc * 5 ) ) {
+                if ( rc.GetValidItemsCount() == 0 || ( kingdom.AllowPayment( rc * 5 ) && AI::KnightConstruction::allowsPayment( kingdom, rc, "tree_knowledge" ) ) ) {
                     return true;
                 }
             }
@@ -831,7 +831,7 @@ namespace
             }
 
             const Funds payment = PaymentConditions::ForAlchemist();
-            return kingdom.AllowPayment( payment );
+            return kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment, "alchemist_purchase" );
         }
 
         // TODO: AI has no brains to handle Sirens object.
@@ -1635,7 +1635,7 @@ double AI::Planner::getGeneralObjectValue( const Heroes & hero, const int32_t in
 
         const Funds singleMonsterCost = troop.GetCost();
 
-        uint32_t recruitTroopCount = hero.GetKingdom().GetFunds().getLowestQuotient( singleMonsterCost );
+        uint32_t recruitTroopCount = AI::KnightConstruction::spendable( hero.GetKingdom() ).getLowestQuotient( singleMonsterCost );
         if ( recruitTroopCount == 0 ) {
             // This can actually happen when AI spends some money in between visiting objects.
             return -dangerousTaskPenalty;
@@ -2509,6 +2509,17 @@ int AI::Planner::getCourierMainTarget( const Heroes & hero, const double lowestP
 
 int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
 {
+    const int delivery = KnightConstruction::populationOrder( hero );
+    if ( delivery >= 0 && delivery != hero.GetIndex() ) {
+        _pathfinder.reEvaluateIfNeeded( hero );
+        bool emergency = hero.isLosingGame() || isCriticalTask( hero.GetIndex() );
+        for ( const auto & task : _priorityTargets ) {
+            const auto distance = _pathfinder.getDistance( task.first );
+            if ( isCriticalTask( task.first ) && distance && distance <= hero.GetMovePoints() ) emergency = true;
+        }
+        if ( emergency ) KnightConstruction::cancelPopulationRoute( hero, "critical_military_order" );
+        else if ( _pathfinder.getDistance( delivery ) ) { maxPriority = 100000; return delivery; }
+    }
     int naval = KnightConstruction::navalTarget( hero );
     if ( naval >= 0 ) {
         _pathfinder.reEvaluateIfNeeded( hero );

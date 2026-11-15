@@ -72,6 +72,9 @@ int main( int argc, char ** argv )
         world.updatePassabilities();
         money( { 7500, 20, 20, 0, 0, 0, 0 } );
         auto * hero = world.GetHeroes( Heroes::LORDKILBURN ); assert( hero && c->RecruitHero( hero ) );
+        auto * mainland = world.GetHeroes( Heroes::ECTOR ); assert( mainland && mainland->Recruit( PlayerColor::BLUE, fheroes2::Point( 10, 4 ) ) );
+        mainland->SetModes( Heroes::PATROL );
+        KC::noteOpeningRecruit( *hero, *c );
         assert( kingdom.GetFunds().gold == 5000 );
         KC::Scope budget( kingdom );
         if ( mode == "defender" ) KC::setRoles( kingdom, {}, { 150 } );

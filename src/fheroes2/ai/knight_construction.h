@@ -81,6 +81,9 @@ namespace AI::KnightConstruction
     bool populationSafe( const Castle & castle );
     uint32_t populationReserve( const Castle & castle );
     int populationDestination( const Heroes & hero );
+    int populationOrder( const Heroes & hero );
+    void cancelPopulationRoute( const Heroes & hero, const char * reason );
+    bool keepPopulationCargo( const Heroes & hero );
     void notePopulationRoute( const Heroes & hero, int destination );
     void arrangePopulation( Heroes & hero, Castle & castle, int destination = -1, bool embarking = false );
     // Permit the producing town's infantry purchases to use its own envelope.
@@ -109,6 +112,8 @@ namespace AI::KnightConstruction
     // map tiles so the planner can refresh its native object/pathfinding caches.
     std::vector<int> prepareNaval( Kingdom & kingdom );
     // Only the first exploration voyage launched from a port during week one.
+    Heroes * openingRecruit( const Castle & port, Heroes * first, Heroes * second );
+    void noteOpeningRecruit( const Heroes & hero, const Castle & port );
     bool prepareOpeningExplorer( Heroes & hero, Castle & port, int target = -1 );
     bool isOpeningSeaExplorer( const Heroes & hero );
     void markOpeningEmbarked( const Heroes & hero );

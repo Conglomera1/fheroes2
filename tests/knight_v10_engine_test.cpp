@@ -112,6 +112,9 @@ int main( int argc, char ** argv )
         buildings.push_back( BUILD_SHIPYARD ); auto * c = add( 150, buildings );
         world.getTile( 226 ).setMainObjectType( MP2::OBJ_FLOTSAM ); world.updatePassabilities();
         auto * hero = world.GetHeroes( Heroes::LORDKILBURN ); assert( hero && hero->Recruit( *c ) );
+        auto * mainland = world.GetHeroes( Heroes::SIRGALLANTH ); assert( mainland && mainland->Recruit( PlayerColor::BLUE, fheroes2::Point( 8, 4 ) ) );
+        mainland->SetModes( Heroes::PATROL );
+        KC::noteOpeningRecruit( *hero, *c );
         hero->GetArmy().Clean(); assert( hero->GetArmy().JoinTroop( Monster::PEASANT, 40, false ) );
         if ( mode != "boarding_last" ) assert( hero->GetArmy().JoinTroop( Monster::ARCHER, 5, false ) );
         KC::Scope scope( kingdom ); assert( KC::prepareNaval( kingdom ).size() == 1 );

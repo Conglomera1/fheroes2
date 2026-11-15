@@ -174,7 +174,16 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     out.dailyOverhead = overhead( castle.GetKingdom() );
     // Starting mobilisation is weekly; financial recovery is checked every safe day.
     const bool training = castle.hasTrainingGrounds();
-    const bool lowCashRecovery = training && int64_t{ castle.GetKingdom().GetFunds().gold } < reserveGold + castle.getBuildingCost( BUILD_WEL2 ).gold;
+    bool lowCashRecovery = training && int64_t{ castle.GetKingdom().GetFunds().gold } < reserveGold + castle.getBuildingCost( BUILD_WEL2 ).gold;
+    if ( lowCashRecovery ) {
+        const auto tomorrow = Economy::forecast( castle.GetKingdom().economySnapshot(), Conscription::settings(), 1 );
+        const auto required = KnightConstruction::operatingReserve( castle.GetKingdom() );
+        const bool fundedTomorrow = tomorrow.complete && tomorrow.end.gold >= required;
+        ECONOMY_TRACE( 1, "MOBILIZATION_CASH_REVIEW", ",\"town\":" << castle.GetIndex() << ",\"gold\":" << castle.GetKingdom().GetFunds().gold
+            << ",\"tomorrow_gold\":" << ( tomorrow.complete ? tomorrow.end.gold : -1 ) << ",\"required\":" << required
+            << ",\"funded_tomorrow\":" << ( fundedTomorrow ? "true" : "false" ) );
+        lowCashRecovery = !fundedTomorrow;
+    }
     if ( !day || ( ( day - 1 ) % 7 && !training ) || day > UINT32_MAX - horizon ) { out.reason = "weekly_review"; return out; }
     if ( !training && !castle.isBuild( BUILD_WEL2 ) ) { out.reason = "ordinary_farm_development"; return out; }
     const auto building = training ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS;
@@ -276,7 +285,11 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
     if ( decision.building == BUILD_TRAINING_GROUNDS ) {
         mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), world.CountDay() + ( decision.temporaryTraining ? 7 : horizon ), Economy::traceState().segment, static_cast<int>( castle.GetColor() ), false };
     }
-    else if ( auto * plan = activePlan( castle ) ) plan->recovering = true;
+    else {
+        const auto * old = activePlan( castle );
+        const auto until = std::max( old ? old->until : 0U, world.CountDay() + 7 );
+        mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), until, Economy::traceState().segment, static_cast<int>( castle.GetColor() ), true };
+    }
     if ( const auto * plan = activePlan( castle ) ) {
         ECONOMY_TRACE( 1, "MOBILIZATION_PLAN", ",\"town\":" << castle.GetIndex() << ",\"until\":" << plan->until
             << ",\"recovering\":" << ( plan->recovering ? "true" : "false" ) );

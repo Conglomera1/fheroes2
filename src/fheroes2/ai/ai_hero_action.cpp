@@ -396,7 +396,9 @@ namespace
 
         // TODO: do not transfer the whole army from one hero to another. Add logic to leave a fast unit for Scout and Courier. Also 3-5 monsters are better than
         // having 1 Peasant in one stack which leads to an instant death if the hero is attacked by an opponent.
-        takerArmy.JoinStrongestFromArmy( giverArmy );
+        if ( !AI::KnightConstruction::keepPopulationCargo( left ) && !AI::KnightConstruction::keepPopulationCargo( right )
+             && !AI::KnightConstruction::isOpeningSeaExplorer( left ) && !AI::KnightConstruction::isOpeningSeaExplorer( right ) )
+            takerArmy.JoinStrongestFromArmy( giverArmy );
 
         AI::OptimizeTroopsOrder( takerArmy );
         AI::OptimizeTroopsOrder( giverArmy );
@@ -659,6 +661,7 @@ namespace
             // These conditions must already be met if a group of monsters wants to join
             assert( hero.GetArmy().CanJoinTroop( troop ) && hero.GetKingdom().AllowPayment( Funds( Resource::GOLD, joiningCost ) ) );
 
+            if ( !AI::KnightConstruction::allowsPayment( hero.GetKingdom(), Funds( Resource::GOLD, joiningCost ), "diplomacy_purchase" ) ) return;
             hero.GetArmy().JoinTroop( troop.GetMonster(), join.monsterCount, false );
             hero.GetKingdom().OddFundsResource( Funds( Resource::GOLD, joiningCost ) );
             destroy = true;
@@ -998,7 +1001,7 @@ namespace
         const Funds payment = PaymentConditions::getMagellansMapsPurchasePrice();
         Kingdom & kingdom = hero.GetKingdom();
 
-        if ( !hero.isObjectTypeVisited( MP2::OBJ_MAGELLANS_MAPS, Visit::GLOBAL ) && kingdom.AllowPayment( payment ) ) {
+        if ( !hero.isObjectTypeVisited( MP2::OBJ_MAGELLANS_MAPS, Visit::GLOBAL ) && kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment, "adventure_purchase" ) ) {
             hero.SetVisited( dst_index, Visit::GLOBAL );
             hero.setVisitedForAllies( dst_index );
             world.ActionForMagellanMaps( hero.GetColor() );
@@ -1522,7 +1525,7 @@ namespace
         if ( !hero.isVisited( tile ) ) {
             const Funds & payment = getTreeOfKnowledgeRequirement( tile );
 
-            if ( 0 == payment.GetValidItemsCount() || hero.GetKingdom().AllowPayment( payment ) ) {
+            if ( 0 == payment.GetValidItemsCount() || ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "tree_knowledge" ) ) ) {
                 const int level = hero.GetLevel();
                 assert( level > 0 );
                 const uint32_t experience = Heroes::GetExperienceFromLevel( level ) - Heroes::GetExperienceFromLevel( level - 1 );
@@ -1616,7 +1619,7 @@ namespace
         Kingdom & kingdom = hero.GetKingdom();
         const Funds singleMonsterCost = troop.GetCost();
 
-        uint32_t recruitTroopCount = kingdom.GetFunds().getLowestQuotient( singleMonsterCost );
+        uint32_t recruitTroopCount = AI::KnightConstruction::spendable( kingdom ).getLowestQuotient( singleMonsterCost );
         if ( recruitTroopCount <= 0 ) {
             // We do not have resources to hire even a single creature.
             return;
@@ -1628,6 +1631,8 @@ namespace
         }
 
         const Troop troopToHire{ troop.GetID(), recruitTroopCount };
+        if ( !AI::KnightConstruction::allowsPayment( kingdom, troopToHire.GetTotalCost(), "adventure_recruitment" ) ) return;
+        const Economy::CauseScope purchaseCause( "adventure_recruitment", dst_index );
 
         if ( !canMonsterJoinHero( troopToHire, hero ) ) {
             return;
@@ -1802,7 +1807,7 @@ namespace
              || condition == Maps::ArtifactCaptureCondition::PAY_3000_GOLD_AND_5_RESOURCES ) {
             const Funds payment = getArtifactResourceRequirement( tile );
 
-            if ( hero.GetKingdom().AllowPayment( payment ) ) {
+            if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "adventure_purchase" ) ) {
                 result = true;
                 hero.GetKingdom().OddFundsResource( payment );
             }
@@ -1955,7 +1960,7 @@ namespace
 
         const Funds payment = PaymentConditions::ForAlchemist();
 
-        if ( hero.GetKingdom().AllowPayment( payment ) ) {
+        if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "adventure_purchase" ) ) {
             hero.GetKingdom().OddFundsResource( payment );
 
             for ( Artifact & artifact : bag ) {

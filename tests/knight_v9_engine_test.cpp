@@ -46,6 +46,9 @@ int main( int argc, char ** argv )
         }
         world.updatePassabilities();
         auto * hero = world.GetHeroes( Heroes::LORDKILBURN ); assert( hero && hero->Recruit( *c ) );
+        auto * mainland = world.GetHeroes( Heroes::SIRGALLANTH ); assert( mainland && mainland->Recruit( PlayerColor::BLUE, fheroes2::Point( 8, 4 ) ) );
+        mainland->SetModes( Heroes::PATROL );
+        KC::noteOpeningRecruit( *hero, *c );
         KC::Scope budget( kingdom );
         if ( mode == "reward_first" ) {
             assert( world.getTile( 332 ).isFog( PlayerColor::BLUE ) );

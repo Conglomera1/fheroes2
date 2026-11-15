@@ -199,6 +199,9 @@ namespace AI
         static Skill::Secondary pickSecondarySkill( const Heroes & hero, const Skill::Secondary & left, const Skill::Secondary & right );
 
     private:
+#if defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
+        friend struct KnightPolicyTestAccess;
+#endif
         Planner() = default;
 
         void CastleTurn( Castle & castle, const bool defensiveStrategy );

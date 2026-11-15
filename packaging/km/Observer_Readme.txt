@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v11 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v12 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V11 TEST
+V12 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 11 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 12 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,24 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V11 CHANGES
+V12 CHANGES
+Population deliveries receive a dedicated order after normal army preparation.
+Native reinforcement/meetings preserve assigned cargo, except explicit military
+emergencies. Blocked, expired or captured destinations trigger a nearby safe
+Farm/TG fallback when one is reachable. Arrival deposits end the order.
+Cash recovery considers next-day known income and conscription against the
+operating envelope. Farm recovery records a seven-day minimum recovery period
+also after an earlier mobilisation plan expired. Adventure purchases share the
+same budget; survival/known defense exceptions remain explicit.
+Defensive Knight construction also honors the primary building sequence.
+For an opening with a feasible second hero and a built shipyard, the first hero
+stays on land. The second recruit prefers Sorceress, then the port faction,
+then native recruit value among the actual candidates. Sorceress keeps five
+Sprites in single-creature stacks when available. Surplus stays ashore.
+New events: POPULATION_ROUTE, MOBILIZATION_CASH_REVIEW, NAVAL_OPENING_RECRUIT.
+Roles now expose primary and endangered separately from economic.
+
+PREVIOUS V11 CHANGES
 Ordinary Knight heroes no longer deposit residents before a Farm or TG exists.
 The first exploration voyage assigned from an owned shipyard during days 1-7
 uses up to five existing level-1 creatures, one per stack. Higher creatures

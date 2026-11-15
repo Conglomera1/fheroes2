@@ -302,7 +302,9 @@ bool AI::Planner::recruitHero( Castle & castle, bool buyArmy )
     Heroes * firstRecruit = useIfPossible( rec.GetHero1() );
     Heroes * secondRecruit = useIfPossible( rec.GetHero2() );
 
-    if ( firstRecruit && secondRecruit ) {
+    Heroes * navalRecruit = KnightConstruction::openingRecruit( castle, firstRecruit, secondRecruit );
+    if ( navalRecruit ) recruit = castle.RecruitHero( navalRecruit );
+    else if ( firstRecruit && secondRecruit ) {
         if ( secondRecruit->getRecruitValue() > firstRecruit->getRecruitValue() ) {
             recruit = castle.RecruitHero( secondRecruit );
         }
@@ -321,7 +323,11 @@ bool AI::Planner::recruitHero( Castle & castle, bool buyArmy )
         return false;
     }
 
-    if ( buyArmy ) {
+    if ( navalRecruit ) {
+        KnightConstruction::noteOpeningRecruit( *recruit, castle );
+        OptimizeTroopsOrder( recruit->GetArmy() );
+    }
+    else if ( buyArmy ) {
         reinforceCastle( castle );
     }
     else {
@@ -849,9 +855,6 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         AI::KnightConstruction::setRoles( kingdom, knownFront, endangered );
     };
     configureKnightRoles();
-    for ( Heroes * hero : heroes ) if ( hero && hero->isActive() ) {
-        if ( Castle * home = hero->inCastleMutable(); home && home->GetRace() == Race::KNGT ) AI::KnightConstruction::arrangePopulation( *hero, *home );
-    }
     std::vector<int> safeMobilizationTowns;
     const auto initialDanger = findCastlesInDanger( kingdom );
     for ( const Castle * c : castles ) if ( c && _regions.at( world.getTile( c->GetIndex() ).GetRegion() ).safetyFactor > 0
@@ -1132,8 +1135,10 @@ bool AI::Planner::purchaseNewHeroes( const std::vector<AICastle> & sortedCastleL
 
             const size_t neighboursCount = world.getRegion( regionID ).getNeighboursCount();
 
+            const auto & recruits = castle->GetKingdom().GetRecruits();
+            const bool maritimeOpening = KnightConstruction::openingRecruit( *castle, recruits.GetHero1(), recruits.GetHero2() ) != nullptr;
             // don't buy another hero if there's nothing to do or castle is on an island
-            if ( heroesInRegion > 0 && ( !moreTasksForHeroes || ( sortedCastleList.size() > 1 && neighboursCount == 0 ) ) ) {
+            if ( !maritimeOpening && heroesInRegion > 0 && ( !moreTasksForHeroes || ( sortedCastleList.size() > 1 && neighboursCount == 0 ) ) ) {
                 continue;
             }
 
