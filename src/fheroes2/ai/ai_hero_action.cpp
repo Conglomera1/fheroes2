@@ -37,6 +37,7 @@
 #include <vector>
 
 #include "ai_common.h"
+#include "knight_construction.h"
 #include "ai_planner.h"
 #include "army.h"
 #include "army_troop.h"
@@ -1870,6 +1871,7 @@ namespace
         destinationTile.setMainObjectType( MP2::OBJ_HERO );
 
         hero.SetShipMaster( true );
+        AI::KnightConstruction::markOpeningEmbarked( hero );
 
         // Boat is no longer empty so we reset color to default
         destinationTile.resetBoatOwnerColor();

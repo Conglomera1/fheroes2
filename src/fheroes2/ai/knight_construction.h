@@ -108,4 +108,8 @@ namespace AI::KnightConstruction
     // Called before movement (also after a new hero is hired). Return changed
     // map tiles so the planner can refresh its native object/pathfinding caches.
     std::vector<int> prepareNaval( Kingdom & kingdom );
+    // Only the first exploration voyage launched from a port during week one.
+    bool prepareOpeningExplorer( Heroes & hero, Castle & port, int target = -1 );
+    bool isOpeningSeaExplorer( const Heroes & hero );
+    void markOpeningEmbarked( const Heroes & hero );
 }

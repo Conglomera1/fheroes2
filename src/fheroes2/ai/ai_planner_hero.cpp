@@ -3381,13 +3381,14 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
             break;
         }
 
-        if ( auto * home = bestHero->inCastleMutable(); home && home->GetRace() == Race::KNGT ) {
+        if ( auto * home = bestHero->inCastleMutable(); home ) {
             _pathfinder.reEvaluateIfNeeded( *bestHero );
             const auto route = _pathfinder.buildPath( bestTargetIndex, false );
             const bool embarking = !bestHero->isShipMaster() && std::any_of( route.begin(), route.end(), []( const auto & step ) {
                 return world.getTile( step.GetIndex() ).isWater();
             } );
-            KnightConstruction::arrangePopulation( *bestHero, *home, bestTargetIndex, embarking );
+            if ( KnightConstruction::isOpeningSeaExplorer( *bestHero ) ) KnightConstruction::prepareOpeningExplorer( *bestHero, *home, bestTargetIndex );
+            else if ( home->GetRace() == Race::KNGT ) KnightConstruction::arrangePopulation( *bestHero, *home, bestTargetIndex, embarking );
             _pathfinder.reset();
         }
         const size_t heroesBefore = heroes.size();

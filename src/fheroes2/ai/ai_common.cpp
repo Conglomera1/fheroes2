@@ -116,6 +116,17 @@ void AI::OptimizeTroopsOrder( Army & army )
         return;
     }
 
+    const auto * commander = army.GetCommander();
+    if ( commander && commander->isHeroes() && KnightConstruction::isOpeningSeaExplorer( static_cast<const Heroes &>( *commander ) ) ) {
+        // Preserve the five weak stacks through the native pre-battle pass,
+        // including difficulties which otherwise merge identical creatures.
+        bool singles = true;
+        for ( size_t slot = 0; slot < army.Size(); ++slot ) {
+            const auto * troop = army.GetTroop( slot );
+            if ( troop->isValid() && troop->GetCount() != 1 ) singles = false;
+        }
+        if ( singles ) return;
+    }
     army.MergeSameMonsterTroops();
 
     std::vector<Troop> archers;
@@ -219,6 +230,8 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
     if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
          || hero.GetColor() != castle.GetColor()
          || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
+    if ( !castle.isBuild( BUILD_WEL2 ) && !castle.hasTrainingGrounds() ) return;
+    if ( isOpeningSeaExplorer( hero ) ) return;
     auto & garrison = castle.GetArmy(); auto & army = hero.GetArmy();
     const Monster peasant( Monster::PEASANT );
     const auto transfer = [&]( Army & source, Army & target, uint32_t quantity, const bool fromHero, const char * reason ) {
