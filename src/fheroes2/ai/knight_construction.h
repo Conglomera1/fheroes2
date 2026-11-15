@@ -80,6 +80,10 @@ namespace AI::KnightConstruction
     bool economicTown( const Castle & castle );
     bool populationSafe( const Castle & castle );
     uint32_t populationReserve( const Castle & castle );
+    uint32_t populationSupplyNeed( const Castle & castle, int exceptHero = -1 );
+    uint32_t populationAvailableStock( const Castle & castle, int exceptHero = -1 );
+    int populationPickupDestination( const Heroes & hero, const Castle & source );
+    void preparePopulation( Kingdom & kingdom );
     int populationDestination( const Heroes & hero );
     int populationOrder( const Heroes & hero );
     void cancelPopulationRoute( const Heroes & hero, const char * reason );

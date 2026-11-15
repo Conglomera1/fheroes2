@@ -232,6 +232,7 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
          || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
     if ( !castle.isBuild( BUILD_WEL2 ) && !castle.hasTrainingGrounds() ) return;
     if ( isOpeningSeaExplorer( hero ) || keepPopulationCargo( hero ) ) return;
+    if ( const int pickup = populationPickupDestination( hero, castle ); pickup >= 0 ) destination = pickup;
     auto & garrison = castle.GetArmy(); auto & army = hero.GetArmy();
     const Monster peasant( Monster::PEASANT );
     const auto transfer = [&]( Army & source, Army & target, uint32_t quantity, const bool fromHero, const char * reason ) {
@@ -282,8 +283,7 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
             const uint32_t stock = garrison.GetCountMonsters( peasant );
             if ( reserve != UINT32_MAX && economicTown( target ) && target.isBuild( BUILD_WEL2 ) && stock > reserve ) quantity = stock - reserve;
             else if ( economicTown( castle ) && target.hasTrainingGrounds() ) {
-                const uint32_t need = populationReserve( target ), present = target.GetArmy().GetCountMonsters( peasant );
-                if ( need > present ) quantity = std::min( stock, need - present );
+                quantity = std::min( populationAvailableStock( castle, hero.GetID() ), populationSupplyNeed( target, hero.GetID() ) );
             }
             if ( quantity ) {
                 transfer( garrison, army, quantity, false, target.hasTrainingGrounds() ? "supply_conscription" : "export_taxpayer_surplus" );

@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v12 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v13 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V12 TEST
+V13 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 12 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 13 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,33 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V12 CHANGES
+V13 CHANGES
+Active TG towns request their missing fourteen-day Peasant buffer before running
+out, using garrison, Hut stocks and scheduled Hut/Well growth. Assigned cargo
+and pending pickups count toward demand, so another hero does not load the
+same requested buffer. Nearby existing couriers/scouts/hunters can collect
+from a safe rear Farm: pickup within 1000 land movement, delivery within 2000,
+3000 total for couriers and 1000 total for scouts/hunters. No hero is purchased
+for these deliveries. Military emergencies can cancel them. Captured, unsafe,
+occupied or expired pickup routes release the reservation. Delivery cargo
+retains the safe fallback introduced in v12.
+Opening sea crews now use three T1 and two T2 creatures of the navigator's
+faction, one per stack, replacing the v11/v12 all-T1 crews:
+Knight: Archer, Peasant, Peasant, Peasant, Archer
+Barbarian: Orc, Goblin, Goblin, Goblin, Orc
+Sorceress: Sprite, Dwarf, Sprite, Dwarf, Sprite
+Warlock: Centaur, Gargoyle, Centaur, Gargoyle, Centaur
+Wizard: Halfling, Boar, Halfling, Boar, Halfling
+Necromancer: Skeleton, Zombie, Skeleton, Zombie, Skeleton
+An upgraded T2 may replace its base form when necessary. No troop is purchased
+for the crew. If creatures or shore slots are insufficient, this special
+formation is not applied and ordinary departure policy remains in force.
+New records: POPULATION_SUPPLY_PLAN, POPULATION_SUPPLY_REVIEW and
+NAVAL_OPENING_CREW_WAIT. POPULATION_ROUTE includes pickup and quantity.
+Costs unchanged: TG 2500 gold/10 wood/10 ore, Farm recovery 1500 gold.
+The INI continues to override these defaults. No INI is included in the ZIP.
+
+PREVIOUS V12 CHANGES
 Population deliveries receive a dedicated order after normal army preparation.
 Native reinforcement/meetings preserve assigned cargo, except explicit military
 emergencies. Blocked, expired or captured destinations trigger a nearby safe

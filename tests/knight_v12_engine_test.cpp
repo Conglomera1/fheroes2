@@ -120,9 +120,9 @@ int main( int argc, char ** argv )
             assert(AI::KnightPolicyTestAccess::recruit(*port));assert(port->GetHero()==sorc);
             assert(port->GetArmy().JoinTroop(Monster::PEASANT,40,false));
             assert(KC::prepareNaval(kingdom).size()==1);
-            assert(sorc->GetArmy().GetCountMonsters(Monster::SPRITE)==5 && sorc->GetArmy().GetOccupiedSlotCount()==5);
+            assert(sorc->GetArmy().GetCountMonsters(Monster::SPRITE)==3 && sorc->GetArmy().GetOccupiedSlotCount()==5);
             assert(KnightObserver::armyJson(main->GetArmy())==landArmy);
-            assert(port->GetArmy().GetCountMonsters(Monster::DWARF)>0);
+            assert(sorc->GetArmy().GetCountMonsters(Monster::DWARF)==2);
             assert(port->BuyBuilding(BUILD_STATUE));assert(kingdom.GetFunds().gold==2750);
             AIWorldPathfinder path;path.reset();path.reEvaluateIfNeeded(*sorc);
             for(const auto & step:path.buildPath(226,false)) {
@@ -145,7 +145,8 @@ int main( int argc, char ** argv )
             while(world.CountDay()<20)world.NewDay();
             money(1607);assert(AI::KnightEconomy::choose(*c,true).reason=="cash_recovery");
             assert(AI::KnightEconomy::develop(*c,true) && c->isBuild(BUILD_WEL2));
-            while(world.CountDay()<22)world.NewDay();money(30000);KC::refresh();
+            while(world.CountDay()<22) { world.NewDay(); }
+            money(30000);KC::refresh();
             assert(AI::KnightEconomy::choose(*c,true).reason=="recovering_mobilization");
         }
     }

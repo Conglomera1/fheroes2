@@ -38,7 +38,7 @@ int main( int argc, char ** argv )
     const bool ordinary = mode == "ordinary" || mode == "ordinary_embark";
     const bool sorc = mode == "sorceress";
     auto * c = add(150, { BUILD_CASTLE, BUILD_STATUE, BUILD_SHIPYARD }, sorc ? Race::SORC : Race::KNGT);
-    auto * hero = world.GetHeroes( Heroes::LORDKILBURN ); assert(hero && hero->Recruit(*c));
+    auto * hero = world.GetHeroes( sorc ? Heroes::ARIEL : Heroes::LORDKILBURN ); assert(hero && hero->Recruit(*c));
     hero->GetArmy().Clean(); auto & a = hero->GetArmy(); auto & g = c->GetArmy();
     const int low = sorc ? Monster::SPRITE : Monster::PEASANT;
     const int high = sorc ? Monster::DWARF : Monster::ARCHER;
@@ -64,22 +64,22 @@ int main( int argc, char ** argv )
         assert(KnightObserver::armyJson(a)==beforeA && KnightObserver::armyJson(g)==beforeG);
     }
     else {
-        const bool expected = mode!="full" && mode!="late" && mode!="human" && mode!="danger" && mode!="no_shipyard" && mode!="unreachable";
+        const bool expected = mode!="full" && mode!="late" && mode!="human" && mode!="danger" && mode!="no_shipyard" && mode!="unreachable" && mode!="no_t1";
         assert(KC::prepareOpeningExplorer(*hero,*c,mode=="unreachable" ? 1295 : -1)==expected);
         if(!expected) assert(KnightObserver::armyJson(a)==beforeA && KnightObserver::armyJson(g)==beforeG);
         else {
-            const unsigned wanted=mode=="no_t1" ? 1 : mode=="short" ? 3 : 5;
-            const int unit=mode=="no_t1" ? high : low;
-            assert(a.GetCountMonsters(unit)==(mode=="mixed" ? 3 : wanted));
-            if(mode=="mixed") assert(a.GetCountMonsters(Monster::GOBLIN)==2 && g.GetCountMonsters(Monster::GOBLIN)==2);
+            const unsigned wanted=5;
+            const int unit=low;
+            assert(a.GetCountMonsters(unit)==3 && a.GetCountMonsters(high)==2);
+            if(mode=="mixed") assert(a.GetCountMonsters(Monster::GOBLIN)==0 && g.GetCountMonsters(Monster::GOBLIN)==4);
             unsigned stacks=0; for(size_t n=0;n<a.Size();++n) if(a.GetTroop(n)->isValid()) {++stacks;assert(a.GetTroop(n)->GetCount()==1);}
             assert(stacks==wanted && KC::isOpeningSeaExplorer(*hero));
-            assert(g.GetCountMonsters(high)==(mode=="no_t1" ? 7 : 8));
+            assert(g.GetCountMonsters(high)==6);
             AI::OptimizeTroopsOrder(a); assert(a.GetOccupiedSlotCount()==wanted);
             if(mode=="recover") {
                 hero->Move2Dest(151); auto * main=world.GetHeroes(Heroes::SIRGALLANTH); assert(main && main->Recruit(*c));
                 main->GetArmy().Clean(); main->GetArmy().JoinStrongestFromArmy(g);
-                assert(main->GetArmy().GetCountMonsters(low)==35 && main->GetArmy().GetCountMonsters(high)==8);
+                assert(main->GetArmy().GetCountMonsters(low)==37 && main->GetArmy().GetCountMonsters(high)==6);
             }
             if(mode=="same_player") {
                 hero->Move2Dest(151); auto * main=world.GetHeroes(Heroes::SIRGALLANTH); assert(main && main->Recruit(*c));
@@ -89,7 +89,7 @@ int main( int argc, char ** argv )
             }
             if(mode=="native_merge") {
                 hero->SetShipMaster(true); KC::markOpeningEmbarked(*hero); hero->SetShipMaster(false);
-                assert(!KC::isOpeningSeaExplorer(*hero)); AI::OptimizeTroopsOrder(a); assert(a.GetOccupiedSlotCount()==1);
+                assert(!KC::isOpeningSeaExplorer(*hero)); AI::OptimizeTroopsOrder(a); assert(a.GetOccupiedSlotCount()==2);
             }
             if(mode=="first_only") {
                 hero->SetShipMaster(true); KC::markOpeningEmbarked(*hero); hero->SetShipMaster(false);

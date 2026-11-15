@@ -118,7 +118,7 @@ int main( int argc, char ** argv )
         hero->GetArmy().Clean(); assert( hero->GetArmy().JoinTroop( Monster::PEASANT, 40, false ) );
         if ( mode != "boarding_last" ) assert( hero->GetArmy().JoinTroop( Monster::ARCHER, 5, false ) );
         KC::Scope scope( kingdom ); assert( KC::prepareNaval( kingdom ).size() == 1 );
-        const auto kept = 5U;
+        const auto kept = mode == "boarding_last" ? 1U : 3U;
         assert( hero->GetArmy().GetCountMonsters( Monster::PEASANT ) == kept );
         assert( c->GetArmy().GetCountMonsters( Monster::PEASANT ) == 40 - kept );
         AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( *hero );
@@ -128,8 +128,8 @@ int main( int argc, char ** argv )
         }
         assert( hero->isShipMaster() && world.CountDay() == 1 && hero->GetArmy().isValid() );
         AI::OptimizeTroopsOrder( hero->GetArmy() );
-        assert( hero->GetArmy().GetOccupiedSlotCount() == 5 );
-        if ( mode != "boarding_last" ) assert( c->GetArmy().GetCountMonsters( Monster::ARCHER ) == 5 );
+        assert( hero->GetArmy().GetOccupiedSlotCount() == ( mode == "boarding_last" ? 1 : 5 ) );
+        if ( mode != "boarding_last" ) assert( c->GetArmy().GetCountMonsters( Monster::ARCHER ) == 3 );
         kingdom.GetHeroes().clear();
     }
     else {

@@ -935,6 +935,8 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         const auto navalChanges = AI::KnightConstruction::prepareNaval( kingdom );
         if ( !navalChanges.empty() ) _pathfinder.reset();
         for ( const int tile : navalChanges ) updateMapActionObjectCache( kingdom, tile );
+        AI::KnightConstruction::preparePopulation( kingdom );
+        _pathfinder.reset();
 
         // If AI has less than three heroes at the start of the turn we assume
         // that he will buy another one in this turn and allow progress to increase only for 2 points.

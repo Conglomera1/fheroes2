@@ -32,7 +32,7 @@ jobs:
           $pe = [BitConverter]::ToInt32($binary, 0x3c)
           if ([BitConverter]::ToUInt16($binary, $pe + 4) -ne 332) { throw 'Expected x86 executable' }
           $strings = [Text.Encoding]::ASCII.GetString($binary)
-          foreach ($marker in @('resurrectionKM.h2d', 'KNIGHT_OBSERVER_20261110', 'OBSERVER_KINGDOM', 'AI_HERO_ORDER', 'KNIGHT_ROLE_REVIEW', 'NAVAL_REVIEW', 'BOAT_SUMMON', 'keep_valid', 'NAVAL_STAGE', 'BUILD_TRADE_REVIEW', 'MOBILIZATION_PLAN', 'MOBILIZATION_EARLY_REVIEW', 'KNIGHT_POPULATION', 'opening_sea_explorer', 'POPULATION_ROUTE', 'MOBILIZATION_CASH_REVIEW', 'NAVAL_OPENING_RECRUIT')) {
+          foreach ($marker in @('resurrectionKM.h2d', 'KNIGHT_OBSERVER_20261110', 'OBSERVER_KINGDOM', 'AI_HERO_ORDER', 'KNIGHT_ROLE_REVIEW', 'NAVAL_REVIEW', 'BOAT_SUMMON', 'keep_valid', 'NAVAL_STAGE', 'BUILD_TRADE_REVIEW', 'MOBILIZATION_PLAN', 'MOBILIZATION_EARLY_REVIEW', 'KNIGHT_POPULATION', 'opening_sea_explorer', 'POPULATION_ROUTE', 'MOBILIZATION_CASH_REVIEW', 'NAVAL_OPENING_RECRUIT', 'POPULATION_SUPPLY_PLAN', 'POPULATION_SUPPLY_REVIEW', 'NAVAL_OPENING_CREW_WAIT')) {
             if (-not $strings.Contains($marker)) { throw "Missing marker $marker" }
           }
           $files = @(Get-ChildItem package -Recurse -File)
