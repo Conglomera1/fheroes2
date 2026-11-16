@@ -23,3 +23,10 @@ Ne pas modifier navigation après J1, coûts par défaut ni crash entre autoplay
 
 Audit terminé ; aucune modification de production v15 à ce point. Ne pas reprendre les compilations/tests v14 : terminés et livrés.
 Prochaine étape : reproduire le refus de préparation J1 et tracer ses gardes précoces avant correction.
+
+## Point de sauvegarde 2 (en cours, non livrable)
+
+Modifications de production : cases COAST admises à J1, prévision d'un pas de dégagement avant achat et dégagement payé après partage ; motifs de refus et événement de dégagement. Destination occupée : conserver la mission un jour avec position d'attente adjacente, puis repli si l'occupation persiste ; cargaison protégée en attente. Cycle temporaire : exiger aussi une trésorerie projetée au moins égale à conserver la Farm (coûts réels et recrutements inclus), ce qui exclut le cas Hilltop observé.
+Compilation native v15 réussie. Première compilation du nouveau fixture corrigée (namespace Economy).
+Tests v15 EN COURS : ne pas annoncer validés, ne pas livrer de binaire à ce point. Ajouter/faire passer le tour complet et les régressions concernées avant publication finale.
+Chemins scratch (reconstructibles depuis code) : native-check/v15-build-final.log, v15-fixture-build.log, v15-tests ; tests/run_knight_v15.py.

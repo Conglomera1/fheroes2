@@ -240,7 +240,9 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
             return keep.valid && r.valid && r.sustained && r.gold >= reserveGold
                 && r.force - keep.force > margin;
         };
-        if ( worthwhile( cycle ) && ( !worthwhile( change ) || ( cycle.force >= 0.90 * change.force && cycle.gold > change.gold ) ) ) {
+        // A short round trip must also recover its actual cash cost versus staying Farm.
+        // Force alone previously admitted Hilltop: only 17 units for two conversions.
+        if ( worthwhile( cycle ) && cycle.gold >= keep.gold && ( !worthwhile( change ) || ( cycle.force >= 0.90 * change.force && cycle.gold > change.gold ) ) ) {
             change = cycle; out.temporaryTraining = true;
         }
     }

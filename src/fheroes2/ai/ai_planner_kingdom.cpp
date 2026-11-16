@@ -362,31 +362,48 @@ bool AI::Planner::openingPeasantsNeeded( Heroes & hero )
 bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
 {
     namespace KC = KnightConstruction;
-    if ( world.CountDay() != 1 || !kingdom.isControlAI() || kingdom.GetHeroes().size() != 1 || kingdom.GetCastles().size() != 1 ) return false;
+    const auto reject = [&]( const char * reason ) {
+        if ( world.CountDay() == 1 ) ECONOMY_TRACE( 1, "NAVAL_OPENING_REFUSAL", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"reason\":" << Economy::jsonQuote( reason ) );
+        return false;
+    };
+    if ( world.CountDay() != 1 || !kingdom.isControlAI() || kingdom.GetHeroes().size() != 1 || kingdom.GetCastles().size() != 1 ) return reject( "starting_state" );
     Heroes & land = *kingdom.GetHeroes().front(); Castle * port = land.inCastleMutable();
-    if ( !port || !port->isBuild( BUILD_SHIPYARD ) || land.isShipMaster() || land.Modes( Heroes::PATROL ) || isCriticalTask( port->GetIndex() ) ) return false;
+    if ( !port || !port->isBuild( BUILD_SHIPYARD ) || land.isShipMaster() || land.Modes( Heroes::PATROL ) || isCriticalTask( port->GetIndex() ) ) return reject( "port_or_military_task" );
     const auto & recruits = kingdom.GetRecruits();
     Heroes * sailor = KC::openingRecruit( *port, recruits.GetHero1(), recruits.GetHero2() );
-    if ( !sailor ) return false;
+    if ( !sailor ) return reject( "recruit_or_known_sea_objective" );
     // Vacate only one empty, visible, native-reachable adjacent land tile.
     _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
     int meeting = -1; uint32_t best = UINT32_MAX;
     for ( const int tile : Maps::getAroundIndexes( port->GetIndex() ) ) {
         const auto & cell = world.getTile( tile );
-        if ( cell.isWater() || cell.isFog( land.GetColor() ) || cell.getMainObjectType( false ) != MP2::OBJ_NONE ) continue;
+        if ( cell.isWater() || cell.isFog( land.GetColor() ) || ( cell.getMainObjectType( false ) != MP2::OBJ_NONE && cell.getMainObjectType( false ) != MP2::OBJ_COAST ) ) continue;
         const auto cost = _pathfinder.getDistance( tile ); const auto route = _pathfinder.buildPath( tile, false );
         if ( !cost || cost > land.GetMovePoints() || cost >= best || route.size() != 1 ) continue;
         meeting = tile; best = cost;
     }
-    if ( meeting < 0 ) return false;
+    if ( meeting < 0 ) return reject( "no_adjacent_meeting" );
+    // Require room to clear the single entrance before committing any purchases.
+    AIWorldPathfinder escapePath; escapePath.reset();
+    escapePath.reEvaluateIfNeeded( meeting, kingdom.GetColor(), land.GetArmy().GetStrength(),
+        static_cast<uint8_t>( land.GetLevelSkill( Skill::Secondary::PATHFINDING ) ) );
+    int escape = -1;
+    for ( const int tile : Maps::getAroundIndexes( meeting ) ) {
+        if ( tile == port->GetIndex() ) continue;
+        const auto & cell = world.getTile( tile );
+        if ( cell.isWater() || cell.isFog( land.GetColor() ) || ( cell.getMainObjectType( false ) != MP2::OBJ_NONE && cell.getMainObjectType( false ) != MP2::OBJ_COAST ) ) continue;
+        const auto cost = escapePath.getDistance( tile );
+        if ( cost && uint64_t{ best } + cost <= land.GetMovePoints() && escapePath.buildPath( tile, false ).size() == 1 ) { escape = tile; break; }
+    }
+    if ( escape < 0 ) return reject( "cannot_clear_entrance" );
     Funds mandatory = PaymentConditions::RecruitHero();
     if ( port->getTileIndexToPlaceBoat() >= 0 ) mandatory += PaymentConditions::BuyBoat();
     const bool statue = !port->isBuild( BUILD_STATUE );
     if ( statue ) {
-        if ( port->CheckBuyBuilding( BUILD_STATUE ) != BuildingStatus::ALLOW_BUILD ) return false;
+        if ( port->CheckBuyBuilding( BUILD_STATUE ) != BuildingStatus::ALLOW_BUILD ) return reject( "statue_unavailable" );
         mandatory += port->getBuildingCost( BUILD_STATUE );
     }
-    if ( !kingdom.AllowPayment( mandatory ) ) return false;
+    if ( !kingdom.AllowPayment( mandatory ) ) return reject( "portfolio_unfunded" );
     const auto beforeFunds = kingdom.GetFunds();
     // Bounded J1 portfolio: all remaining mandatory payments are checked before
     // each optional purchase. No standing reserve is relaxed outside this scope.
@@ -415,6 +432,15 @@ bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
     if ( prepared ) {
         KC::settleOpeningTaxpayers( land, *port, openingPeasantsNeeded( land ) );
         OptimizeTroopsOrder( land.GetArmy() );
+        _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
+        const auto clearPath = _pathfinder.buildPath( escape, false );
+        if ( clearPath.size() != 1 || !_pathfinder.getDistance( escape ) || _pathfinder.getDistance( escape ) > land.GetMovePoints() ) {
+            KC::cancelOpeningPreparation( *port ); return reject( "entrance_clearance_changed" );
+        }
+        land.GetPath().setPath( clearPath ); land.SetMove( true ); (void)land.Move( true ); land.SetMove( false );
+        updateMapActionObjectCache( kingdom, meeting ); updateMapActionObjectCache( kingdom, land.GetIndex() ); _pathfinder.reset();
+        if ( land.GetIndex() != escape ) { KC::cancelOpeningPreparation( *port ); return reject( "entrance_clearance_failed" ); }
+        ECONOMY_TRACE( 1, "NAVAL_OPENING_CLEARANCE", ",\"land_hero\":" << land.GetID() << ",\"meeting\":" << meeting << ",\"cleared_to\":" << escape );
         const auto changed = KC::prepareNaval( kingdom );
         for ( const int tile : changed ) updateMapActionObjectCache( kingdom, tile );
     }

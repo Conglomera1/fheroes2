@@ -203,6 +203,7 @@ namespace
         uint64_t segment = 0;
         int owner = -1, target = -1, pickup = -1;
         uint32_t quantity = 0;
+        uint32_t occupiedSince = 0;
     };
     std::map<int, PopulationRoute> populationRoutes;
     thread_local const Castle * recruitmentTown = nullptr;
@@ -1289,7 +1290,33 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
               || !( *found )->GetArmy().GetCountMonsters( Monster::PEASANT ) || final == cities.end()
               || !populationSafe( **final ) || !( *final )->hasTrainingGrounds()
               || ( ( *final )->GetHero() && ( *final )->GetHero() != &hero ) ) ) failure = "pickup_unavailable";
-    else if ( ( *found )->GetHero() && ( *found )->GetHero() != &hero ) failure = "destination_occupied";
+    else if ( ( *found )->GetHero() && ( *found )->GetHero() != &hero ) {
+        // A friendly visitor may leave later in this turn. Keep the destination
+        // for one day and stage beside it, without entering a hero meeting.
+        if ( r.pickup < 0 && world.CountDay() - r.day <= 4 ) {
+            auto & pending = it->second;
+            if ( !pending.occupiedSince ) pending.occupiedSince = world.CountDay();
+            if ( world.CountDay() == pending.occupiedSince ) {
+                AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
+                int staging = -1; uint32_t best = UINT32_MAX;
+                for ( const int tile : Maps::getAroundIndexes( waypoint ) ) {
+                    const auto & cell = world.getTile( tile );
+                    if ( cell.isWater() || cell.isFog( hero.GetColor() )
+                         || ( cell.getMainObjectType( false ) != MP2::OBJ_NONE && cell.getMainObjectType( false ) != MP2::OBJ_COAST && tile != hero.GetIndex() ) ) continue;
+                    const auto cost = tile == hero.GetIndex() ? 0U : path.getDistance( tile );
+                    if ( ( !cost && tile != hero.GetIndex() ) || cost >= best || cost > hero.GetMaxMovePoints() ) continue;
+                    const auto route = path.buildPath( tile, false );
+                    if ( std::any_of( route.begin(), route.end(), []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); } ) ) continue;
+                    staging = tile; best = cost;
+                }
+                if ( staging >= 0 ) {
+                    ECONOMY_TRACE( 1, "POPULATION_ROUTE", ",\"hero\":" << hero.GetID() << ",\"target\":" << waypoint << ",\"staging\":" << staging << ",\"reason\":\"friendly_visitor_wait\"" );
+                    return staging;
+                }
+            }
+        }
+        failure = "destination_occupied";
+    }
     else if ( r.pickup < 0 && !canReceivePopulation( hero, **found ) ) failure = "destination_full";
     else if ( world.CountDay() - r.day > 4 ) failure = "delivery_timeout";
     else if ( hero.GetIndex() != waypoint ) {
@@ -1329,7 +1356,7 @@ bool AI::KnightConstruction::keepPopulationCargo( const Heroes & hero )
 {
     const int target = populationOrder( hero );
     const auto route = populationRoutes.find( hero.GetID() );
-    return target >= 0 && target != hero.GetIndex() && route != populationRoutes.end() && route->second.pickup < 0;
+    return target >= 0 && route != populationRoutes.end() && route->second.pickup < 0 && route->second.target != hero.GetIndex();
 }
 
 uint32_t AI::KnightConstruction::populationSupplyNeed( const Castle & castle, const int exceptHero )

@@ -2510,6 +2510,10 @@ int AI::Planner::getCourierMainTarget( const Heroes & hero, const double lowestP
 int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
 {
     const int delivery = KnightConstruction::populationOrder( hero );
+    if ( delivery == hero.GetIndex() && !hero.isLosingGame() && !isCriticalTask( hero.GetIndex() )
+         && KnightConstruction::keepPopulationCargo( hero ) ) {
+        hero.ResetMovePoints(); maxPriority = 0; return -1;
+    }
     if ( delivery >= 0 && delivery != hero.GetIndex() ) {
         _pathfinder.reEvaluateIfNeeded( hero );
         bool emergency = hero.isLosingGame() || isCriticalTask( hero.GetIndex() );
