@@ -46,3 +46,9 @@ Encore à faire : tour complet, validation finale après dernier ajustement, ver
 La configuration du fixture complet nécessite aussi les drapeaux natifs de joueurs en partie et une identité humaine pour les helpers d'affichage/alliance ; l'IA testée reste bleue et contrôlée par IA. Le mode autoplay et GameOver::Reset sont initialisés. Les wrappers incluent désormais le dessin de carte/statut et la pompe d'événements de bureau sans événement de quitter.
 Revision de journal 15 et README mis à jour. Coûts, INI et navigation après J1 inchangés.
 Le candidat Windows peut compiler en parallèle de la fin de validation ; ne pas le distribuer avant le résultat du tour complet et de la suite finale.
+
+## Point de sauvegarde 5 — tour complet passé
+
+PASS v15 opening_full day=1 gold=2750 constaté : appel natif KingdomTurn, partage 70 Paysans/6 Archers au terrestre, cinq singles au navigateur, dégagement 748→749 puis embarquement. L'état de joueurs en partie a été initialisé dans le fixture. Les wrappers sont uniquement UI/événements de bureau.
+Suite finale de 24 cas x diagnostics 0/2 lancée dans native-check/v15-final-results (48 exécutions attendues) ; le script vérifie aussi seq(PARTY) < seq(CLEARANCE) < seq(embarquement) dans le tour complet. Ne pas compter la suite finale avant sa ligne PASS.
+Les 64 régressions population et 28 économiques restent acquises. Compilation native release v15 réussie (v15-build-release.log). Publication Windows autorisée en parallèle ; vérifier archive et terminer bilan après PASS final.
