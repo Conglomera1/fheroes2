@@ -83,7 +83,7 @@ int main(int argc,char ** argv) {
         if(mode=="supply_existing") {first->GetArmy().JoinTroop(Monster::PEASANT,need,false);KC::notePopulationRoute(*first,150);}
         world.updatePassabilities();const Funds beforeFunds=kingdom.GetFunds();KC::preparePopulation(kingdom);
         const bool blocked=mode=="supply_buffer"||mode=="supply_growth"||mode=="supply_danger"||mode=="supply_source_danger"||mode=="supply_empty"
-            ||mode=="supply_fighters"||mode=="supply_human"||mode=="supply_full"||mode=="supply_water"||mode=="supply_occupied"||mode=="supply_existing";
+            ||mode=="supply_fighters"||mode=="supply_human"||mode=="supply_water"||mode=="supply_occupied"||mode=="supply_existing";
         unsigned pickups=0;Heroes * chosen=nullptr;
         for(auto * h:{first,second})if(KC::populationOrder(*h)==258){++pickups;chosen=h;}
         if(blocked)assert(pickups==0);

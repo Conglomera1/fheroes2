@@ -43,6 +43,7 @@
 #include "economy_pipeline.h"
 #include "economy_trace.h"
 #include "knight_observer.h"
+#include "payment.h"
 #include "army.h"
 #include "artifact_ultimate.h"
 #include "audio.h"
@@ -335,6 +336,94 @@ bool AI::Planner::recruitHero( Castle & castle, bool buyArmy )
     }
 
     return true;
+}
+
+bool AI::Planner::openingPeasantsNeeded( Heroes & hero )
+{
+    if ( !hero.GetArmy().HasMonster( Monster::PEASANT ) ) return false;
+    const Troops full( hero.GetArmy().getTroops() ); Troops without( full );
+    for ( size_t slot = 0; slot < without.Size(); ++slot ) if ( without.GetTroop( slot )->GetID() == Monster::PEASANT ) without.GetTroop( slot )->Reset();
+    if ( !without.isValid() ) return true;
+    for ( const auto & entry : _mapActionObjects ) {
+        const auto & tile = world.getTile( entry.first );
+        if ( tile.isFog( hero.GetColor() ) || tile.isWater()
+             || ( !MP2::isBattleLife( entry.second ) && entry.second != MP2::OBJ_MONSTER && entry.second != MP2::OBJ_HERO && entry.second != MP2::OBJ_CASTLE ) ) continue;
+        _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( hero );
+        const auto distance = _pathfinder.getDistance( entry.first );
+        if ( !distance || distance > hero.GetMovePoints() || !isValidHeroObject( hero, entry.first, false ) ) continue;
+        hero.GetArmy().Assign( without ); _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( hero );
+        const bool stillUseful = isValidHeroObject( hero, entry.first, false );
+        hero.GetArmy().Assign( full ); _pathfinder.reset();
+        if ( !stillUseful ) return true;
+    }
+    _pathfinder.reset(); return false;
+}
+
+bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
+{
+    namespace KC = KnightConstruction;
+    if ( world.CountDay() != 1 || !kingdom.isControlAI() || kingdom.GetHeroes().size() != 1 || kingdom.GetCastles().size() != 1 ) return false;
+    Heroes & land = *kingdom.GetHeroes().front(); Castle * port = land.inCastleMutable();
+    if ( !port || !port->isBuild( BUILD_SHIPYARD ) || land.isShipMaster() || land.Modes( Heroes::PATROL ) || isCriticalTask( port->GetIndex() ) ) return false;
+    const auto & recruits = kingdom.GetRecruits();
+    Heroes * sailor = KC::openingRecruit( *port, recruits.GetHero1(), recruits.GetHero2() );
+    if ( !sailor ) return false;
+    // Vacate only one empty, visible, native-reachable adjacent land tile.
+    _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
+    int meeting = -1; uint32_t best = UINT32_MAX;
+    for ( const int tile : Maps::getAroundIndexes( port->GetIndex() ) ) {
+        const auto & cell = world.getTile( tile );
+        if ( cell.isWater() || cell.isFog( land.GetColor() ) || cell.getMainObjectType( false ) != MP2::OBJ_NONE ) continue;
+        const auto cost = _pathfinder.getDistance( tile ); const auto route = _pathfinder.buildPath( tile, false );
+        if ( !cost || cost > land.GetMovePoints() || cost >= best || route.size() != 1 ) continue;
+        meeting = tile; best = cost;
+    }
+    if ( meeting < 0 ) return false;
+    Funds mandatory = PaymentConditions::RecruitHero();
+    if ( port->getTileIndexToPlaceBoat() >= 0 ) mandatory += PaymentConditions::BuyBoat();
+    const bool statue = !port->isBuild( BUILD_STATUE );
+    if ( statue ) {
+        if ( port->CheckBuyBuilding( BUILD_STATUE ) != BuildingStatus::ALLOW_BUILD ) return false;
+        mandatory += port->getBuildingCost( BUILD_STATUE );
+    }
+    if ( !kingdom.AllowPayment( mandatory ) ) return false;
+    const auto beforeFunds = kingdom.GetFunds();
+    // Bounded J1 portfolio: all remaining mandatory payments are checked before
+    // each optional purchase. No standing reserve is relaxed outside this scope.
+    const KC::Emergency openingBudget( true );
+    if ( statue ) { if ( !port->BuyBuilding( BUILD_STATUE ) ) return false; mandatory -= port->getBuildingCost( BUILD_STATUE ); }
+    if ( port->GetRace() == Race::KNGT ) {
+        for ( const auto dwelling : { DWELLING_MONSTER2, DWELLING_MONSTER1 } ) {
+            if ( !port->isBuild( dwelling ) ) continue;
+            if ( dwelling == DWELLING_MONSTER1 && ( !port->isBuild( BUILD_WEL2 ) || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) ) continue;
+            const auto count = port->getMonstersInDwelling( dwelling );
+            const Monster unit( Race::KNGT, port->GetActualDwelling( dwelling ) );
+            if ( count && unit.isValid() && kingdom.AllowPayment( mandatory + unit.GetCost() * count ) ) (void)port->RecruitMonster( Troop( unit, count ), false );
+        }
+    }
+    _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
+    land.GetPath().setPath( _pathfinder.buildPath( meeting, false ) );
+    const auto & route = land.GetPath();
+    if ( route.size() != 1 || !land.CanMove() ) return false;
+    const int origin = port->GetIndex();
+    land.SetMove( true ); (void)land.Move( true ); land.SetMove( false );
+    updateMapActionObjectCache( kingdom, origin ); updateMapActionObjectCache( kingdom, land.GetIndex() ); _pathfinder.reset();
+    if ( land.GetIndex() != meeting ) return false;
+    if ( !recruitHero( *port, false ) || port->GetHero() != sailor ) return false;
+    updateMapActionObjectCache( kingdom, origin );
+    const bool prepared = KC::prepareOpeningParty( land, *sailor, *port );
+    if ( prepared ) {
+        KC::settleOpeningTaxpayers( land, *port, openingPeasantsNeeded( land ) );
+        OptimizeTroopsOrder( land.GetArmy() );
+        const auto changed = KC::prepareNaval( kingdom );
+        for ( const int tile : changed ) updateMapActionObjectCache( kingdom, tile );
+    }
+    if ( !prepared ) KC::cancelOpeningPreparation( *port );
+    ECONOMY_TRACE( 1, "NAVAL_OPENING_J1", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << origin
+        << ",\"land_hero\":" << land.GetID() << ",\"sea_hero\":" << sailor->GetID() << ",\"meeting\":" << meeting
+        << ",\"prepared\":" << ( prepared ? "true" : "false" ) << ",\"funds_before\":" << Economy::fundsJson( beforeFunds )
+        << ",\"funds_after\":" << Economy::fundsJson( kingdom.GetFunds() ) );
+    _pathfinder.reset(); return true;
 }
 
 void AI::Planner::evaluateRegionSafety()
@@ -861,6 +950,9 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
          && initialDanger.count( c->GetIndex() ) == 0 ) safeMobilizationTowns.push_back( c->GetIndex() );
     AI::KnightEconomy::prepare( kingdom, safeMobilizationTowns );
     configureKnightRoles();
+    const auto openingHeroCount = kingdom.GetHeroes().size();
+    (void)prepareOpeningTurn( kingdom );
+    availableHeroCount += static_cast<int32_t>( kingdom.GetHeroes().size() - openingHeroCount );
 
     uint32_t currentProgressValue = 1;
     status.drawAITurnProgress( currentProgressValue );

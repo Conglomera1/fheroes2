@@ -225,13 +225,62 @@ void AI::OptimizeTroopsOrder( Army & army )
     }
 }
 
+namespace
+{
+    // Prepare both armies on copies. Removing the cargo first may free the
+    // courier slot needed to receive one entire garrison stack in exchange.
+    bool populationTransfer( Troops & source, Troops & target, const uint32_t quantity )
+    {
+        const Monster peasant( Monster::PEASANT );
+        if ( !quantity || source.GetCountMonsters( peasant ) < quantity
+             || uint64_t{ target.GetCountMonsters( peasant ) } + quantity > UINT32_MAX ) return false;
+        uint32_t left = quantity;
+        for ( size_t slot = 0; slot < source.Size() && left; ++slot ) {
+            auto * troop = source.GetTroop( slot );
+            if ( troop->GetID() != Monster::PEASANT ) continue;
+            const auto remove = std::min( left, troop->GetCount() );
+            if ( remove == troop->GetCount() ) troop->Reset(); else troop->SetCount( troop->GetCount() - remove );
+            left -= remove;
+        }
+        if ( !target.CanJoinTroop( peasant ) ) {
+            Troop * choice = nullptr;
+            for ( size_t slot = 0; slot < target.Size(); ++slot ) {
+                auto * troop = target.GetTroop( slot );
+                if ( troop->isValid() && source.CanJoinTroop( troop->GetMonster() )
+                     && uint64_t{ source.GetCountMonsters( troop->GetMonster() ) } + troop->GetCount() <= UINT32_MAX
+                     && ( !choice || troop->GetStrength() < choice->GetStrength() ) ) choice = troop;
+            }
+            if ( !choice || !source.JoinTroop( choice->GetMonster(), choice->GetCount(), false ) ) return false;
+            choice->Reset();
+        }
+        return target.JoinTroop( peasant, quantity, false );
+    }
+}
+
+bool AI::KnightConstruction::canReceivePopulation( const Heroes & hero, const Castle & castle )
+{
+    Troops source( hero.GetArmy().getTroops() ), target( castle.GetArmy().getTroops() );
+    if ( !source.HasMonster( Monster::PEASANT ) ) {
+        // A future load can replace one courier troop at the source Farm.
+        if ( !source.CanJoinTroop( Monster::PEASANT ) ) source.GetWeakestTroop()->Reset();
+        if ( !source.JoinTroop( Monster::PEASANT, 1, false ) ) return false;
+    }
+    return populationTransfer( source, target, source.GetCountMonsters( Monster::PEASANT ) );
+}
+
+bool AI::KnightConstruction::canLoadPopulation( const Heroes & hero, const Castle & castle, const uint32_t quantity )
+{
+    Troops source( castle.GetArmy().getTroops() ), target( hero.GetArmy().getTroops() );
+    return populationTransfer( source, target, quantity );
+}
+
 void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, int destination, const bool embarking )
 {
     if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
          || hero.GetColor() != castle.GetColor()
          || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
     if ( !castle.isBuild( BUILD_WEL2 ) && !castle.hasTrainingGrounds() ) return;
-    if ( isOpeningSeaExplorer( hero ) || keepPopulationCargo( hero ) ) return;
+    if ( isOpeningSeaExplorer( hero ) || keepOpeningLandPeasants( hero ) || keepPopulationCargo( hero ) ) return;
     if ( const int pickup = populationPickupDestination( hero, castle ); pickup >= 0 ) destination = pickup;
     auto & garrison = castle.GetArmy(); auto & army = hero.GetArmy();
     const Monster peasant( Monster::PEASANT );
@@ -239,24 +288,9 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
         quantity = std::min( quantity, UINT32_MAX - target.GetCountMonsters( peasant ) );
         if ( !quantity ) return;
         const std::string beforeSource = KnightObserver::armyJson( source ), beforeTarget = KnightObserver::armyJson( target );
-        const Troops sourceBackup( source.getTroops() ), targetBackup( target.getTroops() );
-        if ( !fromHero && !target.CanJoinTroop( peasant ) ) {
-            Troop * weakest = target.GetWeakestTroop();
-            if ( !weakest || !weakest->isValid() || !source.JoinTroop( weakest->GetMonster(), weakest->GetCount(), false ) ) return;
-            weakest->Reset();
-        }
-        if ( !target.JoinTroop( peasant, quantity, false ) ) {
-            source.Assign( sourceBackup ); target.Assign( targetBackup ); return;
-        }
-        uint32_t left = quantity;
-        for ( size_t slot = 0; slot < source.Size() && left; ++slot ) {
-            auto * troop = source.GetTroop( slot );
-            if ( !troop || troop->GetID() != Monster::PEASANT ) continue;
-            const uint32_t removed = std::min( left, troop->GetCount() );
-            if ( removed == troop->GetCount() ) troop->Reset(); else troop->SetCount( troop->GetCount() - removed );
-            left -= removed;
-        }
-        assert( left == 0 );
+        Troops stagedSource( source.getTroops() ), stagedTarget( target.getTroops() );
+        if ( !populationTransfer( stagedSource, stagedTarget, quantity ) ) return;
+        source.Assign( stagedSource ); target.Assign( stagedTarget );
         ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"knight_population\",\"player\":" << static_cast<int>( hero.GetColor() )
             << ",\"hero\":" << hero.GetID() << ",\"town\":" << castle.GetIndex() << ",\"quantity\":" << quantity
             << ",\"reason\":" << Economy::jsonQuote( reason ) << ",\"source_player\":" << static_cast<int>( hero.GetColor() )
@@ -273,7 +307,10 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
     const uint32_t carried = army.GetCountMonsters( peasant );
     const uint32_t movable = army.GetOccupiedSlotCount() == 1 && carried ? carried - 1 : carried;
     if ( wanted > held ) transfer( army, garrison, std::min( movable, wanted - held ), true, embarking ? "before_embarkation" : "population_deposit" );
-    if ( delivered ) { cancelPopulationRoute( hero, "delivered" ); return; }
+    if ( delivered ) {
+        if ( army.GetCountMonsters( peasant ) <= ( army.GetOccupiedSlotCount() == 1 ? 1U : 0U ) ) cancelPopulationRoute( hero, "delivered" );
+        return;
+    }
     if ( !embarking ) {
         if ( destination < 0 ) destination = populationDestination( hero );
         const auto found = std::find_if( castle.GetKingdom().GetCastles().begin(), castle.GetKingdom().GetCastles().end(),
@@ -282,10 +319,10 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
             const auto & target = **found; uint32_t quantity = 0;
             const uint32_t stock = garrison.GetCountMonsters( peasant );
             if ( reserve != UINT32_MAX && economicTown( target ) && target.isBuild( BUILD_WEL2 ) && stock > reserve ) quantity = stock - reserve;
-            else if ( economicTown( castle ) && target.hasTrainingGrounds() ) {
+            else if ( castle.isBuild( BUILD_WEL2 ) && target.hasTrainingGrounds() ) {
                 quantity = std::min( populationAvailableStock( castle, hero.GetID() ), populationSupplyNeed( target, hero.GetID() ) );
             }
-            if ( quantity ) {
+            if ( quantity && canReceivePopulation( hero, target ) ) {
                 transfer( garrison, army, quantity, false, target.hasTrainingGrounds() ? "supply_conscription" : "export_taxpayer_surplus" );
                 notePopulationRoute( hero, destination );
             }
@@ -307,7 +344,7 @@ void AI::transferSlowestTroopsToGarrison( Heroes * hero, Castle * castle )
 {
     assert( hero != nullptr && castle != nullptr );
 
-    if ( KnightConstruction::keepPopulationCargo( *hero ) || KnightConstruction::isOpeningSeaExplorer( *hero ) ) return;
+    if ( KnightConstruction::keepPopulationCargo( *hero ) || KnightConstruction::isOpeningSeaExplorer( *hero ) || KnightConstruction::keepOpeningLandPeasants( *hero ) ) return;
     Army & army = hero->GetArmy();
     Army & garrison = castle->GetArmy();
 

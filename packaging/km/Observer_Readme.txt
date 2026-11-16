@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v13 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v14 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V13 TEST
+V14 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 13 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 14 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,39 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V13 CHANGES
+V14 CHANGES
+Day-one openings can prepare the two heroes before ordinary hero movement.
+For a safe starting port, with one owned town/hero, a built shipyard and a known
+sea exploration objective: build the Statue if needed, reserve the actual hero
+and boat costs, recruit useful affordable Knight troops, move the first hero
+one legal empty adjacent land step, and hire the preferred navigator. The
+navigator takes five singles. Available home-faction T2s are preferred; missing
+T2s may be replaced with existing T2s from the other armies on day one. Shooters
+are placed on the flanks, with the third at the center when there are three.
+The surplus goes immediately to the adjacent mainland hero. Farm Peasants go
+to taxation unless retaining them makes a reachable visible combat acceptable
+under the native AI's army evaluation. This military retention lasts only J1.
+A coordinated opening can finish below the ordinary 2000-gold reserve when all
+mandatory purchases are funded. This exception does not change later budgets.
+Missing crew/army capacity cancels the special preparation without buying an
+unused boat for that opening. Existing later navigation policy is unchanged.
+Population deliveries can now exchange one complete garrison stack with the
+courier to receive Peasants in a full town, preserving every creature. Capacity
+is checked before loading and again at delivery. The buffer still covers
+fourteen days, counting pending pickups and actual cargo without duplication.
+Safe Farms can supply TG even while labelled primary. Hunters/scouts may use
+the same bounded 1000-point pickup / 2000-point delivery / 3000 total routes as
+couriers; couriers are preferred, then scouts, then hunters. Safe waiting heroes
+can be assigned. Fighters/champions, sea trips and known emergencies retain
+their exclusions. No new hero is hired for these convoys.
+Supply reviews now expose detailed refusal counters, including role, distance,
+occupation, safety and army capacity. New opening records: NAVAL_OPENING_J1,
+NAVAL_OPENING_PARTY, NAVAL_OPENING_PEASANTS. TOWN_GROWTH records actual before/
+after dwelling stocks and Plague; kingdom snapshots include week type.
+Factory TG costs remain 2500 gold/10 wood/10 ore; Farm recovery 1500 gold.
+INI overrides continue to apply; the package contains no replacement INI.
+
+PREVIOUS V13 CHANGES
 Active TG towns request their missing fourteen-day Peasant buffer before running
 out, using garrison, Hut stocks and scheduled Hut/Well growth. Assigned cargo
 and pending pickups count toward demand, so another hero does not load the

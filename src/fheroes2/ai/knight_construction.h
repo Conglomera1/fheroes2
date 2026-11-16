@@ -80,6 +80,8 @@ namespace AI::KnightConstruction
     bool economicTown( const Castle & castle );
     bool populationSafe( const Castle & castle );
     uint32_t populationReserve( const Castle & castle );
+    bool canReceivePopulation( const Heroes & hero, const Castle & castle );
+    bool canLoadPopulation( const Heroes & hero, const Castle & castle, uint32_t quantity );
     uint32_t populationSupplyNeed( const Castle & castle, int exceptHero = -1 );
     uint32_t populationAvailableStock( const Castle & castle, int exceptHero = -1 );
     int populationPickupDestination( const Heroes & hero, const Castle & source );
@@ -118,7 +120,11 @@ namespace AI::KnightConstruction
     // Only the first exploration voyage launched from a port during week one.
     Heroes * openingRecruit( const Castle & port, Heroes * first, Heroes * second );
     void noteOpeningRecruit( const Heroes & hero, const Castle & port );
+    void cancelOpeningPreparation( const Castle & port );
     bool prepareOpeningExplorer( Heroes & hero, Castle & port, int target = -1 );
+    bool prepareOpeningParty( Heroes & land, Heroes & sailor, Castle & port );
+    bool keepOpeningLandPeasants( const Heroes & hero );
+    void settleOpeningTaxpayers( Heroes & land, Castle & port, bool neededInArmy );
     bool isOpeningSeaExplorer( const Heroes & hero );
     void markOpeningEmbarked( const Heroes & hero );
 }

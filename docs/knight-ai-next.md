@@ -27,3 +27,11 @@ version de base. Aucun recrutement automatique ne complète l'équipage.
 Si les effectifs ou les places à terre ne suffisent pas, la formation spéciale
 est refusée sans transfert partiel ; la politique ordinaire de départ reste
 applicable. Voir `knight-ai-v13.md` pour le ravitaillement des TG.
+
+## Ajustements livrés dans v14
+
+À J1, les N2 manquants peuvent être remplacés par des N2 existants des autres
+armées. Les tireurs sont placés selon leur capacité, et le surplus est remis
+immédiatement au héros terrestre adjacent. Les paysans vont à la Farm sauf
+si leur présence permet un combat proche retenu par l'évaluation native.
+Voir `knight-ai-v14.md`. La navigation après J1 et les coûts restent inchangés.

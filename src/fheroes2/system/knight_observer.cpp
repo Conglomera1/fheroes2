@@ -8,6 +8,7 @@
 #include "maps_tiles.h"
 #include "route.h"
 #include "settings.h"
+#include "week.h"
 #include <sstream>
 
 std::string KnightObserver::armyJson( const Army & army )
@@ -36,7 +37,9 @@ void KnightObserver::kingdomState( const Kingdom & kingdom, const char * phase )
         << ",\"difficulty\":" << Settings::Get().GameDifficulty() << ",\"map_width\":" << world.w() << ",\"map_height\":" << world.h()
         << ",\"hidden_tiles\":" << hidden << ",\"gameplay_fog_hash\":\"" << fogHash << "\",\"observer_reveals_gameplay_fog\":false"
         << ",\"towns\":" << kingdom.GetCastles().size() << ",\"heroes\":" << kingdom.GetHeroes().size()
-        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":13,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
+        << ",\"week_type\":" << static_cast<int>( world.GetWeekType().GetType() ) << ",\"week_monster\":" << static_cast<int>( world.GetWeekType().GetMonster() )
+        << ",\"week_plague\":" << ( world.GetWeekType().GetType() == WeekName::PLAGUE ? "true" : "false" )
+        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":14,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
     auto captured = AI::EconomyProject::capture( kingdom, world.CountDay() );
     for ( size_t i = 0; i < captured.start.towns.size(); ++i ) {
         const auto & town = captured.start.towns[i];

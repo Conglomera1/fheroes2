@@ -857,6 +857,16 @@ void Castle::ActionNewWeek()
         = { DWELLING_MONSTER1, DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4, DWELLING_MONSTER5, DWELLING_MONSTER6,
             DWELLING_UPGRADE2, DWELLING_UPGRADE3, DWELLING_UPGRADE4, DWELLING_UPGRADE5, DWELLING_UPGRADE6, DWELLING_UPGRADE7 };
 
+    const auto beforeGrowth = _dwelling;
+    const fheroes2::TaxpayerTraceScope growthTrace( [&]() {
+        std::ostringstream before, after; before << '['; after << '[';
+        for ( size_t i = 0; i < _dwelling.size(); ++i ) { if ( i ) { before << ','; after << ','; } before << beforeGrowth[i]; after << _dwelling[i]; }
+        before << ']'; after << ']';
+        ECONOMY_TRACE( 1, "TOWN_GROWTH", ",\"town\":" << GetIndex() << ",\"player\":" << static_cast<int>( GetColor() )
+            << ",\"week_type\":" << static_cast<int>( world.GetWeekType().GetType() ) << ",\"week_monster\":" << static_cast<int>( world.GetWeekType().GetMonster() )
+            << ",\"plague\":" << ( world.GetWeekType().GetType() == WeekName::PLAGUE ? "true" : "false" )
+            << ",\"stocks_before\":" << before.str() << ",\"stocks_after\":" << after.str() );
+    } );
     const bool isNeutral = ( GetColor() == PlayerColor::NONE );
     const WeekName weekType = world.GetWeekType().GetType();
     const bool isPlagueWeek = ( weekType == WeekName::PLAGUE );

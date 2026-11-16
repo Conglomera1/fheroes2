@@ -193,6 +193,8 @@ namespace
     std::map<int, OpeningExplorer> openingExplorers;
     std::map<int, OpeningExplorer> openingLaunches;
     std::map<int, OpeningExplorer> openingRecruits;
+    std::map<int, OpeningExplorer> openingAborts;
+    std::map<int, OpeningExplorer> openingLandPeasants;
     std::map<int, NavalMission> navalLandOrders;
     struct RoleHistory { uint32_t seed = 0, reviewed = 0; uint64_t segment = 0; int primary = -1; };
     std::map<int, RoleHistory> roleHistory;
@@ -261,6 +263,9 @@ namespace
     NavalMission navalUse( const Castle & castle, const bool readyToday = true )
     {
         NavalMission best;
+        const auto aborted = openingAborts.find( static_cast<int>( castle.GetColor() ) );
+        if ( world.CountDay() == 1 && aborted != openingAborts.end() && aborted->second.seed == world.GetMapSeed()
+             && aborted->second.segment == Economy::traceState().segment && aborted->second.home == castle.GetIndex() ) return best;
         int boat = castle.getTileIndexToPlaceBoat();
         // An occupied dock may have no placement tile, but its boat can still
         // serve a native route. Never require an empty dock for reuse.
@@ -1285,7 +1290,7 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
               || !populationSafe( **final ) || !( *final )->hasTrainingGrounds()
               || ( ( *final )->GetHero() && ( *final )->GetHero() != &hero ) ) ) failure = "pickup_unavailable";
     else if ( ( *found )->GetHero() && ( *found )->GetHero() != &hero ) failure = "destination_occupied";
-    else if ( !( *found )->GetArmy().HasMonster( Monster::PEASANT ) && ( *found )->GetArmy().GetOccupiedSlotCount() == 5 ) failure = "destination_full";
+    else if ( r.pickup < 0 && !canReceivePopulation( hero, **found ) ) failure = "destination_full";
     else if ( world.CountDay() - r.day > 4 ) failure = "delivery_timeout";
     else if ( hero.GetIndex() != waypoint ) {
         AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
@@ -1305,7 +1310,7 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
         for ( const Castle * city : cities ) {
             if ( !city || !populationSafe( *city ) || !( city->isBuild( BUILD_WEL2 ) || city->hasTrainingGrounds() )
                  || ( city->GetHero() && city->GetHero() != &hero )
-                 || ( !city->GetArmy().HasMonster( Monster::PEASANT ) && city->GetArmy().GetOccupiedSlotCount() == 5 ) ) continue;
+                 || !canReceivePopulation( hero, *city ) ) continue;
             const auto cost = city->GetIndex() == hero.GetIndex() ? 0U : path.getDistance( city->GetIndex() );
             if ( ( !cost && city->GetIndex() != hero.GetIndex() ) || cost >= best || uint64_t{ cost } > uint64_t{ hero.GetMaxMovePoints() } * 2 ) continue;
             const auto route = path.buildPath( city->GetIndex(), false );
@@ -1340,7 +1345,7 @@ uint32_t AI::KnightConstruction::populationSupplyNeed( const Castle & castle, co
             const auto * farm = world.getCastleEntrance( Maps::GetPoint( route->second.pickup ) );
             cargo = farm ? std::min<uint64_t>( cargo, farm->GetArmy().GetCountMonsters( Monster::PEASANT ) ) : 0;
         }
-        if ( cargo && hero->GetArmy().GetOccupiedSlotCount() == 1 && hero->GetArmy().HasMonster( Monster::PEASANT ) ) --cargo;
+        if ( route->second.pickup < 0 && cargo && hero->GetArmy().GetOccupiedSlotCount() == 1 && hero->GetArmy().HasMonster( Monster::PEASANT ) ) --cargo;
         incoming += cargo;
     }
     const uint64_t held = castle.GetArmy().GetCountMonsters( Monster::PEASANT );
@@ -1374,12 +1379,14 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
 {
     if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() || !active( kingdom ) || !Conscription::settings().enabled
          || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
-    // Existing loads and pending pickups reserve the same destination stock.
-    // Only short land trips by existing scouts/couriers are considered.
     for ( const auto * hero : kingdom.GetHeroes() ) if ( hero ) (void)populationOrder( *hero );
     for ( const Castle * target : kingdom.GetCastles() ) {
-        if ( !target || !target->hasTrainingGrounds() || !populationSafe( *target ) || target->GetHero()
-             || ( !target->GetArmy().HasMonster( Monster::PEASANT ) && target->GetArmy().GetOccupiedSlotCount() == 5 ) ) continue;
+        if ( !target || !target->hasTrainingGrounds() ) continue;
+        const char * exclusion = !populationSafe( *target ) ? "target_unsafe" : target->GetHero() ? "target_occupied" : nullptr;
+        if ( exclusion ) {
+            ECONOMY_TRACE( 1, "POPULATION_SUPPLY_REVIEW", ",\"town\":" << target->GetIndex() << ",\"reason\":" << Economy::jsonQuote( exclusion ) );
+            continue;
+        }
         const uint32_t need = populationSupplyNeed( *target );
         if ( !need ) {
             ECONOMY_TRACE( 1, "POPULATION_SUPPLY_REVIEW", ",\"town\":" << target->GetIndex() << ",\"need\":0,\"garrison\":"
@@ -1387,41 +1394,58 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
                 << ",\"reason\":\"stock_or_incoming_sufficient\"" );
             continue;
         }
-        Heroes * chosen = nullptr; const Castle * source = nullptr; uint32_t best = UINT32_MAX, quantity = 0;
+        Heroes * chosen = nullptr; const Castle * source = nullptr;
+        uint32_t best = UINT32_MAX, quantity = 0; int bestRole = 4;
+        std::map<std::string, uint32_t> refusals;
         for ( Heroes * hero : kingdom.GetHeroes() ) {
-            if ( !hero || !hero->isActive() || !hero->GetMovePoints() || hero->isShipMaster() || hero->Modes( Heroes::PATROL | Heroes::SLEEPER )
+            if ( !hero || !hero->isActive() || !hero->GetMovePoints() || hero->isShipMaster() || hero->Modes( Heroes::PATROL )
                  || hero->isLosingGame() || populationRoutes.count( hero->GetID() ) || isOpeningSeaExplorer( *hero )
-                 || navalTarget( *hero ) >= 0 || ( hero->getAIRole() != Heroes::Role::COURIER && hero->getAIRole() != Heroes::Role::SCOUT
-                      && hero->getAIRole() != Heroes::Role::HUNTER )
-                 || constructionContext->endangered.count( hero->GetIndex() ) ) continue;
+                 || navalTarget( *hero ) >= 0 || constructionContext->endangered.count( hero->GetIndex() ) ) { ++refusals["hero_unavailable"]; continue; }
+            const auto role = hero->getAIRole();
+            if ( role != Heroes::Role::COURIER && role != Heroes::Role::SCOUT && role != Heroes::Role::HUNTER ) { ++refusals["military_role"]; continue; }
+            if ( !canReceivePopulation( *hero, *target ) ) { ++refusals["receiving_capacity"]; continue; }
+            const int rank = role == Heroes::Role::COURIER ? 0 : role == Heroes::Role::SCOUT ? 1 : 2;
             AIWorldPathfinder pickupPath; pickupPath.reset(); pickupPath.reEvaluateIfNeeded( *hero );
             for ( const Castle * farm : kingdom.GetCastles() ) {
-                if ( !farm || farm == target || !populationSafe( *farm ) || !economicTown( *farm ) || !farm->isBuild( BUILD_WEL2 )
-                     || farm->hasTrainingGrounds() || ( farm->GetHero() && farm->GetHero() != hero ) ) continue;
+                // A safe Farm can lend the small buffer even when it is still
+                // labelled primary. Farm/TG roles already express its economy.
+                if ( !farm || farm == target || !populationSafe( *farm ) || !farm->isBuild( BUILD_WEL2 ) || farm->hasTrainingGrounds() ) {
+                    ++refusals["source_unavailable"]; continue;
+                }
+                if ( farm->GetHero() && farm->GetHero() != hero ) { ++refusals["source_occupied"]; continue; }
                 const uint32_t stock = populationAvailableStock( *farm );
-                if ( !stock ) continue;
+                if ( !stock ) { ++refusals["source_reserved_or_empty"]; continue; }
+                const uint32_t load = std::min( need, stock );
+                if ( !canLoadPopulation( *hero, *farm, load ) ) { ++refusals["loading_capacity"]; continue; }
                 const auto pickup = farm->GetIndex() == hero->GetIndex() ? 0U : pickupPath.getDistance( farm->GetIndex() );
-                if ( ( !pickup && farm->GetIndex() != hero->GetIndex() ) || pickup > std::min<uint32_t>( 1000, hero->GetMaxMovePoints() ) ) continue;
+                if ( !pickup && farm->GetIndex() != hero->GetIndex() ) { ++refusals["pickup_unreachable"]; continue; }
+                if ( pickup > std::min<uint32_t>( 1000, hero->GetMaxMovePoints() ) ) { ++refusals["pickup_too_far"]; continue; }
                 AIWorldPathfinder deliveryPath; deliveryPath.reset();
                 deliveryPath.reEvaluateIfNeeded( farm->GetIndex(), kingdom.GetColor(), hero->GetArmy().GetStrength(),
                     static_cast<uint8_t>( hero->GetLevelSkill( Skill::Secondary::PATHFINDING ) ) );
                 const auto delivery = deliveryPath.getDistance( target->GetIndex() );
-                const uint32_t limit = hero->getAIRole() == Heroes::Role::COURIER ? 3000 : 1000;
-                if ( !delivery || delivery > 2000 || uint64_t{ pickup } + delivery > limit || pickup + delivery >= best ) continue;
+                if ( !delivery ) { ++refusals["delivery_unreachable"]; continue; }
+                // Hunters and scouts previously had only 1000 total points,
+                // excluding useful ordinary two-day deliveries on Utopeia.
+                if ( delivery > 2000 || uint64_t{ pickup } + delivery > 3000 ) { ++refusals["delivery_too_far"]; continue; }
                 const auto first = pickupPath.buildPath( farm->GetIndex(), false );
                 const auto second = deliveryPath.buildPath( target->GetIndex(), false );
                 const auto water = []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); };
-                if ( std::any_of( first.begin(), first.end(), water ) || second.empty() || std::any_of( second.begin(), second.end(), water ) ) continue;
-                chosen = hero; source = farm; best = pickup + delivery;
-                quantity = std::min( need, stock );
+                if ( std::any_of( first.begin(), first.end(), water ) || second.empty() || std::any_of( second.begin(), second.end(), water ) ) {
+                    ++refusals["sea_route"]; continue;
+                }
+                if ( rank > bestRole || ( rank == bestRole && pickup + delivery >= best ) ) continue;
+                chosen = hero; source = farm; best = pickup + delivery; quantity = load; bestRole = rank;
             }
         }
-        if ( !chosen || !source || !quantity ) {
-            ECONOMY_TRACE( 1, "POPULATION_SUPPLY_REVIEW", ",\"town\":" << target->GetIndex() << ",\"need\":" << need
-                << ",\"garrison\":" << target->GetArmy().GetCountMonsters( Monster::PEASANT ) << ",\"reserve\":" << populationReserve( *target )
-                << ",\"reason\":\"no_short_safe_courier\"" );
-            continue;
-        }
+        std::ostringstream reasons; reasons << '{'; bool firstReason = true;
+        for ( const auto & entry : refusals ) { if ( !firstReason ) reasons << ','; firstReason = false; reasons << Economy::jsonQuote( entry.first ) << ':' << entry.second; }
+        reasons << '}';
+        ECONOMY_TRACE( 1, "POPULATION_SUPPLY_REVIEW", ",\"town\":" << target->GetIndex() << ",\"need\":" << need
+            << ",\"garrison\":" << target->GetArmy().GetCountMonsters( Monster::PEASANT ) << ",\"reserve\":" << populationReserve( *target )
+            << ",\"reason\":" << Economy::jsonQuote( chosen ? "assigned" : "no_short_safe_courier" ) << ",\"refusals\":" << reasons.str() );
+        if ( !chosen || !source || !quantity ) continue;
+        chosen->ResetModes( Heroes::SLEEPER );
         populationRoutes[chosen->GetID()] = { world.GetMapSeed(), world.CountDay(), Economy::traceState().segment,
             static_cast<int>( kingdom.GetColor() ), target->GetIndex(), source->GetIndex(), quantity };
         ECONOMY_TRACE( 1, "POPULATION_SUPPLY_PLAN", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"hero\":" << chosen->GetID()
@@ -1449,12 +1473,12 @@ int AI::KnightConstruction::populationDestination( const Heroes & hero )
         const uint64_t cargo = hero.GetArmy().GetCountMonsters( Monster::PEASANT ) + surplus;
         const bool fiscal = economicTown( *c ) && c->isBuild( BUILD_WEL2 ) && cargo * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 >= 1000;
         const auto need = populationSupplyNeed( *c, hero.GetID() );
-        const bool supply = source && economicTown( *source ) && ( courier || scout ) && c->hasTrainingGrounds()
+        const bool supply = source && source->isBuild( BUILD_WEL2 ) && ( courier || scout ) && c->hasTrainingGrounds()
             && need > 0;
         if ( !fiscal && !supply ) continue;
         if ( !carries && ( !source || source->GetRace() != Race::KNGT || !populationSafe( *source )
              || source->GetArmy().GetCountMonsters( Monster::PEASANT ) <= ( supply ? 1U : populationReserve( *source ) ) ) ) continue;
-        if ( !c->GetArmy().HasMonster( Monster::PEASANT ) && c->GetArmy().GetOccupiedSlotCount() >= 4 ) continue;
+        if ( !canReceivePopulation( hero, *c ) ) continue;
         const auto cost = path.getDistance( c->GetIndex() );
         if ( !cost || cost > limit || cost >= best ) continue;
         // No naval expedition is created for a population transfer.
@@ -1616,7 +1640,7 @@ Heroes * AI::KnightConstruction::openingRecruit( const Castle & port, Heroes * f
     if ( !existing ) cost += PaymentConditions::BuyBoat();
     if ( !port.isBuild( BUILD_STATUE ) ) cost += port.getBuildingCost( BUILD_STATUE );
     const bool mobilizing = std::any_of( kingdom.GetCastles().begin(), kingdom.GetCastles().end(), []( const Castle * c ) { return c && c->hasTrainingGrounds(); } );
-    if ( cost.gold < PaymentConditions::RecruitHero().gold + ( existing ? 0 : PaymentConditions::BuyBoat().gold ) + operatingReserve( kingdom ) )
+    if ( world.CountDay() != 1 && cost.gold < PaymentConditions::RecruitHero().gold + ( existing ? 0 : PaymentConditions::BuyBoat().gold ) + operatingReserve( kingdom ) )
         cost.gold = static_cast<int32_t>( PaymentConditions::RecruitHero().gold + ( existing ? 0 : PaymentConditions::BuyBoat().gold ) + operatingReserve( kingdom ) );
     if ( !kingdom.AllowPayment( cost ) || ( mobilizing && !allowsPayment( kingdom, cost, "opening_hero_and_boat" ) ) ) return nullptr;
     AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( dock, kingdom.GetColor(), kingdom.GetHeroes().front()->GetArmy().GetStrength(), Skill::Level::BASIC );
@@ -1633,6 +1657,12 @@ void AI::KnightConstruction::noteOpeningRecruit( const Heroes & hero, const Cast
         static_cast<int>( hero.GetColor() ), hero.GetID(), port.GetIndex(), false };
     ECONOMY_TRACE( 1, "NAVAL_OPENING_RECRUIT", ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"hero\":" << hero.GetID()
         << ",\"town\":" << port.GetIndex() << ",\"race\":" << hero.GetRace() );
+}
+void AI::KnightConstruction::cancelOpeningPreparation( const Castle & port )
+{
+    const int color = static_cast<int>( port.GetColor() );
+    openingRecruits.erase( color );
+    openingAborts[color] = { world.GetMapSeed(), world.CountDay(), Economy::traceState().segment, color, -1, port.GetIndex(), false };
 }
 bool AI::KnightConstruction::isOpeningSeaExplorer( const Heroes & hero )
 {
@@ -1652,6 +1682,65 @@ void AI::KnightConstruction::markOpeningEmbarked( const Heroes & hero )
     const auto it = openingExplorers.find( hero.GetID() );
     if ( it != openingExplorers.end() && isOpeningSeaExplorer( hero ) ) it->second.embarked = true;
 }
+namespace
+{
+    bool extractOpeningCrew( const int race, const int portRace, std::vector<Troops *> pools, Troops & crew, const bool fallback )
+    {
+        const int low = Monster( race, DWELLING_MONSTER1 ).GetID();
+        const int nativeHigh = Monster( race, DWELLING_MONSTER2 ).GetID();
+        if ( low == Monster::UNKNOWN || nativeHigh == Monster::UNKNOWN ) return false;
+        const auto count = [&]( const int id ) { uint64_t n = 0; for ( const auto * pool : pools ) n += pool->GetCountMonsters( id ); return n; };
+        if ( count( low ) < 3 ) return false;
+        std::vector<int> candidates{ nativeHigh, Monster( nativeHigh ).GetUpgrade().GetID() };
+        if ( fallback ) {
+            const int portHigh = Monster( portRace, DWELLING_MONSTER2 ).GetID();
+            candidates.push_back( portHigh ); candidates.push_back( Monster( portHigh ).GetUpgrade().GetID() );
+            for ( const auto * pool : pools ) for ( size_t slot = 0; slot < pool->Size(); ++slot ) {
+                const auto * troop = pool->GetTroop( slot );
+                if ( troop->isValid() && troop->GetMonster().GetMonsterLevel() == 2 ) candidates.push_back( troop->GetID() );
+            }
+        }
+        std::vector<int> order;
+        for ( const int id : candidates ) if ( id != Monster::UNKNOWN && std::find( order.begin(), order.end(), id ) == order.end() ) order.push_back( id );
+        std::vector<int> high;
+        for ( const int id : order ) {
+            if ( !fallback && count( id ) < 2 ) continue;
+            for ( uint64_t n = 0; n < count( id ) && high.size() < 2; ++n ) high.push_back( id );
+        }
+        if ( high.size() != 2 ) return false;
+        std::array<int, 5> formation{ low, high[0], low, high[1], low };
+        if ( Monster( high[0] ).isArchers() && Monster( high[1] ).isArchers() ) formation = { high[0], low, low, low, high[1] };
+        else if ( !Monster( low ).isArchers() && ( Monster( high[0] ).isArchers() || Monster( high[1] ).isArchers() ) ) {
+            const int shooter = Monster( high[0] ).isArchers() ? high[0] : high[1];
+            const int melee = Monster( high[0] ).isArchers() ? high[1] : high[0];
+            formation = { shooter, low, low, melee, low };
+        }
+        crew.Clean();
+        for ( size_t n = 0; n < formation.size(); ++n ) {
+            bool taken = false;
+            for ( auto * pool : pools ) {
+                for ( size_t slot = 0; slot < pool->Size(); ++slot ) {
+                    auto * troop = pool->GetTroop( slot );
+                    if ( !troop->isValid() || troop->GetID() != formation[n] ) continue;
+                    crew.GetTroop( n )->Set( Monster( formation[n] ), 1 );
+                    if ( troop->GetCount() == 1 ) troop->Reset(); else troop->SetCount( troop->GetCount() - 1 );
+                    taken = true; break;
+                }
+                if ( taken ) break;
+            }
+            if ( !taken ) return false;
+        }
+        return true;
+    }
+    void recordOpeningExplorer( const Heroes & hero, const Castle & port )
+    {
+        const OpeningExplorer plan{ world.GetMapSeed(), world.CountDay(), Economy::traceState().segment,
+            static_cast<int>( hero.GetColor() ), hero.GetID(), port.GetIndex(), false };
+        if ( !AI::KnightConstruction::isOpeningSeaExplorer( hero ) ) openingExplorers[hero.GetID()] = plan;
+        openingLaunches[static_cast<int>( hero.GetColor() )] = plan;
+    }
+}
+
 bool AI::KnightConstruction::prepareOpeningExplorer( Heroes & hero, Castle & port, const int target )
 {
     if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || hero.isShipMaster() || hero.inCastle() != &port
@@ -1661,40 +1750,12 @@ bool AI::KnightConstruction::prepareOpeningExplorer( Heroes & hero, Castle & por
     if ( launched != openingLaunches.end() && launched->second.seed == world.GetMapSeed() && launched->second.segment == Economy::traceState().segment
          && ( launched->second.hero != hero.GetID() || !isOpeningSeaExplorer( hero ) ) ) return false;
     auto & army = hero.GetArmy(); auto & garrison = port.GetArmy();
-    // Use the navigator's faction, including an available upgraded T2 when
-    // the base creature is absent. Missing crew leaves both armies untouched.
-    const int low = Monster( hero.GetRace(), DWELLING_MONSTER1 ).GetID();
-    const int baseHigh = Monster( hero.GetRace(), DWELLING_MONSTER2 ).GetID();
-    if ( low == Monster::UNKNOWN || baseHigh == Monster::UNKNOWN ) return false;
-    const auto count = [&]( const int id ) { return uint64_t{ army.GetCountMonsters( id ) } + garrison.GetCountMonsters( id ); };
-    int high = baseHigh;
-    if ( count( high ) < 2 ) {
-        const int upgraded = Monster( baseHigh ).GetUpgrade().GetID();
-        if ( upgraded != baseHigh && count( upgraded ) >= 2 ) high = upgraded;
-    }
-    if ( count( low ) < 3 || count( high ) < 2 ) {
-        ECONOMY_TRACE( 1, "NAVAL_OPENING_CREW_WAIT", ",\"hero\":" << hero.GetID() << ",\"town\":" << port.GetIndex()
-            << ",\"low\":" << low << ",\"high\":" << high << ",\"low_available\":" << count( low )
-            << ",\"high_available\":" << count( high ) << ",\"reason\":\"incomplete_mixed_crew\"" );
-        return false;
-    }
-    std::array<int, 5> formation{ low, high, low, high, low };
-    if ( hero.GetRace() == Race::KNGT || hero.GetRace() == Race::BARB ) formation = { high, low, low, low, high };
     const Troops beforeArmy( army.getTroops() ), beforeGarrison( garrison.getTroops() );
-    Troops shore( garrison.getTroops() ), surplus( army.getTroops() ), crew( army.getTroops() ); crew.Clean();
-    for ( size_t n = 0; n < formation.size(); ++n ) {
-        bool taken = false;
-        for ( Troops * pool : { &surplus, &shore } ) {
-            for ( size_t slot = 0; slot < pool->Size(); ++slot ) {
-                auto * troop = pool->GetTroop( slot );
-                if ( !troop->isValid() || troop->GetID() != formation[n] ) continue;
-                crew.GetTroop( n )->Set( Monster( formation[n] ), 1 );
-                if ( troop->GetCount() == 1 ) troop->Reset(); else troop->SetCount( troop->GetCount() - 1 );
-                taken = true; break;
-            }
-            if ( taken ) break;
-        }
-        if ( !taken ) return false;
+    Troops shore( beforeGarrison ), surplus( beforeArmy ), crew( beforeArmy );
+    if ( !extractOpeningCrew( hero.GetRace(), port.GetRace(), { &surplus, &shore }, crew, world.CountDay() == 1 ) ) {
+        ECONOMY_TRACE( 1, "NAVAL_OPENING_CREW_WAIT", ",\"hero\":" << hero.GetID() << ",\"town\":" << port.GetIndex()
+            << ",\"reason\":\"incomplete_mixed_crew\"" );
+        return false;
     }
     for ( size_t slot = 0; slot < surplus.Size(); ++slot ) {
         const auto * troop = surplus.GetTroop( slot );
@@ -1706,17 +1767,73 @@ bool AI::KnightConstruction::prepareOpeningExplorer( Heroes & hero, Castle & por
         AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
         if ( !path.getDistance( target ) ) { army.Assign( beforeArmy ); garrison.Assign( beforeGarrison ); return false; }
     }
-    const OpeningExplorer plan{ world.GetMapSeed(), world.CountDay(), Economy::traceState().segment,
-        static_cast<int>( hero.GetColor() ), hero.GetID(), port.GetIndex(), false };
-    if ( !isOpeningSeaExplorer( hero ) ) openingExplorers[hero.GetID()] = plan;
-    openingLaunches[static_cast<int>( hero.GetColor() )] = plan;
+    recordOpeningExplorer( hero, port );
     ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"opening_sea_explorer\",\"player\":" << static_cast<int>( hero.GetColor() )
-        << ",\"hero\":" << hero.GetID() << ",\"town\":" << port.GetIndex() << ",\"crew_low\":" << low << ",\"crew_high\":" << high << ",\"crew_stacks\":5"
+        << ",\"hero\":" << hero.GetID() << ",\"town\":" << port.GetIndex() << ",\"crew_stacks\":5"
         << ",\"source_player\":" << static_cast<int>( hero.GetColor() ) << ",\"destination_player\":" << static_cast<int>( hero.GetColor() )
         << ",\"source_tile\":" << port.GetIndex() << ",\"destination_tile\":" << port.GetIndex() << ",\"source_hero\":true,\"destination_hero\":false"
         << ",\"source_before\":" << armyBefore << ",\"source_after\":" << KnightObserver::armyJson( army )
         << ",\"destination_before\":" << townBefore << ",\"destination_after\":" << KnightObserver::armyJson( garrison ) );
     return true;
+}
+
+bool AI::KnightConstruction::prepareOpeningParty( Heroes & land, Heroes & sailor, Castle & port )
+{
+    if ( world.CountDay() != 1 || !land.isControlAI() || !sailor.isControlAI() || sailor.inCastle() != &port
+         || land.GetColor() != port.GetColor() || sailor.GetColor() != port.GetColor() || land.isShipMaster() || sailor.isShipMaster()
+         || land.GetID() == sailor.GetID() || !port.isBuild( BUILD_SHIPYARD ) || ( constructionContext && constructionContext->endangered.count( port.GetIndex() ) ) ) return false;
+    const auto adjacent = Maps::getAroundIndexes( port.GetIndex() );
+    if ( std::find( adjacent.begin(), adjacent.end(), land.GetIndex() ) == adjacent.end() ) return false;
+    Troops a( land.GetArmy().getTroops() ), b( sailor.GetArmy().getTroops() ), c( port.GetArmy().getTroops() ), crew( b ), combined( a ); combined.Clean();
+    if ( !extractOpeningCrew( sailor.GetRace(), port.GetRace(), { &b, &a, &c }, crew, true ) ) return false;
+    for ( const auto * pool : { &a, &b, &c } ) for ( size_t slot = 0; slot < pool->Size(); ++slot ) {
+        const auto * troop = pool->GetTroop( slot );
+        if ( troop->isValid() && ( uint64_t{ combined.GetCountMonsters( troop->GetMonster() ) } + troop->GetCount() > UINT32_MAX
+             || !combined.JoinTroop( troop->GetMonster(), troop->GetCount(), false ) ) ) return false;
+    }
+    if ( !combined.isValid() ) return false;
+    const auto beforeLand = KnightObserver::armyJson( land.GetArmy() ), beforeSea = KnightObserver::armyJson( sailor.GetArmy() ), beforeShore = KnightObserver::armyJson( port.GetArmy() );
+    land.GetArmy().Assign( combined ); sailor.GetArmy().Assign( crew ); port.GetArmy().Clean(); recordOpeningExplorer( sailor, port );
+    ECONOMY_TRACE( 1, "NAVAL_OPENING_PARTY", ",\"player\":" << static_cast<int>( land.GetColor() ) << ",\"town\":" << port.GetIndex()
+        << ",\"land_hero\":" << land.GetID() << ",\"sea_hero\":" << sailor.GetID()
+        << ",\"land_before\":" << beforeLand << ",\"sea_before\":" << beforeSea << ",\"shore_before\":" << beforeShore
+        << ",\"land_after\":" << KnightObserver::armyJson( land.GetArmy() ) << ",\"sea_after\":" << KnightObserver::armyJson( sailor.GetArmy() )
+        << ",\"shore_after\":" << KnightObserver::armyJson( port.GetArmy() ) );
+    return true;
+}
+
+bool AI::KnightConstruction::keepOpeningLandPeasants( const Heroes & hero )
+{
+    const auto it = openingLandPeasants.find( hero.GetID() );
+    return hero.isControlAI() && world.CountDay() == 1 && it != openingLandPeasants.end()
+        && it->second.seed == world.GetMapSeed() && it->second.segment == Economy::traceState().segment
+        && it->second.owner == static_cast<int>( hero.GetColor() );
+}
+
+void AI::KnightConstruction::settleOpeningTaxpayers( Heroes & land, Castle & port, const bool neededInArmy )
+{
+    if ( world.CountDay() != 1 || !land.isControlAI() || land.GetColor() != port.GetColor() || port.GetRace() != Race::KNGT
+         || !port.isBuild( BUILD_WEL2 ) || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
+    const auto adjacent = Maps::getAroundIndexes( port.GetIndex() );
+    if ( std::find( adjacent.begin(), adjacent.end(), land.GetIndex() ) == adjacent.end() ) return;
+    const uint32_t held = land.GetArmy().GetCountMonsters( Monster::PEASANT );
+    if ( !held ) return;
+    if ( neededInArmy ) openingLandPeasants[land.GetID()] = { world.GetMapSeed(), 1, Economy::traceState().segment,
+        static_cast<int>( land.GetColor() ), land.GetID(), port.GetIndex(), false };
+    else openingLandPeasants.erase( land.GetID() );
+    if ( !neededInArmy ) {
+        Troops army( land.GetArmy().getTroops() ), town( port.GetArmy().getTroops() );
+        if ( army.GetOccupiedSlotCount() <= 1 || !town.JoinTroop( Monster::PEASANT, held, false ) ) return;
+        for ( size_t slot = 0; slot < army.Size(); ++slot ) if ( army.GetTroop( slot )->GetID() == Monster::PEASANT ) army.GetTroop( slot )->Reset();
+        const auto beforeArmy = KnightObserver::armyJson( land.GetArmy() ), beforeTown = KnightObserver::armyJson( port.GetArmy() );
+        land.GetArmy().Assign( army ); port.GetArmy().Assign( town );
+        ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"opening_taxpayers\",\"source_player\":" << static_cast<int>( land.GetColor() )
+            << ",\"destination_player\":" << static_cast<int>( land.GetColor() ) << ",\"source_tile\":" << land.GetIndex() << ",\"destination_tile\":" << port.GetIndex()
+            << ",\"source_hero\":true,\"destination_hero\":false,\"source_before\":" << beforeArmy << ",\"source_after\":" << KnightObserver::armyJson( land.GetArmy() )
+            << ",\"destination_before\":" << beforeTown << ",\"destination_after\":" << KnightObserver::armyJson( port.GetArmy() ) );
+    }
+    ECONOMY_TRACE( 1, "NAVAL_OPENING_PEASANTS", ",\"hero\":" << land.GetID() << ",\"town\":" << port.GetIndex() << ",\"peasants\":" << held
+        << ",\"reason\":" << Economy::jsonQuote( neededInArmy ? "useful_land_combat" : "farm_income" ) );
 }
 
 int AI::KnightConstruction::navalTarget( const Heroes & hero, const bool renew )
