@@ -6,7 +6,14 @@
 #include "players.h"
 #include "rand.h"
 #include "week.h"
+#include "game_mode.h"
+#include "ui_scrollbar.h"
 #include <iostream>
+// Headless-only link wrappers. Production AI and world objects are unchanged.
+extern "C" void __wrap__ZN9Interface11StatusPanel18drawAITurnProgressEj(void *, uint32_t) {}
+fheroes2::Image headlessSlider(const fheroes2::Image &, bool, int32_t, int32_t, int32_t, const fheroes2::Rect &, const fheroes2::Rect &)
+ asm("__wrap__ZN8fheroes223generateScrollbarSliderERKNS_5ImageEbiiiRKNS_10RectBase2DIiiEES6_");
+fheroes2::Image headlessSlider(const fheroes2::Image &, bool, int32_t, int32_t, int32_t, const fheroes2::Rect &, const fheroes2::Rect &) {return fheroes2::Image(1,1);}
 namespace AI {
 struct KnightPolicyTestAccess {
  static Planner & planner() { auto & p=Planner::Get();p._regions.resize(world.getSize());return p; }
@@ -48,16 +55,26 @@ int main(int argc,char ** argv) {
   if(mode=="opening_human")Players::Get(PlayerColor::BLUE)->SetControl(CONTROL_HUMAN);
   if(mode=="opening_cox_no_high") {port->GetArmy().Clean();army(*land,{{Monster::PEASANT,49}});
    Maps::Map_Format::CastleMetadata m;m.customBuildings=true;m.builtBuildings={BUILD_CASTLE,BUILD_SHIPYARD,BUILD_WEL2};port->loadFromResurrectionMap(m);}
-  if(mode=="opening_coast") {
+  if(mode=="opening_coast" || mode=="opening_full") {
    for(const int tile:Maps::getAroundIndexes(portTile)) {
-    if(tile==portTile+width)world.getTile(tile).setMainObjectType(MP2::OBJ_COAST);
+    if(tile==portTile+width || tile==portTile+width+1)world.getTile(tile).setMainObjectType(MP2::OBJ_COAST);
     else world.getTile(tile).setTerrain(0,0);
    }
   }
-  world.updatePassabilities();KC::Scope scope(k);
+  world.updatePassabilities();
+  if(mode=="opening_full") {
+   world.ComputeStaticAnalysis();
+   assert(AI::Planner::Get().KingdomTurn(k)==fheroes2::GameMode::END_TURN);
+   assert(k.GetHeroes().size()==2&&knight->isShipMaster());
+   assert(land->GetArmy().GetCountMonsters(Monster::ARCHER)>=6);
+   assert(!port->GetArmy().GetCountMonsters(Monster::PEASANT));
+   std::cout<<"PASS v15 opening_full day="<<world.CountDay()<<" gold="<<k.GetFunds().gold<<'\n';k.GetHeroes().clear();k.GetCastles().clear();return 0;
+  }
+  KC::Scope scope(k);
   if(mode=="opening_danger")constructionContext->endangered.insert(portTile);
   const auto before=k.GetFunds();const int beforeTile=land->GetIndex();const uint32_t beforeMoves=land->GetMovePoints();
   const bool blocked=mode=="opening_poor"||mode=="opening_no_goal"||mode=="opening_late"||mode=="opening_human"||mode=="opening_danger";
+
   const bool result=AI::KnightPolicyTestAccess::opening(k);assert(result==!blocked);
   if(blocked)assert(k.GetHeroes().size()==1&&k.GetFunds()==before&&land->GetIndex()==beforeTile);
   else if(mode=="opening_cox_no_high") {assert(k.GetHeroes().size()==2);assert(KC::prepareNaval(k).empty());assert(!KC::isOpeningSeaExplorer(*gem));}

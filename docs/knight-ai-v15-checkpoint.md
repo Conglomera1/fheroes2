@@ -30,3 +30,12 @@ Modifications de production : cases COAST admises à J1, prévision d'un pas de 
 Compilation native v15 réussie. Première compilation du nouveau fixture corrigée (namespace Economy).
 Tests v15 EN COURS : ne pas annoncer validés, ne pas livrer de binaire à ce point. Ajouter/faire passer le tour complet et les régressions concernées avant publication finale.
 Chemins scratch (reconstructibles depuis code) : native-check/v15-build-final.log, v15-fixture-build.log, v15-tests ; tests/run_knight_v15.py.
+
+## Point de sauvegarde 3
+
+46 exécutions v15 passées (23 scénarios x diagnostics 0/2), résultats identiques et effectifs conservés. Inclut côte, attente puis libération, attente expirée et danger ; AoW/CoX et livraison TG pleine hérités v14. 28 régressions économiques v9 passées avec la logique v15.
+IMPORTANT : aucun .gch ne doit rester à côté de ai_planner_castle.cpp pendant la compilation des fixtures (GCC peut utiliser le contenu précompilé antérieur). Celui de v14 a été déplacé hors source.
+Un dernier ajustement donne aussi priorité aux objectifs militaires urgents accessibles pendant l'attente : compilation native finale en cours/réussie selon v15-build-final2.log, tests à relier sur ces objets.
+Test opening_full en préparation : appeler KingdomTurn avant le Scope de fixture ; wrappers de lien limités à drawAITurnProgress et generateScrollbarSlider pour fonctionner sans assets d'interface. Les précédents essais ont bloqué dans l'UI puis sur un Scope doublé du fixture. NE PAS annoncer ce test réussi avant PASS opening_full dans v15-full-turn.log.
+Le script tests/run_knight_v15.py n'inclut pas encore opening_full. Le binaire v15-full-tests utilise --ldflags='-Wl,--wrap=_ZN9Interface11StatusPanel18drawAITurnProgressEj -Wl,--wrap=_ZN8fheroes223generateScrollbarSliderERKNS_5ImageEbiiiRKNS_10RectBase2DIiiEES6_'.
+Encore à faire : tour complet, validation finale après dernier ajustement, version/revision15 et README, Windows CI et paquet/bilan. La v14 distribuée reste intacte.
