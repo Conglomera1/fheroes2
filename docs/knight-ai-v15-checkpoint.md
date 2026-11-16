@@ -39,3 +39,10 @@ Un dernier ajustement donne aussi priorité aux objectifs militaires urgents acc
 Test opening_full en préparation : appeler KingdomTurn avant le Scope de fixture ; wrappers de lien limités à drawAITurnProgress et generateScrollbarSlider pour fonctionner sans assets d'interface. Les précédents essais ont bloqué dans l'UI puis sur un Scope doublé du fixture. NE PAS annoncer ce test réussi avant PASS opening_full dans v15-full-turn.log.
 Le script tests/run_knight_v15.py n'inclut pas encore opening_full. Le binaire v15-full-tests utilise --ldflags='-Wl,--wrap=_ZN9Interface11StatusPanel18drawAITurnProgressEj -Wl,--wrap=_ZN8fheroes223generateScrollbarSliderERKNS_5ImageEbiiiRKNS_10RectBase2DIiiEES6_'.
 Encore à faire : tour complet, validation finale après dernier ajustement, version/revision15 et README, Windows CI et paquet/bilan. La v14 distribuée reste intacte.
+
+## Point de sauvegarde 4 — candidat Windows
+
+64 régressions v13 passent également, soit 138 exécutions réussies avec les 46 v15 et 28 économiques. Le tour complet est toujours en validation (ne pas le compter avant PASS).
+La configuration du fixture complet nécessite aussi les drapeaux natifs de joueurs en partie et une identité humaine pour les helpers d'affichage/alliance ; l'IA testée reste bleue et contrôlée par IA. Le mode autoplay et GameOver::Reset sont initialisés. Les wrappers incluent désormais le dessin de carte/statut et la pompe d'événements de bureau sans événement de quitter.
+Revision de journal 15 et README mis à jour. Coûts, INI et navigation après J1 inchangés.
+Le candidat Windows peut compiler en parallèle de la fin de validation ; ne pas le distribuer avant le résultat du tour complet et de la suite finale.

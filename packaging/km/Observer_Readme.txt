@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v14 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v15 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V14 TEST
+V15 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 14 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 15 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,21 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V14 CHANGES
+V15 CHANGES
+Day-one meeting tiles may be native coast tiles. A funded coordinated opening
+requires a legal second land step before purchases are committed. After army
+sharing, the land hero pays this step to clear the castle exit before the sailor
+can depart. Refusal reasons and NAVAL_OPENING_CLEARANCE expose this sequencing.
+A loaded population carrier can stage beside a safe friendly destination with
+a visiting hero for the rest of one day, keeping cargo and destination. If the
+visitor remains next day or safety/access fails, normal fallback still applies.
+Reachable critical military tasks retain priority over waiting.
+A seven-day temporary TG cycle must improve military force AND leave at least
+as much forecast gold as keeping the Farm, including both conversions and
+recruitment. Long-term mobilisation and emergency recovery keep their rules.
+Costs, INI overrides and navigation policy after day one are unchanged.
+
+PREVIOUS V14 CHANGES
 Day-one openings can prepare the two heroes before ordinary hero movement.
 For a safe starting port, with one owned town/hero, a built shipyard and a known
 sea exploration objective: build the Statue if needed, reserve the actual hero

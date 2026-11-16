@@ -7,6 +7,7 @@
 #include "rand.h"
 #include "week.h"
 #include "game_mode.h"
+#include "game_over.h"
 #include "ui_scrollbar.h"
 #include <iostream>
 // Headless-only link wrappers. Production AI and world objects are unchanged.
@@ -63,7 +64,10 @@ int main(int argc,char ** argv) {
   }
   world.updatePassabilities();
   if(mode=="opening_full") {
+   Players::Get(PlayerColor::GREEN)->SetControl(CONTROL_HUMAN);
+   for(const auto color:PlayerColorsVector(Color::allPlayerColors()))Players::SetPlayerInGame(color,true);
    world.ComputeStaticAnalysis();
+   Settings::Get().SetGameType(Game::TYPE_AUTO_PLAYTEST);Settings::Get().SetCurrentColor(PlayerColor::BLUE);GameOver::Result::Get().Reset();
    assert(AI::Planner::Get().KingdomTurn(k)==fheroes2::GameMode::END_TURN);
    assert(k.GetHeroes().size()==2&&knight->isShipMaster());
    assert(land->GetArmy().GetCountMonsters(Monster::ARCHER)>=6);
