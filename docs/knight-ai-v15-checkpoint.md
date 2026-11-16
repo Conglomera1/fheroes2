@@ -58,3 +58,12 @@ Les 64 régressions population et 28 économiques restent acquises. Compilation 
 PASS 48 v15 processes, diagnostics neutral confirmé. Avec 64 régressions v13 et 28 économiques v9 : 140 exécutions réussies. Résultats détaillés conservés dans docs/knight-ai-v15-validation.json pour résister à une réinitialisation du scratch.
 Le tour complet passe diagnostics 0 et 2. Correction du vérificateur Python : le binaire natif ne compile pas les hooks Windows AI_ACTION_COMPLETE ; l'embarquement est donc vérifié par l'état réel isShipMaster après KingdomTurn (assertion du fixture), et la séquence structurée vérifie PARTY avant CLEARANCE. Aucun changement de production après c2a4a7378c1a2055676c61231cfbff38c86ff1db, seul le vérificateur et la documentation ont changé.
 Compilation Windows en cours : run 43955201497, source c2a4a7378c1a2055676c61231cfbff38c86ff1db. Ne pas relancer sans échec établi. Après succès : récupérer artefact, contrôler digest/ZIP/PE/commit/marqueurs, produire KM-Observer-Debug-v15-Windows-x86.zip et Knight_AI_v15_Bilan.md, puis les sauvegarder ensemble.
+
+## Point de sauvegarde 7 — livraison terminée
+
+Windows x86 : run 43955201497 réussi, artefact 14268699570. Package contrôlé : digest de l'artefact, CRC des deux ZIP, commit inclus c2a4a7378c1a2055676c61231cfbff38c86ff1db, PE machine 0x14c, marqueurs et assets/README.
+ZIP final : KM-Observer-Debug-v15-Windows-x86.zip, 3698746 octets, SHA-256 2093b242d947d33ddfd251955eb64b78cfe3d97a02d823e925fee74eaec3391a.
+Fichiers livrés et sauvegardés :
+- ZIP : https://chatgpt.com/library?file_id=libfile_badcafb4039c8191838c214bc8ae5511&account_id=personal
+- Bilan : https://chatgpt.com/library?file_id=libfile_427e39cf24d08191a6af42ebde56e0df&account_id=personal
+État : aucun correctif en attente, aucune compilation à relancer. Attendre les journaux v15, commencer AoW dès J1 pour confirmer le déclenchement sur la vraie carte, puis Utopeia sur la durée. Les tests de tour complet utilisent une carte synthétique avec vraie boucle IA, pas la carte AoW originale. Le ravitaillement anticipé et la réception TG pleine restent à observer en parties longues si les circonstances les déclenchent.
