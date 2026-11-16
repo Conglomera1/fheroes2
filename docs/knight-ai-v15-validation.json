@@ -1,0 +1,827 @@
+{
+  "production_commit": "c2a4a7378c1a2055676c61231cfbff38c86ff1db",
+  "total_processes": 140,
+  "diagnostics_neutral": true,
+  "native_build": "passed with -Wall -Wextra -Wshadow -Wmismatched-tags -Werror",
+  "full_turn": "Native KingdomTurn on a synthetic constrained coast, drawing and desktop-event wrappers only; no original-map replay",
+  "groups": {
+    "v15": [
+      {
+        "profile": "default",
+        "case": "opening_full",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_full day=1 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_full",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_full day=1 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_coast",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_coast day=2 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_coast",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_coast day=2 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_clear",
+        "diagnostics": 0,
+        "result": "PASS v15 route_wait_clear day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_clear",
+        "diagnostics": 2,
+        "result": "PASS v15 route_wait_clear day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_timeout",
+        "diagnostics": 0,
+        "result": "PASS v15 route_wait_timeout day=2 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_timeout",
+        "diagnostics": 2,
+        "result": "PASS v15 route_wait_timeout day=2 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_danger",
+        "diagnostics": 0,
+        "result": "PASS v15 route_wait_danger day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "route_wait_danger",
+        "diagnostics": 2,
+        "result": "PASS v15 route_wait_danger day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "opening_aow",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_aow day=2 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_aow",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_aow day=2 gold=2750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_cox",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_cox day=2 gold=1310"
+      },
+      {
+        "profile": "default",
+        "case": "opening_cox",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_cox day=2 gold=1310"
+      },
+      {
+        "profile": "default",
+        "case": "opening_poor",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_poor day=1 gold=3000"
+      },
+      {
+        "profile": "default",
+        "case": "opening_poor",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_poor day=1 gold=3000"
+      },
+      {
+        "profile": "default",
+        "case": "opening_no_goal",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_no_goal day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_no_goal",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_no_goal day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_late",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_late day=2 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_late",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_late day=2 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_human",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_human day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_human",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_human day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_danger",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_danger day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_danger",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_danger day=1 gold=7500"
+      },
+      {
+        "profile": "default",
+        "case": "opening_cox_no_high",
+        "diagnostics": 0,
+        "result": "PASS v15 opening_cox_no_high day=1 gold=3750"
+      },
+      {
+        "profile": "default",
+        "case": "opening_cox_no_high",
+        "diagnostics": 2,
+        "result": "PASS v15 opening_cox_no_high day=1 gold=3750"
+      },
+      {
+        "profile": "default",
+        "case": "peasants_weak",
+        "diagnostics": 0,
+        "result": "PASS v15 peasants_weak day=2 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "peasants_weak",
+        "diagnostics": 2,
+        "result": "PASS v15 peasants_weak day=2 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "peasants_sufficient",
+        "diagnostics": 0,
+        "result": "PASS v15 peasants_sufficient day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "peasants_sufficient",
+        "diagnostics": 2,
+        "result": "PASS v15 peasants_sufficient day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "supply_peasant_pickup",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_peasant_pickup day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_peasant_pickup",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_peasant_pickup day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_utopia_j192",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_utopia_j192 day=193 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_utopia_j192",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_utopia_j192 day=193 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_hunter",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_hunter day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_hunter",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_hunter day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_sleep",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_sleep day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_sleep",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_sleep day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_direct_full",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_direct_full day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_direct_full",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_direct_full day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_unsafe",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_unsafe day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_unsafe",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_unsafe day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_occupied",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_occupied day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_occupied",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_occupied day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_fighter",
+        "diagnostics": 0,
+        "result": "PASS v15 supply_fighter day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "supply_fighter",
+        "diagnostics": 2,
+        "result": "PASS v15 supply_fighter day=4 gold=49820"
+      },
+      {
+        "profile": "default",
+        "case": "growth_plague",
+        "diagnostics": 0,
+        "result": "PASS v15 growth_plague day=29 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "growth_plague",
+        "diagnostics": 2,
+        "result": "PASS v15 growth_plague day=29 gold=50000"
+      }
+    ],
+    "population_v13": [
+      {
+        "profile": "default",
+        "case": "crew_knight",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_knight day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_knight",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_knight day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_barbarian",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_barbarian day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_barbarian",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_barbarian day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_sorceress",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_sorceress day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_sorceress",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_sorceress day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_warlock",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_warlock day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_warlock",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_warlock day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_wizard",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_wizard day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_wizard",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_wizard day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_necromancer",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_necromancer day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_necromancer",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_necromancer day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_upgrade",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_upgrade day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_upgrade",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_upgrade day=9 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_no_high",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_no_high day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_no_high",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_no_high day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_short_high",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_short_high day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_short_high",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_short_high day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_short_low",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_short_low day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_short_low",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_short_low day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_full",
+        "diagnostics": 0,
+        "result": "PASS v13 crew_full day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "crew_full",
+        "diagnostics": 2,
+        "result": "PASS v13 crew_full day=1 gold=50000"
+      },
+      {
+        "profile": "default",
+        "case": "supply_native",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_native day=5 gold=43120"
+      },
+      {
+        "profile": "default",
+        "case": "supply_native",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_native day=5 gold=43120"
+      },
+      {
+        "profile": "default",
+        "case": "supply_source_reserved",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_source_reserved day=5 gold=49520"
+      },
+      {
+        "profile": "default",
+        "case": "supply_source_reserved",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_source_reserved day=5 gold=49520"
+      },
+      {
+        "profile": "default",
+        "case": "supply_delivery",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_delivery day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_delivery",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_delivery day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_buffer",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_buffer day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_buffer",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_buffer day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_growth",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_growth day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_growth",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_growth day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_danger",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_danger day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_danger",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_danger day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_source_danger",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_source_danger day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_source_danger",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_source_danger day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_empty",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_empty day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_empty",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_empty day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_fighters",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_fighters day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_fighters",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_fighters day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_human",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_human day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_human",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_human day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_full",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_full day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_full",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_full day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_water",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_water day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_water",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_water day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_occupied",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_occupied day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_occupied",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_occupied day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_existing",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_existing day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_existing",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_existing day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_capture",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_capture day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_capture",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_capture day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_cancel",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_cancel day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_cancel",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_cancel day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_timeout",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_timeout day=10 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_timeout",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_timeout day=10 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_emergency",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_emergency day=5 gold=49760"
+      },
+      {
+        "profile": "default",
+        "case": "supply_emergency",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_emergency day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_delivery",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_delivery day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_delivery",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_delivery day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_buffer",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_buffer day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_buffer",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_buffer day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_existing",
+        "diagnostics": 0,
+        "result": "PASS v13 supply_existing day=5 gold=49760"
+      },
+      {
+        "profile": "limits",
+        "case": "supply_existing",
+        "diagnostics": 2,
+        "result": "PASS v13 supply_existing day=5 gold=49760"
+      }
+    ],
+    "economy_v9": [
+      {
+        "case": "voyage",
+        "diagnostics": 0,
+        "result": "PASS v9 voyage day=3 gold=52068"
+      },
+      {
+        "case": "voyage",
+        "diagnostics": 2,
+        "result": "PASS v9 voyage day=3 gold=52068"
+      },
+      {
+        "case": "land_goal",
+        "diagnostics": 0,
+        "result": "PASS v9 land_goal day=4 gold=53402"
+      },
+      {
+        "case": "land_goal",
+        "diagnostics": 2,
+        "result": "PASS v9 land_goal day=4 gold=53402"
+      },
+      {
+        "case": "sea_defense",
+        "diagnostics": 0,
+        "result": "PASS v9 sea_defense day=1 gold=49000"
+      },
+      {
+        "case": "sea_defense",
+        "diagnostics": 2,
+        "result": "PASS v9 sea_defense day=1 gold=49000"
+      },
+      {
+        "case": "reward_first",
+        "diagnostics": 0,
+        "result": "PASS v9 reward_first day=1 gold=49000"
+      },
+      {
+        "case": "reward_first",
+        "diagnostics": 2,
+        "result": "PASS v9 reward_first day=1 gold=49000"
+      },
+      {
+        "case": "sea_only",
+        "diagnostics": 0,
+        "result": "PASS v9 sea_only day=1 gold=49000"
+      },
+      {
+        "case": "sea_only",
+        "diagnostics": 2,
+        "result": "PASS v9 sea_only day=1 gold=49000"
+      },
+      {
+        "case": "trade_reject",
+        "diagnostics": 0,
+        "result": "TRADE total_gold=6500 final_gold=8399\nPASS v9 trade_reject day=1 gold=14899"
+      },
+      {
+        "case": "trade_reject",
+        "diagnostics": 2,
+        "result": "TRADE total_gold=6500 final_gold=8399\nPASS v9 trade_reject day=1 gold=14899"
+      },
+      {
+        "case": "trade_allow",
+        "diagnostics": 0,
+        "result": "TRADE total_gold=6500 final_gold=43500\nPASS v9 trade_allow day=1 gold=43500"
+      },
+      {
+        "case": "trade_allow",
+        "diagnostics": 2,
+        "result": "TRADE total_gold=6500 final_gold=43500\nPASS v9 trade_allow day=1 gold=43500"
+      },
+      {
+        "case": "trade_emergency",
+        "diagnostics": 0,
+        "result": "TRADE total_gold=6500 final_gold=8399\nPASS v9 trade_emergency day=1 gold=8399"
+      },
+      {
+        "case": "trade_emergency",
+        "diagnostics": 2,
+        "result": "TRADE total_gold=6500 final_gold=8399\nPASS v9 trade_emergency day=1 gold=8399"
+      },
+      {
+        "case": "trade_log",
+        "diagnostics": 0,
+        "result": "TRADE total_gold=10750 final_gold=1768\nPASS v9 trade_log day=1 gold=12518"
+      },
+      {
+        "case": "trade_log",
+        "diagnostics": 2,
+        "result": "TRADE total_gold=10750 final_gold=1768\nPASS v9 trade_log day=1 gold=12518"
+      },
+      {
+        "case": "direct_secondary",
+        "diagnostics": 0,
+        "result": "PASS v9 direct_secondary day=1 gold=6000"
+      },
+      {
+        "case": "direct_secondary",
+        "diagnostics": 2,
+        "result": "PASS v9 direct_secondary day=1 gold=6000"
+      },
+      {
+        "case": "entry_funding",
+        "diagnostics": 0,
+        "result": "DECISION mobilization_funding force=0/0 gold=0/0\nPASS v9 entry_funding day=1 gold=10000"
+      },
+      {
+        "case": "entry_funding",
+        "diagnostics": 2,
+        "result": "DECISION mobilization_funding force=0/0 gold=0/0\nPASS v9 entry_funding day=1 gold=10000"
+      },
+      {
+        "case": "small_gain",
+        "diagnostics": 0,
+        "result": "DECISION keep_current_role force=3575.94/3961 gold=2023/8783\nPASS v9 small_gain day=1 gold=16463"
+      },
+      {
+        "case": "small_gain",
+        "diagnostics": 2,
+        "result": "DECISION keep_current_role force=3575.94/3961 gold=2023/8783\nPASS v9 small_gain day=1 gold=16463"
+      },
+      {
+        "case": "sustained",
+        "diagnostics": 0,
+        "result": "DECISION military_gain force=1223.73/1603.4 gold=20360/5620\nPASS v9 sustained day=15 gold=31320"
+      },
+      {
+        "case": "sustained",
+        "diagnostics": 2,
+        "result": "DECISION military_gain force=1223.73/1603.4 gold=20360/5620\nPASS v9 sustained day=15 gold=31320"
+      },
+      {
+        "case": "recovery_reentry",
+        "diagnostics": 0,
+        "result": "DECISION military_gain force=1223.73/1603.4 gold=20360/5620\nPASS v9 recovery_reentry day=8 gold=30000"
+      },
+      {
+        "case": "recovery_reentry",
+        "diagnostics": 2,
+        "result": "DECISION military_gain force=1223.73/1603.4 gold=20360/5620\nPASS v9 recovery_reentry day=8 gold=30000"
+      }
+    ]
+  }
+}

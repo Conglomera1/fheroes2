@@ -52,3 +52,9 @@ Le candidat Windows peut compiler en parallèle de la fin de validation ; ne pas
 PASS v15 opening_full day=1 gold=2750 constaté : appel natif KingdomTurn, partage 70 Paysans/6 Archers au terrestre, cinq singles au navigateur, dégagement 748→749 puis embarquement. L'état de joueurs en partie a été initialisé dans le fixture. Les wrappers sont uniquement UI/événements de bureau.
 Suite finale de 24 cas x diagnostics 0/2 lancée dans native-check/v15-final-results (48 exécutions attendues) ; le script vérifie aussi seq(PARTY) < seq(CLEARANCE) < seq(embarquement) dans le tour complet. Ne pas compter la suite finale avant sa ligne PASS.
 Les 64 régressions population et 28 économiques restent acquises. Compilation native release v15 réussie (v15-build-release.log). Publication Windows autorisée en parallèle ; vérifier archive et terminer bilan après PASS final.
+
+## Point de sauvegarde 6 — validation finale conservée
+
+PASS 48 v15 processes, diagnostics neutral confirmé. Avec 64 régressions v13 et 28 économiques v9 : 140 exécutions réussies. Résultats détaillés conservés dans docs/knight-ai-v15-validation.json pour résister à une réinitialisation du scratch.
+Le tour complet passe diagnostics 0 et 2. Correction du vérificateur Python : le binaire natif ne compile pas les hooks Windows AI_ACTION_COMPLETE ; l'embarquement est donc vérifié par l'état réel isShipMaster après KingdomTurn (assertion du fixture), et la séquence structurée vérifie PARTY avant CLEARANCE. Aucun changement de production après c2a4a7378c1a2055676c61231cfbff38c86ff1db, seul le vérificateur et la documentation ont changé.
+Compilation Windows en cours : run 43955201497, source c2a4a7378c1a2055676c61231cfbff38c86ff1db. Ne pas relancer sans échec établi. Après succès : récupérer artefact, contrôler digest/ZIP/PE/commit/marqueurs, produire KM-Observer-Debug-v15-Windows-x86.zip et Knight_AI_v15_Bilan.md, puis les sauvegarder ensemble.
