@@ -1294,10 +1294,20 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
         // A friendly visitor may leave later in this turn. Keep the destination
         // for one day and stage beside it, without entering a hero meeting.
         if ( r.pickup < 0 && world.CountDay() - r.day <= 4 ) {
+            AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
+            const auto distance = path.getDistance( waypoint );
+            if ( distance > hero.GetMaxMovePoints() ) {
+                const auto route = path.buildPath( waypoint, false );
+                if ( !route.empty() && std::none_of( route.begin(), route.end(), []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); } ) ) {
+                    // The courier cannot reach the visitor this turn. Continue
+                    // travelling and start the existing one-day waiting grace
+                    // only when the destination is within a day's movement.
+                    return waypoint;
+                }
+            }
             auto & pending = it->second;
             if ( !pending.occupiedSince ) pending.occupiedSince = world.CountDay();
             if ( world.CountDay() == pending.occupiedSince ) {
-                AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
                 int staging = -1; uint32_t best = UINT32_MAX;
                 for ( const int tile : Maps::getAroundIndexes( waypoint ) ) {
                     const auto & cell = world.getTile( tile );
@@ -1422,7 +1432,7 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
             continue;
         }
         Heroes * chosen = nullptr; const Castle * source = nullptr;
-        uint32_t best = UINT32_MAX, quantity = 0; int bestRole = 4;
+        uint32_t best = UINT32_MAX, quantity = 0, pickupCost = 0, deliveryCost = 0; int bestRole = 4;
         std::map<std::string, uint32_t> refusals;
         for ( Heroes * hero : kingdom.GetHeroes() ) {
             if ( !hero || !hero->isActive() || !hero->GetMovePoints() || hero->isShipMaster() || hero->Modes( Heroes::PATROL )
@@ -1452,9 +1462,15 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
                     static_cast<uint8_t>( hero->GetLevelSkill( Skill::Secondary::PATHFINDING ) ) );
                 const auto delivery = deliveryPath.getDistance( target->GetIndex() );
                 if ( !delivery ) { ++refusals["delivery_unreachable"]; continue; }
-                // Hunters and scouts previously had only 1000 total points,
-                // excluding useful ordinary two-day deliveries on Utopeia.
-                if ( delivery > 2000 || uint64_t{ pickup } + delivery > 3000 ) { ++refusals["delivery_too_far"]; continue; }
+                // Peasants give at least 1000 land movement points per day.
+                // Allow up to four loaded travel days, matching the existing
+                // delivery timeout, after at most one short pickup day. The
+                // old 2000-point ceiling rejected Timberhill -> Westfork even
+                // with a suitable courier only 400 points from the Farm.
+                constexpr uint32_t deliveryBudget = 4 * 1000;
+                if ( delivery > deliveryBudget || uint64_t{ pickup } + delivery > 1000 + deliveryBudget ) {
+                    ++refusals["delivery_too_far"]; continue;
+                }
                 const auto first = pickupPath.buildPath( farm->GetIndex(), false );
                 const auto second = deliveryPath.buildPath( target->GetIndex(), false );
                 const auto water = []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); };
@@ -1463,6 +1479,7 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
                 }
                 if ( rank > bestRole || ( rank == bestRole && pickup + delivery >= best ) ) continue;
                 chosen = hero; source = farm; best = pickup + delivery; quantity = load; bestRole = rank;
+                pickupCost = pickup; deliveryCost = delivery;
             }
         }
         std::ostringstream reasons; reasons << '{'; bool firstReason = true;
@@ -1477,7 +1494,8 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
             static_cast<int>( kingdom.GetColor() ), target->GetIndex(), source->GetIndex(), quantity };
         ECONOMY_TRACE( 1, "POPULATION_SUPPLY_PLAN", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"hero\":" << chosen->GetID()
             << ",\"source\":" << source->GetIndex() << ",\"target\":" << target->GetIndex() << ",\"quantity\":" << quantity
-            << ",\"need\":" << need << ",\"route_cost\":" << best << ",\"reserve_days\":14" );
+            << ",\"need\":" << need << ",\"route_cost\":" << best << ",\"pickup_cost\":" << pickupCost
+            << ",\"delivery_cost\":" << deliveryCost << ",\"delivery_budget\":4000,\"reserve_days\":14" );
         if ( chosen->inCastle() == source ) arrangePopulation( *chosen, *chosen->inCastleMutable() );
     }
 }

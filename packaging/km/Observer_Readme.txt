@@ -1,13 +1,13 @@
-KNIGHT MOD: OBSERVER DEBUG BUILD v15 (Windows x86)
+KNIGHT MOD: OBSERVER DEBUG BUILD v16 (Windows x86)
 
 Extract this ZIP into your existing fheroes2 installation, preserving folders.
 Run fheroes2KM-debug.exe. Your existing Heroes II data and 32-bit SDL runtime
 from that installation are required. This build includes the live Farm/TG AI.
 
-V15 TEST
+V16 TEST
 Start AoW and Utopeia again from day 1 with the same factions and existing INI.
 Keep the log through elimination, or aim for day 168-175 if play continues.
-Revision 15 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
+Revision 16 is recorded in OBSERVER_KINGDOM. SOURCE_COMMIT.txt identifies the code.
 Farm/TG forecasts no longer repeat past construction/trade materials every day.
 Other historical gold spending is a discretionary allowance capped before
 consuming the operating/Farm recovery reserve. Forecast validity is explicit.
@@ -17,7 +17,22 @@ New purchases require a hero able to reach the coast this turn; heroes waiting
 in defense are excluded. One explorer is funded per connected known water area.
 This is an exploration policy, not a general multi-hero naval transport planner.
 
-V15 CHANGES
+V16 CHANGES
+TG resupply accepts safe land deliveries up to 4000 movement points after a
+short pickup (at most 1000). This matches four loaded travel days at the slow
+Peasant's base mobility and the existing four-day delivery timeout. Cargo,
+source stock and incoming deliveries remain reserved; no courier is recruited
+for this task. Existing danger, capacity, ownership and naval exclusions apply.
+A friendly visitor more than one travel day away no longer immediately sends
+a loaded courier back to the Farm. The existing one-day waiting grace begins
+when the courier comes within a day's movement; failed deliveries still fall
+back to a safe productive town. Pickup and delivery costs are logged separately.
+The controlled Utopeia J143 case now delivers six Peasants at J145 and supplies
+all ten conscriptions through J147, including the native full AI-turn loop.
+This is a controlled reproduction, not a replay of the original save.
+J1 naval opening, navigation after J1, balance and existing INI are unchanged.
+
+V15 CHANGES (retained)
 Day-one meeting tiles may be native coast tiles. A funded coordinated opening
 requires a legal second land step before purchases are committed. After army
 sharing, the land hero pays this step to clear the castle exit before the sailor
