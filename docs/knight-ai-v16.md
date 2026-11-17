@@ -13,12 +13,13 @@ Le fixture conserve ces positions, ces troupes et le terrain de maps/Utopeia.fh2
 
 Livraison terrestre admise jusqu'à 4000 points après une collecte limitée à 1000 ou à la mobilité maximale du héros si inférieure ; total maximal 5000. Quatre jours chargés à la mobilité minimale du Paysan, cohérents avec le délai existant de quatre jours par étape. Aucun recrutement de héros spécifique.
 Un visiteur ami à plus d'une journée de trajet ne renvoie plus immédiatement le porteur. Le héros continue son approche à terre ; la grâce existante d'un jour s'applique une fois proche. Danger, capacité, propriété, réservations de stocks/cargaisons, expiration et repli restent contrôlés. Un chargement impossible reste refusé, sans création ni suppression de troupes.
+Le calcul d’approche tient aussi compte des points déjà reçus le matin avant le chargement de Paysans, qui ralentissent la mobilité maximale sans supprimer ces points.
 POPULATION_SUPPLY_PLAN expose pickup_cost, delivery_cost, delivery_budget.
 Ouverture J1, navigation après J1, constructions, coûts par défaut et INI inchangés.
 
 ## Validation acquise
 
-Compilation native stricte réussie. 154 exécutions natives : 14 v16, 48 régressions v15, 64 population/équipages v13, 28 économiques/navigation v9. Diagnostics 0 et 2 : résultats identiques. Conservation par type vérifiée sur les transferts structurés.
+Compilation native stricte réussie. 156 exécutions natives : 16 v16, 48 régressions v15, 64 population/équipages v13, 28 économiques/navigation v9. Diagnostics 0 et 2 : résultats identiques. Conservation par type vérifiée sur les transferts structurés.
 Collecte de six Paysans à J143, livraison à J145, puis 10/10 conscriptions J144–147, contre 7/10 sans livraison. Un seul plan. Le scénario passe aussi par KingdomTurn, visites et mouvements natifs ; seuls le dessin et les événements de bureau sont remplacés. Ce tour complet a révélé puis vérifié le cas du visiteur distant.
 Refus testés : ville menacée, héros militaire, chargement impossible. Eau, capture, pénurie, réservation, délai, garnisons pleines et ouverture maritime J1 restent couverts par les régressions.
 Résultats : knight-ai-v16-validation.json. Cela prouve une livraison utile dans une reproduction contrôlée, sans garantir toutes les livraisons des parties originales.

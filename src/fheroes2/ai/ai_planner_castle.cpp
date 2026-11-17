@@ -1296,7 +1296,11 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
         if ( r.pickup < 0 && world.CountDay() - r.day <= 4 ) {
             AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
             const auto distance = path.getDistance( waypoint );
-            if ( distance > hero.GetMaxMovePoints() ) {
+            // Loading slow Peasants does not remove movement already granted
+            // this morning. Include that remainder when deciding whether the
+            // courier could actually meet the visitor before the turn ends.
+            const auto dayBudget = std::max( hero.GetMaxMovePoints(), hero.GetMovePoints() );
+            if ( distance > dayBudget ) {
                 const auto route = path.buildPath( waypoint, false );
                 if ( !route.empty() && std::none_of( route.begin(), route.end(), []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); } ) ) {
                     // The courier cannot reach the visitor this turn. Continue
@@ -1314,7 +1318,7 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
                     if ( cell.isWater() || cell.isFog( hero.GetColor() )
                          || ( cell.getMainObjectType( false ) != MP2::OBJ_NONE && cell.getMainObjectType( false ) != MP2::OBJ_COAST && tile != hero.GetIndex() ) ) continue;
                     const auto cost = tile == hero.GetIndex() ? 0U : path.getDistance( tile );
-                    if ( ( !cost && tile != hero.GetIndex() ) || cost >= best || cost > hero.GetMaxMovePoints() ) continue;
+                    if ( ( !cost && tile != hero.GetIndex() ) || cost >= best || cost > dayBudget ) continue;
                     const auto route = path.buildPath( tile, false );
                     if ( std::any_of( route.begin(), route.end(), []( const auto & step ) { return world.getTile( step.GetIndex() ).isWater(); } ) ) continue;
                     staging = tile; best = cost;

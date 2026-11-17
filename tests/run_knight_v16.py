@@ -1,7 +1,7 @@
 """Opening sea crews, ordinary population retention and troop conservation."""
 import json, os, pathlib, subprocess, sys, tempfile, collections
 binary=pathlib.Path(sys.argv[1]).resolve(); out=pathlib.Path(sys.argv[2]).resolve(); out.mkdir(parents=True,exist_ok=True)
-cases=['control','delivery','far_occupied','full_turn','loading_blocked','danger','military']
+cases=['control','delivery','far_occupied','slow_load_moves','full_turn','loading_blocked','danger','military']
 profiles=[('default','# Default\n',cases)]
 records=[]
 def army(values):

@@ -1,7 +1,7 @@
 {
   "base": "5643f3df8532c4472b907130ddc130ee6e64d0e5",
   "production_base": "c2a4a7378c1a2055676c61231cfbff38c86ff1db",
-  "total_processes": 154,
+  "total_processes": 156,
   "diagnostics_neutral": true,
   "baseline": {
     "source": "v15 before fix",
@@ -57,6 +57,18 @@
         "case": "far_occupied",
         "diagnostics": 2,
         "result": "PASS v16 far_occupied delivered arrival=145 conscripted=10 remaining=3"
+      },
+      {
+        "profile": "default",
+        "case": "slow_load_moves",
+        "diagnostics": 0,
+        "result": "PASS v16 slow_load_moves safe staging"
+      },
+      {
+        "profile": "default",
+        "case": "slow_load_moves",
+        "diagnostics": 2,
+        "result": "PASS v16 slow_load_moves safe staging"
       },
       {
         "profile": "default",

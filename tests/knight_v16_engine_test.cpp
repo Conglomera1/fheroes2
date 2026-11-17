@@ -92,7 +92,16 @@ int main(int argc,char ** argv) {
     h->SetMove(false);
     if(h->GetIndex()==5841) {
      AI::KnightPolicyTestAccess::reinforce(*farm);assert(h->GetArmy().GetCountMonsters(Monster::PEASANT)==need);
-     if(mode=="far_occupied"&&!visitor){visitor=world.GetHeroes(Heroes::ECTOR);assert(visitor->Recruit(*tg));assert(KC::populationOrder(*h)==5678&&KC::keepPopulationCargo(*h));}
+     if((mode=="far_occupied"||mode=="slow_load_moves")&&!visitor){
+      visitor=world.GetHeroes(Heroes::ECTOR);assert(visitor->Recruit(*tg));
+      if(mode=="slow_load_moves") {
+       h->IncreaseMovePoints(3000);const int wait=KC::populationOrder(*h);
+       assert(wait>=0&&wait!=5678&&wait!=5841&&KC::keepPopulationCargo(*h));
+       assert(populationRoutes.at(h->GetID()).target==5678&&h->GetArmy().GetCountMonsters(Monster::PEASANT)==need);
+       std::cout<<"PASS v16 slow_load_moves safe staging\n";k.GetHeroes().clear();k.GetCastles().clear();return 0;
+      }
+      assert(KC::populationOrder(*h)==5678&&KC::keepPopulationCargo(*h));
+     }
     }
     if(h->GetIndex()==5678)AI::KnightPolicyTestAccess::reinforce(*tg);
    }
