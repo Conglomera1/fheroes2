@@ -1,0 +1,26 @@
+{
+  "source_commit": "66945761c21850f8cf6008a0a9b731cc768bb7a1",
+  "workflow_run": 44106390110,
+  "artifact_id": 14338642811,
+  "artifact_digest": "sha256:91403996038c8fab337f454a70fd6bf83260478fb5bd372ec6ba0a23f89952af",
+  "package": "KM-Observer-Debug-v16-Windows-x86.zip",
+  "size_bytes": 3699809,
+  "sha256": "9ab70186c76685d570ad904d3eb1a613d0b74666cff19b427bd2e0af8242dfd8",
+  "pe_machine": "0x14c",
+  "crc": "passed outer and inner",
+  "files": [
+    "LICENCE",
+    "Observer_Readme.txt",
+    "SOURCE_COMMIT.txt",
+    "fheroes2KM-debug.exe",
+    "files/data/build_training_grounds.png",
+    "files/data/resurrectionKM.h2d",
+    "files/data/training_grounds.png"
+  ],
+  "markers_checked": 31,
+  "assets_and_readme_match": true,
+  "downloads": {
+    "KM-Observer-Debug-v16-Windows-x86.zip": "https://chatgpt.com/library?file_id=libfile_1b201103f01c8191b9258a7f090b24e0&account_id=personal",
+    "Knight_AI_v16_Bilan.md": "https://chatgpt.com/library?file_id=libfile_e8f70895f99c81919d3f967adb0a8a27&account_id=personal"
+  }
+}

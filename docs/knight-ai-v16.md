@@ -27,4 +27,9 @@ Résultats : knight-ai-v16-validation.json. Cela prouve une livraison utile dans
 ## Prochain test et reprise
 
 Utopeia J1–168/175 : vérifier collecte, arrivée, conscription et absence de doublons. AoW : Blackfang/Baywatch sur la durée, et ouverture maritime J1 inchangée.
-État : production et tests locaux terminés. Compilation et vérification du paquet Windows encore à terminer avant livraison. Ne pas les annoncer réussies à ce point.
+État final : production, 156 exécutions natives et compilation Windows x86 réussies. Paquet vérifié et livré. Aucune compilation ni test à relancer. Attendre les journaux de test v16.
+
+Source Windows : 66945761c21850f8cf6008a0a9b731cc768bb7a1. CI : https://github.com/Conglomera1/fheroes2/actions/runs/44106390110 (succès).
+Vérification : knight-ai-v16-package-verification.json.
+Paquet : https://chatgpt.com/library?file_id=libfile_1b201103f01c8191b9258a7f090b24e0&account_id=personal
+Bilan : https://chatgpt.com/library?file_id=libfile_e8f70895f99c81919d3f967adb0a8a27&account_id=personal
