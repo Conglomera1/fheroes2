@@ -5,6 +5,6 @@ Autorisation utilisateur : finaliser les deux cas de cargaison/ville reconvertie
 
 Code : cargaison annulée mémorisée et restituée avant renforcement ; dépôt protégé pendant le tour du royaume. Changements de rôle TG→Farm annulent une collecte non exécutée ou réévaluent le dépôt chargé. Nettoyage au renvoi du héros. Réglages de release distincts des anciennes clés de debug, observation et diagnostics désactivés par défaut et réactivables.
 
-État réel : première compilation native réussie ; compilation après réglages de release en cours. Les premiers scénarios de cargaison passent ; le fixture de déplacement doit être relancé après correction de son assertion de stock, qui ignorait le recrutement natif des Paysans de Hut. NE PAS annoncer les suites finales réussies à ce point.
+État réel : compilation native stricte finale réussie. 189 exécutions réussies : 26 v17, 156 régressions v16/v15/v13/v9 et 7 réglages release. Diagnostics 0/2 : résultats identiques et transferts conservateurs. Paramètres normaux par défaut vérifiés, y compris présence des anciennes clés d’observer. Résultats complets dans knight-ai-v17-validation.json.
 
-À terminer : tests v17 et réglages, régressions v16/v15/v13/v9 sur les objets finaux, CI Windows x86 normale via km-release.yml, vérification de l’archive puis paquet/bilan sauvegardés. Ne pas distribuer un candidat non vérifié.
+Reste : compiler et vérifier le paquet Windows x86 normal via km-release.yml, puis sauvegarder ZIP et bilan. Ne pas relancer les tests natifs terminés sauf nouvelle modification de code. Ne pas distribuer avant vérification du paquet.
