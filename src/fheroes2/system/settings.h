@@ -148,6 +148,8 @@ public:
         return true; // Presentation only: never clear any player's gameplay fog.
 #elif defined( FHEROES2_TAXPAYER_TEST )
         return _taxpayerTestRevealMap;
+#elif defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
+        return _knightObserverEnabled;
 #else
         return false;
 #endif
@@ -172,7 +174,8 @@ public:
 #ifdef FHEROES2_KNIGHT_OBSERVER
         return 2;
 #else
-        return taxpayerTestDiagnostics();
+        const int level = taxpayerTestDiagnostics();
+        return level && _knightObserverEnabled ? 2 : level;
 #endif
     }
 
@@ -180,6 +183,8 @@ public:
     {
 #ifdef FHEROES2_KNIGHT_OBSERVER
         return true;
+#elif defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
+        return _knightObserverEnabled;
 #else
         return false;
 #endif
@@ -511,7 +516,8 @@ private:
     BattleTurnOrderState _battleTurnOrderState{ BattleTurnOrderState::OFF };
     bool _isMapSmoothScrollingEnabled{ false };
     bool _taxpayerTestRevealMap{ false };
-    int _taxpayerTestDiagnostics{ 2 };
+    int _taxpayerTestDiagnostics{ 0 };
+    bool _knightObserverEnabled{ false };
 
     fheroes2::Point pos_radr{ -1, -1 };
     fheroes2::Point pos_bttn{ -1, -1 };

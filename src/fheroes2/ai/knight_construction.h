@@ -90,6 +90,11 @@ namespace AI::KnightConstruction
     int populationOrder( const Heroes & hero );
     void cancelPopulationRoute( const Heroes & hero, const char * reason );
     bool keepPopulationCargo( const Heroes & hero );
+    uint32_t cancelledCargo( const Heroes & hero );
+    void resolveCancelledCargo( const Heroes & hero );
+    void settleCancelledCargo( Heroes & hero, Castle & castle );
+    bool populationDepositProtected( const Castle & castle );
+    void protectPopulationDeposit( const Castle & castle );
     void notePopulationRoute( const Heroes & hero, int destination );
     void arrangePopulation( Heroes & hero, Castle & castle, int destination = -1, bool embarking = false );
     // Permit the producing town's infantry purchases to use its own envelope.

@@ -24,6 +24,7 @@
 #include "taxpayer_test.h"
 
 #include "heroes.h"
+#include "knight_construction.h"
 
 #include <algorithm>
 #include <array>
@@ -1964,6 +1965,11 @@ void Heroes::Dismiss( const int reason )
 {
     if ( isAvailableForHire() ) {
         return;
+    }
+
+    if ( !fheroes2::taxpayerSimulationDepth ) {
+        AI::KnightConstruction::cancelPopulationRoute( *this, "hero_dismissed" );
+        AI::KnightConstruction::resolveCancelledCargo( *this );
     }
 
     TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() ) << ", hero " << GetName() << " id " << GetID()

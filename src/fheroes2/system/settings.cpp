@@ -211,9 +211,18 @@ bool Settings::Read( const std::string & filePath )
         _taxpayerTestRevealMap = config.StrParams( "taxpayer test reveal map" ) == "on";
     }
 
+    // Release switches deliberately ignore diagnostic values inherited from
+    // an older observer/test executable sharing the same settings file.
+#ifdef FHEROES2_KNIGHT_RELEASE
+    if ( config.Exists( "knight diagnostics" ) ) {
+        _taxpayerTestDiagnostics = std::clamp( config.IntParams( "knight diagnostics" ), 0, 2 );
+    }
+#else
     if ( config.Exists( "taxpayer test diagnostics" ) ) {
         _taxpayerTestDiagnostics = std::clamp( config.IntParams( "taxpayer test diagnostics" ), 0, 2 );
     }
+#endif
+    if ( config.Exists( "knight observer" ) ) _knightObserverEnabled = config.StrParams( "knight observer" ) == "on";
 
     if ( config.Exists( "battle speed" ) ) {
         SetBattleSpeed( config.IntParams( "battle speed" ) );
@@ -455,7 +464,14 @@ std::string Settings::getOptionsString() const
     os << std::endl << "# Taxpayer AI tests only: show all map tiles to the human observer, without changing AI fog-of-war: on/off" << std::endl;
     os << "taxpayer test reveal map = " << ( _taxpayerTestRevealMap ? "on" : "off" ) << std::endl;
     os << "# Taxpayer test diagnostics: 0 off, 1 daily/major events, 2 detailed decisions" << std::endl;
+#ifdef FHEROES2_KNIGHT_RELEASE
+    os << "# Knight Mod diagnostics: 0 off, 1 normal, 2 planner experiments" << std::endl;
+    os << "knight diagnostics = " << _taxpayerTestDiagnostics << std::endl;
+#else
     os << "taxpayer test diagnostics = " << _taxpayerTestDiagnostics << std::endl;
+#endif
+    os << "# Knight Mod observer: presentation only; does not clear AI fog" << std::endl;
+    os << "knight observer = " << ( _knightObserverEnabled ? "on" : "off" ) << std::endl;
 
     os << std::endl << "# Hero movement speed: 1 - 10" << std::endl;
     os << "heroes speed = " << heroes_speed << std::endl;

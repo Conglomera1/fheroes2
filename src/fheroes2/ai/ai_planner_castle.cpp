@@ -183,7 +183,7 @@ namespace
     { return { f.gold, f.wood, f.ore, f.mercury, f.sulfur, f.crystal, f.gems }; }
     const std::array<uint32_t, 10> knightPrimaryOrder{ BUILD_STATUE, DWELLING_MONSTER1, DWELLING_MONSTER2, BUILD_WELL,
         DWELLING_MONSTER3, BUILD_TAVERN, DWELLING_MONSTER4, DWELLING_MONSTER6, DWELLING_MONSTER5, BUILD_WEL2 };
-    struct ConstructionContext { const Kingdom * kingdom; KC::Ledger ledger; std::set<int> economic, endangered; };
+    struct ConstructionContext { const Kingdom * kingdom; KC::Ledger ledger; std::set<int> economic, endangered, cargoDepots; };
     thread_local uint32_t emergencyDepth = 0;
     thread_local std::optional<ConstructionContext> constructionContext;
 
@@ -204,8 +204,10 @@ namespace
         int owner = -1, target = -1, pickup = -1;
         uint32_t quantity = 0;
         uint32_t occupiedSince = 0;
+        bool supply = false;
     };
     std::map<int, PopulationRoute> populationRoutes;
+    std::map<int, PopulationRoute> cancelledPopulationCargo;
     thread_local const Castle * recruitmentTown = nullptr;
     bool pendingLandOrder( const Heroes & hero )
     {
@@ -784,13 +786,17 @@ bool AI::Planner::shouldPreserveTaxpayerPeasants( const Castle & castle, const T
 void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy )
 {
     assert( castle.isControlAI() );
+    if ( auto * guest = castle.GetHero() ) KC::settleCancelledCargo( *guest, castle );
     if ( const auto * guest = castle.GetHero(); guest && ( AI::KnightConstruction::isOpeningSeaExplorer( *guest ) || AI::KnightConstruction::keepPopulationCargo( *guest ) )
          && !( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) ) ) return;
     const uint32_t region = world.getTile( castle.GetIndex() ).GetRegion();
     const bool urgent = ( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) )
         || ( defensiveStrategy && ( isCriticalTask( castle.GetIndex() ) || ( region < _regions.size() && _regions[region].safetyFactor < 0 ) ) );
     const AI::KnightConstruction::Emergency emergency( urgent );
-    if ( urgent && castle.GetHero() ) KC::cancelPopulationRoute( *castle.GetHero(), "military_emergency" );
+    if ( urgent && castle.GetHero() ) {
+        KC::cancelPopulationRoute( *castle.GetHero(), "military_emergency" );
+        KC::settleCancelledCargo( *castle.GetHero(), castle );
+    }
     if ( urgent ) ECONOMY_TRACE( 1, "BUDGET_EMERGENCY", ",\"town\":" << castle.GetIndex() << ",\"reason\":\"known_military_threat\"" );
 
     const uint32_t taxpayerBeforeGarrison = castle.GetArmy().GetCountMonsters( Monster::PEASANT );
@@ -873,7 +879,8 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
                          // All garrison slots should be occupied here because we just couldn't find a place for a new unit
                          assert( garrisonTroop != nullptr && garrisonTroop->isValid() );
 
-                         if ( garrisonTroop->GetID() == Monster::PEASANT && shouldKeepTaxpayersInGarrison( castle ) ) {
+                         if ( garrisonTroop->GetID() == Monster::PEASANT
+                              && ( shouldKeepTaxpayersInGarrison( castle ) || KC::populationDepositProtected( castle ) ) ) {
                              continue;
                          }
 
@@ -914,6 +921,20 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
 
             // We need to compare a strength of troops themselves here (excluding commanding hero's stats)
             weakestTroop = weakestTroop && Troop( *weakestTroop ).GetStrength() < Troop( *weakestGarrisonTroop ).GetStrength() ? weakestTroop : weakestGarrisonTroop;
+        }
+
+        if ( KC::populationDepositProtected( castle ) || ( guestHero && KC::cancelledCargo( *guestHero ) ) ) {
+            // Preserve returned cargo while choosing any ordinary military replacement.
+            weakestTroop = nullptr;
+            const auto consider = [&]( Army & candidate ) {
+                for ( size_t slot = 0; slot < candidate.Size(); ++slot ) {
+                    auto * unit = candidate.GetTroop( slot );
+                    if ( !unit->isValid() || unit->GetID() == Monster::PEASANT ) continue;
+                    if ( !weakestTroop || Troop( *unit ).GetStrength() < Troop( *weakestTroop ).GetStrength() ) weakestTroop = unit;
+                }
+            };
+            consider( garrison ); if ( guestHero ) consider( guestHero->GetArmy() );
+            if ( !weakestTroop ) continue;
         }
 
         // If we still can't find a slot, let's try to dismiss the weakest unit of those that are present in the garrison and in the army of the guest hero - provided
@@ -966,7 +987,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         // deposit takes back the same Peasants after every reinforcement, even on the same day.
         const Monster peasant( Monster::PEASANT );
         const uint32_t taxpayers = garrison.GetCountMonsters( peasant );
-        if ( taxpayers > 0 && shouldKeepTaxpayersInGarrison( castle ) ) {
+        if ( taxpayers > 0 && ( shouldKeepTaxpayersInGarrison( castle ) || KC::populationDepositProtected( castle ) ) ) {
             const Troops garrisonBackup{ garrison.getTroops() };
             const Troops heroBackup{ guestHeroArmy.getTroops() };
 
@@ -1131,7 +1152,7 @@ AI::KnightConstruction::Scope::Scope( const Kingdom & kingdom, const std::vector
 {
     if ( fheroes2::taxpayerSimulationDepth ) { kingdom_ = nullptr; return; }
     assert( !constructionContext );
-    constructionContext.emplace( ConstructionContext{ &kingdom, {}, {}, {} } );
+    constructionContext.emplace( ConstructionContext{ &kingdom, {}, {}, {}, {} } );
     std::vector<const Castle *> cities = order;
     if ( cities.empty() ) for ( const Castle * castle : kingdom.GetCastles() ) if ( castle ) cities.push_back( castle );
     // Inventory today's choices before forecasting or reserving tomorrow's funds.
@@ -1269,7 +1290,38 @@ void AI::KnightConstruction::cancelPopulationRoute( const Heroes & hero, const c
     ECONOMY_TRACE( 1, "POPULATION_ROUTE", ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"hero\":" << hero.GetID()
         << ",\"target\":" << it->second.target << ",\"pickup\":" << it->second.pickup << ",\"quantity\":" << it->second.quantity
         << ",\"reason\":" << Economy::jsonQuote( reason ) );
+    const std::string why( reason );
+    if ( it->second.pickup < 0 && ( why == "critical_military_order" || why == "military_emergency" )
+         && hero.GetArmy().GetCountMonsters( Monster::PEASANT ) ) {
+        auto cargo = it->second; cargo.quantity = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+        cancelledPopulationCargo[hero.GetID()] = cargo;
+    }
     populationRoutes.erase( it );
+}
+uint32_t AI::KnightConstruction::cancelledCargo( const Heroes & hero )
+{
+    const auto it = cancelledPopulationCargo.find( hero.GetID() );
+    if ( it == cancelledPopulationCargo.end() ) return 0;
+    const auto & r = it->second;
+    if ( !hero.isControlAI() || r.seed != world.GetMapSeed() || r.segment != Economy::traceState().segment
+         || r.owner != static_cast<int>( hero.GetColor() ) || world.CountDay() < r.day || !hero.isActive() ) {
+        cancelledPopulationCargo.erase( it ); return 0;
+    }
+    const auto held = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+    const auto movable = held && hero.GetArmy().GetOccupiedSlotCount() == 1 ? held - 1 : held;
+    const auto quantity = std::min( r.quantity, movable );
+    if ( !quantity ) cancelledPopulationCargo.erase( it );
+    return quantity;
+}
+void AI::KnightConstruction::resolveCancelledCargo( const Heroes & hero ) { cancelledPopulationCargo.erase( hero.GetID() ); }
+bool AI::KnightConstruction::populationDepositProtected( const Castle & castle )
+{
+    return constructionContext && constructionContext->kingdom == &castle.GetKingdom()
+        && constructionContext->cargoDepots.count( castle.GetIndex() );
+}
+void AI::KnightConstruction::protectPopulationDeposit( const Castle & castle )
+{
+    if ( constructionContext && constructionContext->kingdom == &castle.GetKingdom() ) constructionContext->cargoDepots.insert( castle.GetIndex() );
 }
 int AI::KnightConstruction::populationOrder( const Heroes & hero )
 {
@@ -1282,6 +1334,7 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
     const char * failure = nullptr;
     if ( !hero.isControlAI() || r.seed != world.GetMapSeed() || r.segment != Economy::traceState().segment
          || r.owner != static_cast<int>( hero.GetColor() ) || world.CountDay() < r.day ) failure = "stale_route";
+    else if ( r.supply && final != cities.end() && !( *final )->hasTrainingGrounds() ) failure = "target_role_changed";
     else if ( r.pickup < 0 && !hero.GetArmy().GetCountMonsters( Monster::PEASANT ) ) failure = "cargo_delivered_or_removed";
     else if ( hero.isShipMaster() || hero.Modes( Heroes::PATROL ) ) failure = "incompatible_hero";
     else if ( constructionContext && constructionContext->endangered.count( hero.GetIndex() ) ) failure = "military_emergency";
@@ -1344,6 +1397,7 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
         if ( std::string( failure ) == "stale_route" || std::string( failure ) == "cargo_delivered_or_removed"
              || std::string( failure ) == "incompatible_hero" || std::string( failure ) == "military_emergency"
              || !hero.GetArmy().GetCountMonsters( Monster::PEASANT ) ) return -1;
+        if ( r.pickup >= 0 ) return -1; // No physical cargo was collected.
         // A failed delivery is redirected to a nearby safe productive town,
         // including the source Farm. No blind expiry into ordinary wandering.
         AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
@@ -1362,6 +1416,10 @@ int AI::KnightConstruction::populationOrder( const Heroes & hero )
             populationRoutes[hero.GetID()] = { world.GetMapSeed(), world.CountDay(), Economy::traceState().segment, static_cast<int>( hero.GetColor() ), fallback };
             ECONOMY_TRACE( 1, "POPULATION_ROUTE", ",\"hero\":" << hero.GetID() << ",\"target\":" << fallback << ",\"reason\":\"safe_fallback\"" );
         }
+        if ( fallback < 0 ) {
+            auto cargo = r; cargo.quantity = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
+            cancelledPopulationCargo[hero.GetID()] = cargo;
+        }
         return fallback;
     }
     return waypoint;
@@ -1370,7 +1428,8 @@ bool AI::KnightConstruction::keepPopulationCargo( const Heroes & hero )
 {
     const int target = populationOrder( hero );
     const auto route = populationRoutes.find( hero.GetID() );
-    return target >= 0 && route != populationRoutes.end() && route->second.pickup < 0 && route->second.target != hero.GetIndex();
+    return cancelledCargo( hero ) > 0
+        || ( target >= 0 && route != populationRoutes.end() && route->second.pickup < 0 && route->second.target != hero.GetIndex() );
 }
 
 uint32_t AI::KnightConstruction::populationSupplyNeed( const Castle & castle, const int exceptHero )
@@ -1440,7 +1499,7 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
         std::map<std::string, uint32_t> refusals;
         for ( Heroes * hero : kingdom.GetHeroes() ) {
             if ( !hero || !hero->isActive() || !hero->GetMovePoints() || hero->isShipMaster() || hero->Modes( Heroes::PATROL )
-                 || hero->isLosingGame() || populationRoutes.count( hero->GetID() ) || isOpeningSeaExplorer( *hero )
+                 || hero->isLosingGame() || populationRoutes.count( hero->GetID() ) || cancelledCargo( *hero ) || isOpeningSeaExplorer( *hero )
                  || navalTarget( *hero ) >= 0 || constructionContext->endangered.count( hero->GetIndex() ) ) { ++refusals["hero_unavailable"]; continue; }
             const auto role = hero->getAIRole();
             if ( role != Heroes::Role::COURIER && role != Heroes::Role::SCOUT && role != Heroes::Role::HUNTER ) { ++refusals["military_role"]; continue; }
@@ -1496,6 +1555,7 @@ void AI::KnightConstruction::preparePopulation( Kingdom & kingdom )
         chosen->ResetModes( Heroes::SLEEPER );
         populationRoutes[chosen->GetID()] = { world.GetMapSeed(), world.CountDay(), Economy::traceState().segment,
             static_cast<int>( kingdom.GetColor() ), target->GetIndex(), source->GetIndex(), quantity };
+        populationRoutes[chosen->GetID()].supply = true;
         ECONOMY_TRACE( 1, "POPULATION_SUPPLY_PLAN", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"hero\":" << chosen->GetID()
             << ",\"source\":" << source->GetIndex() << ",\"target\":" << target->GetIndex() << ",\"quantity\":" << quantity
             << ",\"need\":" << need << ",\"route_cost\":" << best << ",\"pickup_cost\":" << pickupCost
@@ -1541,8 +1601,11 @@ int AI::KnightConstruction::populationDestination( const Heroes & hero )
 void AI::KnightConstruction::notePopulationRoute( const Heroes & hero, const int destination )
 {
     if ( destination >= 0 && destination != hero.GetIndex() && hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0
-         && !populationRoutes.count( hero.GetID() ) )
+         && !populationRoutes.count( hero.GetID() ) ) {
         populationRoutes[hero.GetID()] = { world.GetMapSeed(), world.CountDay(), Economy::traceState().segment, static_cast<int>( hero.GetColor() ), destination };
+        const auto * target = world.getCastleEntrance( Maps::GetPoint( destination ) );
+        populationRoutes[hero.GetID()].supply = target && target->hasTrainingGrounds();
+    }
 }
 
 void AI::KnightConstruction::refresh()

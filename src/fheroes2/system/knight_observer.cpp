@@ -39,7 +39,7 @@ void KnightObserver::kingdomState( const Kingdom & kingdom, const char * phase )
         << ",\"towns\":" << kingdom.GetCastles().size() << ",\"heroes\":" << kingdom.GetHeroes().size()
         << ",\"week_type\":" << static_cast<int>( world.GetWeekType().GetType() ) << ",\"week_monster\":" << static_cast<int>( world.GetWeekType().GetMonster() )
         << ",\"week_plague\":" << ( world.GetWeekType().GetType() == WeekName::PLAGUE ? "true" : "false" )
-        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":16,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
+        << ",\"build\":\"KNIGHT_OBSERVER_20261110\",\"ai_revision\":17,\"compiled\":" << Economy::jsonQuote( __DATE__ " " __TIME__ ) );
     auto captured = AI::EconomyProject::capture( kingdom, world.CountDay() );
     for ( size_t i = 0; i < captured.start.towns.size(); ++i ) {
         const auto & town = captured.start.towns[i];

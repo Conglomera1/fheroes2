@@ -274,6 +274,24 @@ bool AI::KnightConstruction::canLoadPopulation( const Heroes & hero, const Castl
     return populationTransfer( source, target, quantity );
 }
 
+void AI::KnightConstruction::settleCancelledCargo( Heroes & hero, Castle & castle )
+{
+    if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || hero.inCastle() != &castle || hero.GetColor() != castle.GetColor() ) return;
+    const auto quantity = cancelledCargo( hero ); if ( !quantity ) return;
+    Troops source( hero.GetArmy().getTroops() ), target( castle.GetArmy().getTroops() );
+    const auto beforeSource = KnightObserver::armyJson( hero.GetArmy() ), beforeTarget = KnightObserver::armyJson( castle.GetArmy() );
+    if ( !populationTransfer( source, target, quantity ) ) return;
+    hero.GetArmy().Assign( source ); castle.GetArmy().Assign( target );
+    protectPopulationDeposit( castle ); resolveCancelledCargo( hero );
+    ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"knight_population\",\"player\":" << static_cast<int>( hero.GetColor() )
+        << ",\"hero\":" << hero.GetID() << ",\"town\":" << castle.GetIndex() << ",\"quantity\":" << quantity
+        << ",\"reason\":\"cancelled_cargo_deposit\",\"source_player\":" << static_cast<int>( hero.GetColor() )
+        << ",\"destination_player\":" << static_cast<int>( hero.GetColor() ) << ",\"source_hero\":true,\"destination_hero\":false"
+        << ",\"source_tile\":" << castle.GetIndex() << ",\"destination_tile\":" << castle.GetIndex()
+        << ",\"source_before\":" << beforeSource << ",\"source_after\":" << KnightObserver::armyJson( hero.GetArmy() )
+        << ",\"destination_before\":" << beforeTarget << ",\"destination_after\":" << KnightObserver::armyJson( castle.GetArmy() ) );
+}
+
 void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, int destination, const bool embarking )
 {
     if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
