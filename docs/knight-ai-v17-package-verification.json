@@ -1,0 +1,29 @@
+{
+  "source_commit": "5eb08ed3b0ffd648ac48b4cddcd8bb3e0975024b",
+  "workflow_run": 44152144617,
+  "artifact_id": 14358848386,
+  "artifact_digest": "sha256:7d11f2c12b45a3b523039b30dfe1a4c9b79907cd6948de83c2819ef81b0a436b",
+  "package": "Knight-Mod-v17-Windows-x86.zip",
+  "size_bytes": 3735476,
+  "sha256": "bb19db0f4ecd7bcc8a43c384353f9c9a86c6224a346642f72b54804610f606f1",
+  "pe_machine": "0x14c",
+  "crc": "passed outer and inner",
+  "files": [
+    "Knight_Mod_Readme.txt",
+    "LICENCE",
+    "SOURCE_COMMIT.txt",
+    "fheroes2KM.exe",
+    "files/data/build_training_grounds.png",
+    "files/data/resurrectionKM.h2d",
+    "files/data/training_grounds.png"
+  ],
+  "markers_checked": 35,
+  "assets_and_readme_match": true,
+  "profile": "KnightReleaseBuild=true; KnightObserverBuild=false; TaxpayerDiagnostics=true; TaxpayerTestBuild=false",
+  "native_processes": 189,
+  "downloads": {
+    "Knight-Mod-v17-Windows-x86.zip": "https://chatgpt.com/library?file_id=libfile_4884c48ec6908191b4e3f455152e5907&account_id=personal",
+    "Knight_Mod_v17_Bilan.md": "https://chatgpt.com/library?file_id=libfile_306aece5f0cc8191babffe91ba11a5b2&account_id=personal"
+  },
+  "windows_runtime_note": "Windows binary not executed on Linux; native behavior checks plus CI and package validation passed."
+}
