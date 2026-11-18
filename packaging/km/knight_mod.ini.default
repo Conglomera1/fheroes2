@@ -2,6 +2,7 @@
 # The active file is knight_mod.ini in the fheroes2 configuration directory.
 # Existing settings are never overwritten. Restart after editing.
 # 0 disables the tax rate; 0 means unlimited for the per-Farm taxpayer cap.
+# Taxation always requires a Knight town with a Farm.
 taxpayer.gold_per_peasant_per_day = 2
 taxpayer.max_taxable_peasants_per_farm = 0
 
@@ -33,6 +34,21 @@ training_grounds.ore = 10
 farm_reconversion.gold = 1500
 farm_reconversion.wood = 0
 farm_reconversion.ore = 0
+
+# Optional Training Grounds requirements. Captain's Quarters is required by default.
+training_grounds.require_captains_quarters = 1
+training_grounds.require_upgraded_archery_range = 0
+training_grounds.require_upgraded_blacksmith = 0
+training_grounds.require_upgraded_armory = 0
 training_grounds.require_jousting_arena = 0
 training_grounds.require_cathedral = 0
+training_grounds.require_moat = 0
+training_grounds.require_left_turret = 0
+training_grounds.require_right_turret = 0
+training_grounds.require_fortifications = 0
 training_grounds.require_mage_guild = 0
+training_grounds.require_well = 0
+training_grounds.require_tavern = 0
+training_grounds.require_statue = 0
+training_grounds.require_thieves_guild = 0
+training_grounds.require_marketplace = 0
