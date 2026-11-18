@@ -1,0 +1,56 @@
+{
+  "source_commit": "f9cc953a126dc3526d1b902e48fb8d6b7b762df4",
+  "regression_processes": {
+    "v9": 28,
+    "v13": 64,
+    "v15": 48,
+    "v16": 16,
+    "v17": 26
+  },
+  "cap_profiles": [
+    0,
+    1,
+    300,
+    500
+  ],
+  "catalogs_native": 23,
+  "ini_parameters_verified": 32,
+  "native_build": "passed; preexisting float-equal warning exempted from Werror",
+  "windows_build": {
+    "run": 44210387725,
+    "x86": "success, zero warnings/errors",
+    "x64": "success, zero warnings/errors"
+  },
+  "windows_runtime": "not available on this Linux host",
+  "regression_processes_after_final_trace_guards": {
+    "v15": 48,
+    "v16": 16,
+    "v17": 26
+  },
+  "packages": [
+    {
+      "file": "Knight-Mod-Public-Beta1-Windows-x86.zip",
+      "architecture": "x86",
+      "source": "f9cc953a126dc3526d1b902e48fb8d6b7b762df4",
+      "files": 32,
+      "languages": 23,
+      "sha256": "750cfa8e4de1010b4a406c340169e4319c9dd48fba7359282bccad8da69079e2",
+      "result": "PASS"
+    },
+    {
+      "file": "Knight-Mod-Public-Beta1-Windows-x64.zip",
+      "architecture": "x64",
+      "source": "f9cc953a126dc3526d1b902e48fb8d6b7b762df4",
+      "files": 32,
+      "languages": 23,
+      "sha256": "c607a65fa774d3c2bfc0b6c9765c3000ffff908cd61ce169e7a1409117031d33",
+      "result": "PASS"
+    }
+  ],
+  "remarks": [
+    "No new game balance or progressive TG system included.",
+    "Native tests are fixtures, not Windows UI execution.",
+    "Batch uninstaller reviewed statically; not executed on Windows.",
+    "README and balance guide deferred by user."
+  ]
+}
