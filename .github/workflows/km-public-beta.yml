@@ -49,7 +49,7 @@ jobs:
           foreach ($marker in @('[KNIGHT ECONOMY]','[TAXPAYER DIAG]','[TAXPAYER AI ECONOMY]','NAVAL_OPENING_J1','OBSERVER_KINGDOM','POPULATION_SUPPLY_PLAN')) {
             if ($strings.Contains($marker)) {throw "Diagnostic payload in public binary: $marker"}
           }
-          foreach ($marker in @('resurrectionKM.h2d','km_','taxpayer.max_taxable_peasants_per_farm')) {
+          foreach ($marker in @('Knight Mod Public Beta','taxpayer.max_taxable_peasants_per_farm')) {
             if (-not $strings.Contains($marker)) {throw "Missing mod marker: $marker"}
           }
           if (@(Get-ChildItem package/files/lang/*.mo).Count -ne 23) {throw 'Expected 23 isolated catalogs'}
