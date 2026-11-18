@@ -1596,8 +1596,10 @@ namespace
         if ( tile.getMainObjectType( false ) == MP2::OBJ_PEASANT_HUT && Kingdom::TaxpayerRequiresFarms()
              && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
             if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
                                             << " collected " << troop.GetCount() << " Peasants from external hut at tile " << dst_index );
+#endif
             }
         }
 

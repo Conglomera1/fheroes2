@@ -101,6 +101,7 @@ namespace Economy
 
     inline void ensureTraceSegment()
     {
+#ifndef FHEROES2_KNIGHT_PUBLIC
         auto & state = traceState();
         if ( !state.pending ) return;
         state.pending = false;
@@ -114,6 +115,7 @@ namespace Economy
               << ",\"composition\":[" << config.quotas[0] << ',' << config.quotas[1] << ',' << config.quotas[2] << ']'
               << ",\"prerequisites\":" << config.requiredBuildings << ",\"tg_cost\":[" << config.trainingGold << ',' << config.trainingWood << ',' << config.trainingOre << ']'
               << ",\"farm_cost\":[" << config.farmGold << ',' << config.farmWood << ',' << config.farmOre << "]}" );
+#endif
     }
 }
 

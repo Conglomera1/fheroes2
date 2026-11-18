@@ -1144,7 +1144,7 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
     // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
     if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
         const Monster peasant( Monster::PEASANT );
-        const uint64_t taxRate = static_cast<uint64_t>( std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
+        [[maybe_unused]] const uint64_t taxRate = static_cast<uint64_t>( std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
         uint64_t totalPeasants = 0;
         uint64_t allGarrisonPeasants = 0;
         uint64_t allHeroPeasants = 0;
@@ -1191,8 +1191,10 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
                                << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
                                << ", critical " << isCriticalTask( castle->GetIndex() ) );
             if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
                                             << ": " << peasantCount << " taxable Peasants, projected next-day income " << peasantCount * taxRate );
+#endif
             }
         }
 
@@ -1203,8 +1205,10 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
                            << ": owned Peasants " << allGarrisonPeasants + allHeroPeasants << ", garrisons " << allGarrisonPeasants
                            << ", hero armies " << allHeroPeasants << ", taxable " << totalPeasants << ", treasury " << kingdom.GetFunds().gold );
         if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
             COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
                                         << ": total " << totalPeasants << " taxable Peasants, projected next-day income " << totalPeasants * taxRate );
+#endif
         }
     }
 

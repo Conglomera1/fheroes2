@@ -511,10 +511,12 @@ namespace
             const bool traceKnightBuild = castle.GetRace() == Race::KNGT && Settings::Get().taxpayerTestDiagnostics() >= 2;
 
             if ( traceKnightBuild ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " <<
                            "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": considering building id "
                                   << static_cast<uint32_t>( order.building ) << ", priority " << order.priority << " -> " << priority
                                   << ", funds multiplier " << fundsMultiplier );
+#endif
             }
 
             if ( castle.GetRace() == Race::KNGT ) {
@@ -535,9 +537,11 @@ namespace
             }
 
             if ( traceKnightBuild ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI TEST] " <<
                            "Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex() << ": building id "
                                   << static_cast<uint32_t>( order.building ) << ( built ? " BUILT" : " not selected (fund threshold or building unavailable)" ) );
+#endif
             }
 
             if ( built ) {
@@ -606,9 +610,11 @@ namespace
 
         decision = "accepted";
         if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
             COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                         << ": recruited " << peasantCount << " Peasants for tax, estimated daily income +"
                                         << static_cast<uint64_t>( peasantCount ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
+#endif
         }
     }
 
@@ -951,9 +957,11 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         // We need to compare a strength of troops themselves here (excluding commanding hero's stats)
         if ( shouldPreserveTaxpayerPeasants( castle, *weakestTroop, troop ) ) {
             if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                             << ": kept " << weakestTroop->GetCount() << " Peasants over recruitment of " << troop.GetCount()
                                             << " " << troop.GetPluralName( troop.GetCount() ) );
+#endif
             }
             continue;
         }
@@ -972,9 +980,11 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
         if ( weakestTroop->GetID() == Monster::PEASANT && castle.GetRace() == Race::KNGT && castle.isBuild( BUILD_WEL2 )
              && Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
             if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                 COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                             << ": dismissed " << weakestTroop->GetCount() << " Peasants for military recruitment of "
                                             << troop.GetCount() << " " << troop.GetPluralName( troop.GetCount() ) );
+#endif
             }
         }
 
@@ -1008,8 +1018,10 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             guestHeroArmy.JoinStrongestFromArmy( garrison );
             if ( garrison.JoinTroop( peasant, taxpayers, false ) ) {
                 if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                     COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                                 << ": retained " << taxpayers << " Peasants during reinforcement of hero " << guestHero->GetName() );
+#endif
                 }
             }
             else {
@@ -1018,8 +1030,10 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
                 garrison.Assign( garrisonBackup );
                 guestHeroArmy.Assign( heroBackup );
                 if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
+#ifndef FHEROES2_KNIGHT_PUBLIC
                     COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle.GetIndex()
                                                 << ": cancelled military rearrangement to preserve taxpayers and troop counts" );
+#endif
                 }
             }
         }
