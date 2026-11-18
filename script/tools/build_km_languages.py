@@ -22,7 +22,7 @@ def load_po(path):
     return catalog
 CP={**dict.fromkeys(['cs','hu','pl','sk'],'cp1250'),**dict.fromkeys(['be','bg','ru','uk'],'cp1251'),**dict.fromkeys(['de','da','fr','it','nl','nb','pt','es','sv'],'cp1252'),'el':'cp1253','tr':'cp1254','lt':'cp1257','vi':'cp1258','ro':'iso8859_16','eo':'iso8859_3'}
 def rows(name):
-    return {line.split('|')[0]:line.split('|')[1:] for line in (ROOT/'packaging/km/translations'/name).read_text().splitlines() if line and not line.startswith('#')}
+    return {line.split('|')[0]:line.split('|')[1:] for line in (ROOT/'packaging/km/translations'/name).read_text(encoding='utf-8').splitlines() if line and not line.startswith('#')}
 def encode(s,cp):
     try:return s.encode(cp)
     except UnicodeEncodeError:
