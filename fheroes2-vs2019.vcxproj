@@ -47,6 +47,11 @@
     <Import Project="VisualStudio\SDL2.props" />
     <Import Project="VisualStudio\fheroes2\Release.props" />
   </ImportGroup>
+  <ItemDefinitionGroup Condition="'$(KnightPublicBuild)'=='true'">
+    <ClCompile>
+      <PreprocessorDefinitions>FHEROES2_KNIGHT_PUBLIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(TaxpayerTestBuild)'=='true'">
     <ClCompile>
       <PreprocessorDefinitions>FHEROES2_TAXPAYER_TEST;%(PreprocessorDefinitions)</PreprocessorDefinitions>

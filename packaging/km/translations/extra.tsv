@@ -1,0 +1,24 @@
+# language|disabled|success|tomorrow|no troops
+fr|La conscription est désactivée dans knight_mod.ini.|Réussite : %{percent} %. Les conscrits ayant échoué sont perdus et restent facturés.|Prévision pour demain :|Aucune troupe
+de|Die Einberufung ist in knight_mod.ini deaktiviert.|Ausbildungserfolg: %{percent}%. Fehlgeschlagene Rekruten gehen verloren und werden dennoch bezahlt.|Morgen erwartet:|Keine Truppen
+es|La conscripción está desactivada en knight_mod.ini.|Éxito: %{percent}%. Los reclutas fallidos se pierden y se pagan igualmente.|Previsión para mañana:|Sin tropas
+it|La coscrizione è disattivata in knight_mod.ini.|Successo: %{percent}%. I coscritti falliti sono persi e pagati comunque.|Previsto domani:|Nessuna truppa
+pt|O recrutamento compulsório está desativado em knight_mod.ini.|Sucesso: %{percent}%. Recrutas que falham são perdidos e ainda são pagos.|Previsão para amanhã:|Nenhuma tropa
+nl|Dienstplicht is uitgeschakeld in knight_mod.ini.|Slagingspercentage: %{percent}%. Mislukte rekruten gaan verloren en worden toch betaald.|Morgen verwacht:|Geen troepen
+da|Indkaldelse er deaktiveret i knight_mod.ini.|Træningssucces: %{percent}%. Mislykkede rekrutter mistes og betales stadig.|Forventet i morgen:|Ingen tropper
+nb|Innkalling er deaktivert i knight_mod.ini.|Treningssuksess: %{percent}%. Mislykkede rekrutter går tapt og betales likevel.|Forventet i morgen:|Ingen tropper
+sv|Inkallning är avstängd i knight_mod.ini.|Lyckad träning: %{percent}%. Misslyckade rekryter förloras och betalas ändå.|Förväntat i morgon:|Inga trupper
+pl|Pobór jest wyłączony w knight_mod.ini.|Powodzenie szkolenia: %{percent}%. Nieudani poborowi przepadają i nadal kosztują.|Przewidywane jutro:|Brak oddziałów
+cs|Odvody jsou v knight_mod.ini vypnuté.|Úspěšnost výcviku: %{percent}%. Neúspěšní branci jsou ztraceni a přesto zaplaceni.|Očekáváno zítra:|Žádné jednotky
+sk|Odvody sú v knight_mod.ini vypnuté.|Úspešnosť výcviku: %{percent}%. Neúspešní branci sa stratia a napriek tomu zaplatia.|Očakávané zajtra:|Žiadne jednotky
+hu|A sorozás ki van kapcsolva a knight_mod.ini fájlban.|Sikeres kiképzés: %{percent}%. A sikertelen újoncok elvesznek, de fizetni kell értük.|Holnap várható:|Nincs katona
+ro|Încorporarea este dezactivată în knight_mod.ini.|Succesul instruirii: %{percent}%. Recruții nereușiți sunt pierduți și rămân plătiți.|Estimare pentru mâine:|Nicio trupă
+ru|Призыв отключён в knight_mod.ini.|Успех обучения: %{percent}%. Неудачные призывники теряются и всё равно оплачиваются.|Ожидается завтра:|Нет войск
+uk|Призов вимкнено в knight_mod.ini.|Успішність навчання: %{percent}%. Невдалі призовники втрачаються та все одно оплачуються.|Очікується завтра:|Немає військ
+be|Прызыў выключаны ў knight_mod.ini.|Поспех навучання: %{percent}%. Няўдалыя прызыўнікі губляюцца і ўсё роўна аплачваюцца.|Чакаецца заўтра:|Няма войскаў
+bg|Наборът е изключен в knight_mod.ini.|Успешно обучение: %{percent}%. Неуспелите новобранци се губят и въпреки това се плащат.|Очаква се утре:|Няма войски
+el|Η στρατολόγηση είναι απενεργοποιημένη στο knight_mod.ini.|Επιτυχία εκπαίδευσης: %{percent}%. Οι αποτυχημένοι νεοσύλλεκτοι χάνονται και πληρώνονται κανονικά.|Αναμένεται αύριο:|Χωρίς στρατεύματα
+tr|Askere alma knight_mod.ini dosyasında kapalıdır.|Eğitim başarısı: %{percent}%. Başarısız acemiler kaybolur ve yine de ücret ödenir.|Yarın beklenen:|Birlik yok
+lt|Šaukimas išjungtas knight_mod.ini faile.|Mokymo sėkmė: %{percent}%. Nesėkmingi šauktiniai prarandami ir vis tiek apmokami.|Tikimasi rytoj:|Nėra karių
+eo|Deviga varbado estas malŝaltita en knight_mod.ini.|Trejna sukceso: %{percent}%. Malsukcesaj rekrutoj perdiĝas kaj tamen estas pagataj.|Atendate morgaŭ:|Neniuj trupoj
+vi|Trưng binh bị tắt trong knight_mod.ini.|Huấn luyện thành công: %{percent}%. Tân binh thất bại bị mất và vẫn phải trả phí.|Dự kiến ngày mai:|Không có quân

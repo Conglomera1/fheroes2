@@ -41,6 +41,7 @@ namespace Economy
         Materials materials{}, materialIncome{};
         uint32_t taxRate = 0;
         bool requireFarms = true;
+        uint32_t maxTaxablePerFarm = 0; // 0 means unlimited.
         uint64_t otherPeasants = 0;
         uint32_t peasantCost = 0;
         std::vector<Town> towns; // Preserve kingdom/interface order.
@@ -54,8 +55,9 @@ namespace Economy
         uint64_t count = snapshot.requireFarms ? 0 : std::min( maximum, snapshot.otherPeasants );
         for ( const Town & town : snapshot.towns ) {
             if ( !snapshot.requireFarms || town.farm ) {
-                count = std::min( maximum, count + std::min( maximum, town.troops.garrison ) );
-                count = std::min( maximum, count + std::min( maximum, town.visitingPeasants ) );
+                uint64_t eligible = std::min( maximum, town.troops.garrison ) + std::min( maximum, town.visitingPeasants );
+                if ( snapshot.maxTaxablePerFarm ) eligible = std::min<uint64_t>( eligible, snapshot.maxTaxablePerFarm );
+                count = std::min( maximum, count + eligible );
             }
         }
         return static_cast<int64_t>( std::min( maximum, count * snapshot.taxRate ) );

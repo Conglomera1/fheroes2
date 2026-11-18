@@ -257,14 +257,14 @@ BuildingInfo::BuildingInfo( const Castle & c, const BuildingType b )
         description = GetConditionDescription();
     else {
         if ( castle.GetRace() == Race::KNGT && _buildingType == BUILD_TRAINING_GROUNDS ) {
-            description = "Convert the Farm into Training Grounds to enable Peasant conscription. The Farm's growth bonus will be lost.";
+            description = _( "Convert the Farm into Training Grounds to enable Peasant conscription. The Farm's growth bonus will be lost." );
             if ( Kingdom::TaxpayerRequiresFarms() && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 )
-                description += " Peasants stationed here will no longer pay taxes.";
+                description += _( " Peasants stationed here will no longer pay taxes." );
         }
         else {
             description = getBuildingDescription( castle.GetRace(), _buildingType );
             if ( _buildingType == BUILD_WEL2 && castle.hasTrainingGrounds() )
-                description = "Restore the Farm and disable conscription.\n\n" + description;
+                description = _( "Restore the Farm and disable conscription.\n\n" ) + description;
         }
     }
 
@@ -331,6 +331,11 @@ std::string BuildingInfo::getBuildingDescription( const int race, const uint32_t
                 description += "\n\n";
                 description += _( "Each Peasant working at the farm yields %{tax_rate} gold in tax per day." );
                 StringReplace( description, "%{tax_rate}", Kingdom::GetTaxpayerGoldPerPeasantPerDay() );
+                if ( Kingdom::GetMaxTaxablePeasantsPerFarm() ) {
+                    description += "\n";
+                    description += _( "Taxable Peasants per Farm: %{count}." );
+                    StringReplace( description, "%{count}", Kingdom::GetMaxTaxablePeasantsPerFarm() );
+                }
             }
             break;
         case BUILD_MOAT:

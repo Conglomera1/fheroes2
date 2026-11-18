@@ -593,7 +593,13 @@ namespace
         Funds budget = treasury;
         budget.gold = goldBudget;
         decision = "rejected: no stock or recruitment failed";
-        const uint32_t peasantCount = castle.getRecruitLimit( peasant, budget );
+        uint32_t peasantCount = castle.getRecruitLimit( peasant, budget );
+        const auto taxCap = Kingdom::GetMaxTaxablePeasantsPerFarm();
+        if ( taxCap ) {
+            uint64_t present = garrison.GetCountMonsters( peasant );
+            if ( const auto * visitor = castle.GetHero() ) present += visitor->GetArmy().GetCountMonsters( peasant );
+            peasantCount = static_cast<uint32_t>( std::min<uint64_t>( peasantCount, present < taxCap ? taxCap - present : 0 ) );
+        }
         if ( peasantCount == 0 || !castle.RecruitMonster( Troop( peasant, peasantCount ), false ) ) {
             return;
         }
@@ -1267,7 +1273,10 @@ uint32_t AI::KnightConstruction::populationReserve( const Castle & castle )
     if ( !populationSafe( castle ) ) return 0;
     const auto & cities = castle.GetKingdom().GetCastles();
     const auto knights = std::count_if( cities.begin(), cities.end(), []( const Castle * c ) { return c && c->GetRace() == Race::KNGT; } );
-    if ( !castle.hasTrainingGrounds() && ( economicTown( castle ) || knights <= 1 || !active( castle.GetKingdom() ) ) ) return UINT32_MAX;
+    if ( !castle.hasTrainingGrounds() && ( economicTown( castle ) || knights <= 1 || !active( castle.GetKingdom() ) ) ) {
+        const auto cap = Kingdom::GetMaxTaxablePeasantsPerFarm();
+        return cap ? cap : UINT32_MAX;
+    }
     const auto & config = Conscription::settings();
     if ( !config.enabled ) return 0;
     uint64_t hut = castle.conscriptionDaySnapshot().hut, need = 0;
@@ -1580,7 +1589,10 @@ int AI::KnightConstruction::populationDestination( const Heroes & hero )
         const uint64_t surplus = source && source->GetRace() == Race::KNGT && populationReserve( *source ) != UINT32_MAX
             ? std::max<int64_t>( 0, int64_t{ source->GetArmy().GetCountMonsters( Monster::PEASANT ) } - populationReserve( *source ) ) : 0;
         const uint64_t cargo = hero.GetArmy().GetCountMonsters( Monster::PEASANT ) + surplus;
-        const bool fiscal = economicTown( *c ) && c->isBuild( BUILD_WEL2 ) && cargo * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 >= 1000;
+        const auto taxCap = Kingdom::GetMaxTaxablePeasantsPerFarm();
+        const uint64_t currentTaxpayers = c->GetArmy().GetCountMonsters( Monster::PEASANT );
+        const uint64_t taxableCargo = taxCap ? std::min<uint64_t>( cargo, currentTaxpayers < taxCap ? taxCap - currentTaxpayers : 0 ) : cargo;
+        const bool fiscal = economicTown( *c ) && c->isBuild( BUILD_WEL2 ) && taxableCargo * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 >= 1000;
         const auto need = populationSupplyNeed( *c, hero.GetID() );
         const bool supply = source && source->isBuild( BUILD_WEL2 ) && ( courier || scout ) && c->hasTrainingGrounds()
             && need > 0;

@@ -142,6 +142,7 @@ public:
 
     static int32_t GetTaxpayerGoldPerPeasantPerDay();
     static bool TaxpayerRequiresFarms();
+    static uint32_t GetMaxTaxablePeasantsPerFarm();
 
     Funds GetIncome( int type = INCOME_STANDARD ) const;
     Economy::Snapshot economySnapshot() const;

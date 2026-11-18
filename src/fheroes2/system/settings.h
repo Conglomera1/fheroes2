@@ -144,7 +144,9 @@ public:
     // Testing aid: show the entire map to the local observer without clearing gameplay fog.
     bool isTaxpayerTestMapRevealEnabled() const
     {
-#ifdef FHEROES2_KNIGHT_OBSERVER
+#if defined( FHEROES2_KNIGHT_PUBLIC )
+        return false;
+#elif defined( FHEROES2_KNIGHT_OBSERVER )
         return true; // Presentation only: never clear any player's gameplay fog.
 #elif defined( FHEROES2_TAXPAYER_TEST )
         return _taxpayerTestRevealMap;
@@ -158,7 +160,9 @@ public:
     // 0: off, 1: daily balances and major events, 2: decision details.
     int taxpayerTestDiagnostics() const
     {
-#ifdef FHEROES2_KNIGHT_OBSERVER
+#if defined( FHEROES2_KNIGHT_PUBLIC )
+        return false;
+#elif defined( FHEROES2_KNIGHT_OBSERVER )
         return 1; // Full actual-state telemetry, without the old level-2 planner experiments.
 #elif defined( FHEROES2_TAXPAYER_TEST ) || defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
         return _taxpayerTestDiagnostics;
@@ -171,7 +175,9 @@ public:
     // legacy level-2 planner experiments on the separate switch above.
     int taxpayerTraceDetail() const
     {
-#ifdef FHEROES2_KNIGHT_OBSERVER
+#if defined( FHEROES2_KNIGHT_PUBLIC )
+        return false;
+#elif defined( FHEROES2_KNIGHT_OBSERVER )
         return 2;
 #else
         const int level = taxpayerTestDiagnostics();
@@ -181,7 +187,9 @@ public:
 
     bool isKnightObserverBuild() const
     {
-#ifdef FHEROES2_KNIGHT_OBSERVER
+#if defined( FHEROES2_KNIGHT_PUBLIC )
+        return false;
+#elif defined( FHEROES2_KNIGHT_OBSERVER )
         return true;
 #elif defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
         return _knightObserverEnabled;

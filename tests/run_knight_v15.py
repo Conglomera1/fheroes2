@@ -4,6 +4,7 @@ binary=pathlib.Path(sys.argv[1]).resolve(); out=pathlib.Path(sys.argv[2]).resolv
 cases=['opening_full','opening_coast','route_wait_clear','route_wait_timeout','route_wait_danger','opening_aow','opening_cox','opening_poor','opening_no_goal','opening_late','opening_human','opening_danger','opening_cox_no_high',
  'peasants_weak','peasants_sufficient','supply_peasant_pickup','supply_utopia_j192','supply_hunter','supply_sleep','supply_direct_full','supply_unsafe','supply_occupied','supply_fighter','growth_plague']
 profiles=[('default','# Default\n',cases)]
+public='--public' in sys.argv
 records=[]
 def army(values):
     c=collections.Counter()
@@ -22,7 +23,7 @@ for profile,ini,modes in profiles:
                 assert p.returncode==0,(profile,mode,level,log[-4000:])
                 result='\n'.join(line for line in log.splitlines() if line.startswith('PASS v15'))
                 assert result
-                if not level:assert '[KNIGHT ECONOMY]' not in log
+                if not level or public:assert '[KNIGHT ECONOMY]' not in log
                 for line in log.splitlines():
                     if '[KNIGHT ECONOMY] ' not in line:continue
                     r=json.loads(line.split('[KNIGHT ECONOMY] ',1)[1])
@@ -30,7 +31,7 @@ for profile,ini,modes in profiles:
                         assert army(r['land_before'])+army(r['sea_before'])+army(r['shore_before'])==army(r['land_after'])+army(r['sea_after'])+army(r['shore_after']),r
                     if r['event']=='OBSERVER_ARMY_TRANSFER':
                         assert army(r['source_before'])+army(r['destination_before'])==army(r['source_after'])+army(r['destination_after']),r
-                if mode=='opening_full' and level:
+                if mode=='opening_full' and level and not public:
                     trace=[json.loads(line.split('[KNIGHT ECONOMY] ',1)[1]) for line in log.splitlines() if '[KNIGHT ECONOMY] ' in line]
                     party=next(r for r in trace if r['event']=='NAVAL_OPENING_PARTY')
                     clear=next(r for r in trace if r['event']=='NAVAL_OPENING_CLEARANCE')

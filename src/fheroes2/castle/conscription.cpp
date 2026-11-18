@@ -35,6 +35,8 @@
 #include "resource.h"
 #include "system.h"
 #include "tinyconfig.h"
+#include "translations.h"
+#include "tools.h"
 #include "world.h"
 #include "economy_trace.h"
 
@@ -278,17 +280,22 @@ Conscription::TownDay Castle::conscriptionDaySnapshot() const
 std::string Castle::dailyConscriptionDescription() const
 {
     const auto & config = Conscription::settings();
-    if ( !config.enabled ) return "Conscription is disabled in knight_mod.ini.";
-    std::string description = "Automatically trains up to " + std::to_string( std::max( config.oddDayLimit, config.evenDayLimit ) ) + " Peasants per day into infantry. Conscripts are taken from the garrison first, at "
-        + std::to_string( config.goldPerPeasant ) + " gold each. If needed, additional Peasants are conscripted directly from the Thatched Hut for "
-        + std::to_string( config.goldPerPeasant + Monster( Monster::PEASANT ).GetCost().gold )
-        + " gold each.\n\nTrained troops enter this town's recruitment pools and must be purchased normally.";
+    if ( !config.enabled ) return _( "Conscription is disabled in knight_mod.ini." );
+    std::string description = _( "Automatically trains up to %{count} Peasants per day into infantry." );
+    StringReplace( description, "%{count}", std::max( config.oddDayLimit, config.evenDayLimit ) );
+    description += "\n\n";
+    description += _( "Conscripts are taken from the garrison first: %{fee} gold each. Peasants taken from the Thatched Hut also cost %{price} gold to recruit." );
+    StringReplace( description, "%{fee}", config.goldPerPeasant );
+    StringReplace( description, "%{price}", Monster( Monster::PEASANT ).GetCost().gold );
+    description += "\n\n";
+    description += _( "Trained troops enter this town's recruitment pools and must be purchased normally." );
     if ( config.successRate < Conscription::successScale ) {
         std::ostringstream percentage;
         percentage.precision( 8 );
         percentage << 100.0 * config.successRate / Conscription::successScale;
-        description += "\n\nTraining success: " + percentage.str()
-            + "%. Failed conscripts are lost and still paid for.";
+        std::string success = _( "Training success: %{percent}%. Failed conscripts are lost and still paid for." );
+        StringReplace( success, "%{percent}", percentage.str() );
+        description += "\n\n" + success;
     }
     std::vector<Conscription::TownDay> snapshots;
     size_t selected = 0;
@@ -314,5 +321,5 @@ std::string Castle::dailyConscriptionDescription() const
         if ( !forecast.empty() ) forecast += "\n";
         forecast += std::to_string( count ) + " " + Monster( _race, GetActualDwelling( dwellings[i] ) ).GetPluralName( count );
     }
-    return description + "\n\nExpected Tomorrow:\n" + ( forecast.empty() ? "No troops" : forecast );
+    return description + "\n\n" + _( "Expected Tomorrow:" ) + "\n" + ( forecast.empty() ? _( "No troops" ) : forecast );
 }

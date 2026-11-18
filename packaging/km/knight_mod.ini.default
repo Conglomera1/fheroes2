@@ -1,0 +1,38 @@
+# Knight Mod Public Beta — reference configuration.
+# The active file is knight_mod.ini in the fheroes2 configuration directory.
+# Existing settings are never overwritten. Restart after editing.
+# 0 disables the tax rate; 0 means unlimited for the per-Farm taxpayer cap.
+taxpayer.gold_per_peasant_per_day = 2
+taxpayer.max_taxable_peasants_per_farm = 0
+
+# Conscription: fees are per attempt; Hut recruits also pay the Peasant price.
+# Trained units must still be purchased normally.
+# Odd/even refer to days 1..7 of each week. The defaults allow 17 per week.
+conscription.enabled = 1
+conscription.gold_per_peasant = 100
+conscription.odd_day_limit = 2
+conscription.even_day_limit = 3
+
+# Training success: 1.0=100%; failed attempts consume Peasants and fees.
+conscription.peasant_success_ratio = 1.0
+
+# Distribution per successful cycle; does not alter the daily limit.
+conscription.archers = 8
+conscription.pikemen = 5
+conscription.swordsmen = 4
+
+# Farm to Training Grounds: gold, wood and ore.
+# Prerequisites: Farm, Archery Range, Blacksmith and Armory are mandatory.
+# Optional requirements: 0=no, 1=yes. Arena/Cathedral: 2=upgrade only.
+# Mage Guild: 0=not required; 1..5=minimum level.
+training_grounds.gold = 2500
+training_grounds.wood = 10
+training_grounds.ore = 10
+
+# Return to Farm: conversion cost, not the first Farm price.
+farm_reconversion.gold = 1500
+farm_reconversion.wood = 0
+farm_reconversion.ore = 0
+training_grounds.require_jousting_arena = 0
+training_grounds.require_cathedral = 0
+training_grounds.require_mage_guild = 0

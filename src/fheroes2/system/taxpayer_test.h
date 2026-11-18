@@ -3,13 +3,19 @@
 
 #include "logging.h"
 #include "settings.h"
+#include <sstream>
 
+#ifdef FHEROES2_KNIGHT_PUBLIC
+#define TAXPAYER_TRACE( level, message ) do { if constexpr ( false ) { std::ostringstream unusedTrace; unusedTrace << message; } } while ( false )
+#else
 #define TAXPAYER_TRACE( level, message ) \
     do { \
         if ( Settings::Get().taxpayerTraceDetail() >= ( level ) && fheroes2::taxpayerSimulationDepth == 0 ) { \
             COUT( Logging::GetTimeString() << ": [TAXPAYER DIAG] " << message ); \
         } \
     } while ( false )
+
+#endif
 
 #include <utility>
 #include <set>

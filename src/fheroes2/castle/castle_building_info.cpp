@@ -838,7 +838,7 @@ namespace fheroes2
 
     const char * getBuildingName( const int race, const BuildingType buildingId )
     {
-        if ( race == Race::KNGT && buildingId == BUILD_TRAINING_GROUNDS ) return "Training Grounds";
+        if ( race == Race::KNGT && buildingId == BUILD_TRAINING_GROUNDS ) return _( "Training Grounds" );
         if ( buildingId == BUILD_NOTHING ) {
             // Special case which we should ignore.
             return "";

@@ -458,9 +458,12 @@ std::string Settings::getOptionsString() const
     os << std::endl << "# Toggle fullscreen mode: on/off" << std::endl;
     os << "fullscreen = " << ( _gameOptions.Modes( GAME_FULLSCREEN ) ? "on" : "off" ) << std::endl;
 
+#ifndef FHEROES2_KNIGHT_PUBLIC
     os << std::endl << "# Print debug messages (only for development, see src/engine/logging.h for possible values)" << std::endl;
     os << "debug = " << Logging::getDebugLevel() << std::endl;
 
+#endif
+#ifndef FHEROES2_KNIGHT_PUBLIC
     os << std::endl << "# Taxpayer AI tests only: show all map tiles to the human observer, without changing AI fog-of-war: on/off" << std::endl;
     os << "taxpayer test reveal map = " << ( _taxpayerTestRevealMap ? "on" : "off" ) << std::endl;
     os << "# Taxpayer test diagnostics: 0 off, 1 daily/major events, 2 detailed decisions" << std::endl;
@@ -472,6 +475,8 @@ std::string Settings::getOptionsString() const
 #endif
     os << "# Knight Mod observer: presentation only; does not clear AI fog" << std::endl;
     os << "knight observer = " << ( _knightObserverEnabled ? "on" : "off" ) << std::endl;
+
+#endif
 
     os << std::endl << "# Hero movement speed: 1 - 10" << std::endl;
     os << "heroes speed = " << heroes_speed << std::endl;
@@ -613,9 +618,7 @@ void Settings::setCurrentMapInfo( Maps::FileInfo fi )
 
 bool Settings::setGameLanguage( const std::string & requestedLanguage )
 {
-    // This player prototype is intentionally English-only.
-    const std::string language;
-    (void)requestedLanguage;
+    const std::string language = requestedLanguage;
     fheroes2::updateAlphabet( language );
 
     _gameLanguage = language;
@@ -630,7 +633,7 @@ bool Settings::setGameLanguage( const std::string & requestedLanguage )
         return isSet;
     }
 
-    const std::string fileName = std::string( _gameLanguage ).append( ".mo" );
+    const std::string fileName = std::string( "km_" ).append( _gameLanguage ).append( ".mo" );
 #if defined( MACOS_APP_BUNDLE )
     const ListFiles translations = Settings::FindFiles( "translations", fileName, false );
 #else

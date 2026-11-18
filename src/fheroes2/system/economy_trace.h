@@ -117,6 +117,9 @@ namespace Economy
     }
 }
 
+#ifdef FHEROES2_KNIGHT_PUBLIC
+#define ECONOMY_TRACE( level, event, fields ) do { if constexpr ( false ) { std::ostringstream unusedTrace; unusedTrace << fields; } } while ( false )
+#else
 #define ECONOMY_TRACE( level, event, fields ) \
     do { \
         if ( Settings::Get().taxpayerTestDiagnostics() >= ( level ) && fheroes2::taxpayerSimulationDepth == 0 ) { \
@@ -125,6 +128,8 @@ namespace Economy
                   << ",\"event\":\"" << event << "\"" << fields << '}' ); \
         } \
     } while ( false )
+
+#endif
 
 namespace Economy
 {

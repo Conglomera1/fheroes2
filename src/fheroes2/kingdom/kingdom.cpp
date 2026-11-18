@@ -71,13 +71,13 @@ namespace
 {
     constexpr std::string_view taxpayerConfigFileName = "knight_mod.ini";
     constexpr std::string_view taxpayerGoldPerPeasantKey = "taxpayer.gold_per_peasant_per_day";
-    constexpr std::string_view taxpayerRequireFarmsKey = "taxpayer.require_farms";
+    constexpr std::string_view taxpayerCapKey = "taxpayer.max_taxable_peasants_per_farm";
     constexpr int32_t defaultTaxpayerGoldPerPeasantPerDay = 2;
 
     struct TaxpayerSettings
     {
         int32_t goldPerPeasantPerDay{ defaultTaxpayerGoldPerPeasantPerDay };
-        bool requireFarms{ true };
+        uint32_t maxPerFarm{ 0 };
     };
 
     void logTaxpayerConfigCreationFailure( const std::string & configPath )
@@ -113,9 +113,8 @@ namespace
                                       "# Default: 2. Set to 0 to disable taxation.\n"
                                       "taxpayer.gold_per_peasant_per_day = 2\n"
                                       "\n"
-                                      "# Restrict taxation to Peasants stationed in Knight towns with Farms.\n"
-                                      "# 1 = enabled (default), 0 = tax all Peasants owned by the kingdom.\n"
-                                      "taxpayer.require_farms = 1\n";
+                                      "# Maximum taxable Peasants per Farm. 0 = unlimited.\n"
+                                      "taxpayer.max_taxable_peasants_per_farm = 0\n";
                     }
                     else {
                         logTaxpayerConfigCreationFailure( configPath );
@@ -130,20 +129,12 @@ namespace
                 result.goldPerPeasantPerDay = std::max<int32_t>( 0, config.IntParams( goldKey ) );
             }
 
-            const std::string farmsKey( taxpayerRequireFarmsKey );
-            if ( config.Exists( farmsKey ) ) {
-                result.requireFarms = config.IntParams( farmsKey ) != 0;
-            }
+            const std::string capKey( taxpayerCapKey );
+            if ( config.Exists( capKey ) ) result.maxPerFarm = static_cast<uint32_t>( std::max( 0, config.IntParams( capKey ) ) );
             else {
-                // Add the new setting to an existing config without disturbing its current values.
-                std::ofstream configFile( configPath, std::ios::app );
-                if ( configFile ) {
-                    configFile << "\n# Require a Knight town with Farms for Peasant taxation (1 = yes, 0 = no).\n"
-                                  "taxpayer.require_farms = 1\n";
-                }
-                else {
-                    logTaxpayerConfigCreationFailure( configPath );
-                }
+                std::ofstream file( configPath, std::ios::app );
+                if ( file ) file << "\n# Maximum taxable Peasants per Farm. 0 = unlimited.\n"
+                                  "taxpayer.max_taxable_peasants_per_farm = 0\n";
             }
 
             return result;
@@ -152,27 +143,10 @@ namespace
         return settings;
     }
 
-    uint64_t getKingdomPeasantCount( const Kingdom & kingdom, const bool requireFarms )
+    uint64_t getKingdomPeasantCount( const Kingdom & kingdom )
     {
         uint64_t peasantCount = 0;
         const Monster peasant( Monster::PEASANT );
-
-        if ( !requireFarms ) {
-            // Compatibility mode: count all owned Peasants, as in the original prototype.
-            for ( const Castle * castle : kingdom.GetCastles() ) {
-                if ( castle != nullptr ) {
-                    peasantCount += castle->GetArmy().GetCountMonsters( peasant );
-                }
-            }
-
-            for ( const Heroes * hero : kingdom.GetHeroes() ) {
-                if ( hero != nullptr ) {
-                    peasantCount += hero->GetArmy().GetCountMonsters( peasant );
-                }
-            }
-
-            return peasantCount;
-        }
 
         // Tax only Peasants in Knight towns with Farms, including the stationed hero.
         for ( const Castle * castle : kingdom.GetCastles() ) {
@@ -180,12 +154,14 @@ namespace
                 continue;
             }
 
-            peasantCount += castle->GetArmy().GetCountMonsters( peasant );
+            uint64_t townCount = castle->GetArmy().GetCountMonsters( peasant );
 
             const Heroes * hero = castle->GetHero();
             if ( hero != nullptr ) {
-                peasantCount += hero->GetArmy().GetCountMonsters( peasant );
+                townCount += hero->GetArmy().GetCountMonsters( peasant );
             }
+            const auto cap = getTaxpayerSettings().maxPerFarm;
+            peasantCount += cap ? std::min<uint64_t>( cap, townCount ) : townCount;
         }
 
         return peasantCount;
@@ -197,7 +173,7 @@ namespace
             return 0;
         }
 
-        const uint64_t income = getKingdomPeasantCount( kingdom, settings.requireFarms ) * static_cast<uint64_t>( settings.goldPerPeasantPerDay );
+        const uint64_t income = getKingdomPeasantCount( kingdom ) * static_cast<uint64_t>( settings.goldPerPeasantPerDay );
         const uint64_t maximumIncome = static_cast<uint64_t>( std::numeric_limits<int32_t>::max() );
         return static_cast<int32_t>( std::min( income, maximumIncome ) );
     }
@@ -647,7 +623,8 @@ Economy::Snapshot Kingdom::economySnapshot() const
     result.day = world.CountDay();
     result.gold = GetFunds().gold;
     result.taxRate = static_cast<uint32_t>( GetTaxpayerGoldPerPeasantPerDay() );
-    result.requireFarms = TaxpayerRequiresFarms();
+    result.requireFarms = true;
+    result.maxTaxablePerFarm = GetMaxTaxablePeasantsPerFarm();
     result.nonTaxIncome = int64_t{ GetIncome( INCOME_ALL ).gold } - getKingdomTaxpayerIncome( *this, getTaxpayerSettings() );
     const auto & current = GetFunds();
     const auto income = GetIncome( INCOME_ALL );
@@ -796,9 +773,14 @@ int32_t Kingdom::GetTaxpayerGoldPerPeasantPerDay()
     return getTaxpayerSettings().goldPerPeasantPerDay;
 }
 
+uint32_t Kingdom::GetMaxTaxablePeasantsPerFarm()
+{
+    return getTaxpayerSettings().maxPerFarm;
+}
+
 bool Kingdom::TaxpayerRequiresFarms()
 {
-    return getTaxpayerSettings().requireFarms;
+    return true;
 }
 
 Funds Kingdom::GetIncome( int type /* = INCOME_STANDARD */ ) const

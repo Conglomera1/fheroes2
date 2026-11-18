@@ -3,6 +3,7 @@ import json, os, pathlib, subprocess, sys, tempfile, collections
 binary=pathlib.Path(sys.argv[1]).resolve(); out=pathlib.Path(sys.argv[2]).resolve(); out.mkdir(parents=True,exist_ok=True)
 cases=['control','delivery','far_occupied','slow_load_moves','full_turn','loading_blocked','danger','military']
 profiles=[('default','# Default\n',cases)]
+public='--public' in sys.argv
 records=[]
 def army(values):
     c=collections.Counter()
@@ -21,7 +22,7 @@ for profile,ini,modes in profiles:
                 assert p.returncode==0,(profile,mode,level,log[-4000:])
                 result='\n'.join(line for line in log.splitlines() if line.startswith('PASS v16'))
                 assert result
-                if not level:assert '[KNIGHT ECONOMY]' not in log
+                if not level or public:assert '[KNIGHT ECONOMY]' not in log
                 for line in log.splitlines():
                     if '[KNIGHT ECONOMY] ' not in line:continue
                     r=json.loads(line.split('[KNIGHT ECONOMY] ',1)[1])
@@ -29,7 +30,7 @@ for profile,ini,modes in profiles:
                         assert army(r['land_before'])+army(r['sea_before'])+army(r['shore_before'])==army(r['land_after'])+army(r['sea_after'])+army(r['shore_after']),r
                     if r['event']=='OBSERVER_ARMY_TRANSFER':
                         assert army(r['source_before'])+army(r['destination_before'])==army(r['source_after'])+army(r['destination_after']),r
-                if mode in ['delivery','far_occupied','full_turn','control'] and level:
+                if mode in ['delivery','far_occupied','full_turn','control'] and level and not public:
                     trace=[json.loads(line.split('[KNIGHT ECONOMY] ',1)[1]) for line in log.splitlines() if '[KNIGHT ECONOMY] ' in line]
                     cons=[r for r in trace if r['event']=='CONSCRIPTION_DAY' and r['town']==5678]
                     assert sum(r['success_total_after']-r['success_total_before'] for r in cons)==(7 if mode=='control' else 10)

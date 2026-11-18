@@ -65,7 +65,11 @@ namespace
     const std::string_view rootDir{ "fheroes2" };
     const std::string_view filesDir{ "files" };
 
+#ifdef FHEROES2_KNIGHT_PUBLIC
+    const char * const appCaption{ "Knight Mod Public Beta 1 - fheroes2 " ENGINE_VERSION };
+#else
     const char * const appCaption{ "fheroes2 engine, version: " ENGINE_VERSION };
+#endif
 
     class DisplayInitializer final : public ComponentBase
     {
