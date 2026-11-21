@@ -1,4 +1,4 @@
-# Knight Mod Public Beta — reference configuration.
+# Knight Mod Mode 2 — reference configuration.
 # The active file is knight_mod.ini in the fheroes2 configuration directory.
 # Existing settings are never overwritten. Restart after editing.
 # 0 disables the tax rate; 0 means unlimited for the per-Farm taxpayer cap.
@@ -8,9 +8,19 @@ taxpayer.max_taxable_peasants_per_farm = 0
 
 # Conscription: fees are per attempt; Hut recruits also pay the Peasant price.
 # Trained units must still be purchased normally.
-# Odd/even refer to days 1..7 of each week. The defaults allow 17 per week.
-conscription.enabled = 1
-conscription.gold_per_peasant = 100
+# 0 = disabled; 1 = fixed quotas; 2 = adjustable daily order per town.
+conscription.mode = 1
+conscription.gold_per_peasant = 50
+
+# Mode 2 only. 1.0 adds the base fee at the first step, then the multiplier scales each successive increment.
+# If the base fee is zero, gold_increment is an absolute amount in gold. 0 = flat pricing.
+conscription.gold_increment = 1.0
+conscription.gold_increment_multiplier = 1.0
+conscription.gold_increment_step = 1
+# 0 = marginal price by rank, 1 = all Peasants in the fulfilled order pay the highest rank's price.
+conscription.uniform_batch_price = 0
+
+# Mode 1 only. Odd/even refer to days 1..7 of each week. The default quotas allow 17 per week.
 conscription.odd_day_limit = 2
 conscription.even_day_limit = 3
 
@@ -26,12 +36,12 @@ conscription.swordsmen = 4
 # Prerequisites: Farm, Archery Range, Blacksmith and Armory are mandatory.
 # Optional requirements: 0=no, 1=yes. Arena/Cathedral: 2=upgrade only.
 # Mage Guild: 0=not required; 1..5=minimum level.
-training_grounds.gold = 2500
+training_grounds.gold = 1750
 training_grounds.wood = 10
-training_grounds.ore = 10
+training_grounds.ore = 5
 
 # Return to Farm: conversion cost, not the first Farm price.
-farm_reconversion.gold = 1500
+farm_reconversion.gold = 1250
 farm_reconversion.wood = 0
 farm_reconversion.ore = 0
 

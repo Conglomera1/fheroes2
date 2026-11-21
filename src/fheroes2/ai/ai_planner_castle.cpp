@@ -1296,12 +1296,13 @@ uint32_t AI::KnightConstruction::populationReserve( const Castle & castle )
     uint64_t hut = castle.conscriptionDaySnapshot().hut, need = 0;
     const uint32_t growth = castle.isBuild( DWELLING_MONSTER1 ) ? Monster( Monster::PEASANT ).GetGrown()
         + ( castle.isBuild( BUILD_WELL ) ? Castle::GetGrownWell() : 0 ) : 0;
+    const uint32_t adjustableDemand = config.mode == 2 ? AI::KnightEconomy::supplyOrder( castle ) : 0;
     // Minimum initial garrison to bridge fourteen days, including the timing
     // of Hut growth. A prospective TG never receives the Farm's growth bonus.
     for ( uint32_t offset = 1; offset <= 14; ++offset ) {
         const uint64_t date = uint64_t{ world.CountDay() } + offset;
         if ( ( date - 1 ) % 7 == 0 ) hut += growth;
-        const uint64_t demand = ( date - 1 ) % 7 % 2 == 0 ? config.oddDayLimit : config.evenDayLimit;
+        const uint64_t demand = config.mode == 2 ? adjustableDemand : ( ( date - 1 ) % 7 % 2 == 0 ? config.oddDayLimit : config.evenDayLimit );
         if ( hut >= demand ) hut -= demand;
         else { need += demand - hut; hut = 0; }
     }

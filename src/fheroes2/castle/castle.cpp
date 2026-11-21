@@ -971,6 +971,7 @@ void Castle::ChangeColor( const PlayerColor newColor )
 {
     TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << GetIndex() << ": ownership " << Color::String( GetColor() ) << " -> "
                        << Color::String( newColor ) << ", surviving garrison Peasants " << _army.GetCountMonsters( Monster::PEASANT ) );
+    if ( newColor != GetColor() ) _conscriptionOrder = 0;
     SetColor( newColor );
     _army.SetColor( newColor );
 }
@@ -1097,6 +1098,7 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
         return false;
     }
 
+    [[maybe_unused]] int recruitedBy = -1;
     if ( !GetArmy().JoinTroop( troop ) ) {
         Heroes * hero = world.GetHero( *this );
 
@@ -1106,13 +1108,16 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
             }
             return false;
         }
+        recruitedBy = hero->GetID();
     }
 
     kingdom.OddFundsResource( paymentCosts );
     _dwelling[dwellingIndex] -= count;
     ECONOMY_TRACE( 1, "TROOP_PURCHASE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
                    << ",\"town\":" << GetIndex() << ",\"monster\":" << troop.GetID() << ",\"requested_count\":" << troop.GetCount()
-                   << ",\"stock_removed\":" << count << ",\"cost\":" << Economy::fundsJson( paymentCosts ) );
+                   << ",\"stock_removed\":" << count << ",\"pool_before\":" << _dwelling[dwellingIndex] + count
+                   << ",\"pool_after\":" << _dwelling[dwellingIndex] << ",\"visitor_id\":" << recruitedBy
+                   << ",\"cost\":" << Economy::fundsJson( paymentCosts ) );
 
     DEBUG_LOG( DBG_GAME, DBG_TRACE, _name << " recruit: " << troop.GetMultiName() << "(" << count << ")" )
 
@@ -1300,6 +1305,7 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
     }
 
     const bool conversion = _race == Race::KNGT && ( buildingType == BUILD_TRAINING_GROUNDS || ( buildingType == BUILD_WEL2 && hasTrainingGrounds() ) );
+    if ( conversion ) _conscriptionOrder = 0;
     const Economy::CauseScope cause( conversion ? "role_conversion" : "building_purchase", GetIndex() );
     const Funds payment = getBuildingCost( buildingType );
     GetKingdom().OddFundsResource( payment );
@@ -2500,7 +2506,7 @@ OStreamBase & operator<<( OStreamBase & stream, const Castle & castle )
 
     stream << castle._army;
     Conscription::writeState( stream, castle._conscription );
-    return stream << castle._conscriptionWeek << castle._conscriptionThisWeek;
+    return stream << castle._conscriptionWeek << castle._conscriptionThisWeek << castle._conscriptionOrder;
 }
 
 IStreamBase & operator>>( IStreamBase & stream, Castle & castle )
@@ -2535,10 +2541,15 @@ IStreamBase & operator>>( IStreamBase & stream, Castle & castle )
     stream >> castle._army;
     castle._army.SetCommander( &castle._captain );
     castle._conscription = {};
+    castle._conscriptionOrder = 0;
     castle._conscriptionWeek = castle._conscriptionThisWeek = 0;
     if ( Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_CONSCRIPTION ) {
         Conscription::readState( stream, castle._conscription, Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_TRAINING_LOSSES );
         stream >> castle._conscriptionWeek >> castle._conscriptionThisWeek;
+        if ( Game::GetVersionOfCurrentSaveFile() >= FORMAT_VERSION_KNIGHT_DAILY_ORDER ) {
+            stream >> castle._conscriptionOrder;
+            if ( castle._conscriptionOrder > Conscription::maxDailyOrder ) stream.setFail();
+        }
     }
     return stream;
 }

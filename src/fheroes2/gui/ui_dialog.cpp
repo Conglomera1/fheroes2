@@ -990,7 +990,7 @@ namespace fheroes2
         _buttonUp.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( _buttonUp.area() ) );
         _buttonDown.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( _buttonDown.area() ) );
 
-        if ( _value + _step <= _maximum && ( le.MouseClickLeft( _buttonUp.area() ) || _isIncreaseValueEvent( le ) || _timedButtonUp.isDelayPassed() ) ) {
+        if ( int64_t{ _value } + _step <= _maximum && ( le.MouseClickLeft( _buttonUp.area() ) || _isIncreaseValueEvent( le ) || _timedButtonUp.isDelayPassed() ) ) {
             _value += _step;
             return true;
         }

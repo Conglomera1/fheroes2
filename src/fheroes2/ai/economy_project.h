@@ -215,9 +215,8 @@ namespace AI::EconomyProject
                 if ( !refresh( state ) ) return stop( Status::Incomplete, "loss_refresh_failed", 0, day );
                 if ( !input.losses.empty() && std::none_of( state.towns.begin(), state.towns.end(), []( const Town & t ) { return t.available; } ) )
                     return stop( Status::Incomplete, "kingdom_continuation_after_last_town_unmodelled", 0, day );
-                size_t training = 0;
-                for ( const auto & town : state.economy.towns ) if ( town.training ) ++training;
-                const uint64_t attempts = input.config.enabled ? uint64_t{ Conscription::dailyLimitForDay( input.config, day ) } * training : 0;
+                uint64_t attempts = 0;
+                for ( const auto & town : state.economy.towns ) if ( town.training ) attempts += Conscription::scheduleWork( input.config, town.troops, day );
                 if ( !work.days || attempts > work.attempts ) return stop( Status::Limit, "shared_projection_limit", 0, day );
                 --work.days; work.attempts -= attempts;
                 const Resources before = funds( state.economy );
@@ -304,8 +303,14 @@ namespace AI::EconomyProject
                 }
                 if ( building ) {
                     if ( building->newPool >= 0 && building->newPool < 6 ) stock( state, i, static_cast<size_t>( building->newPool ) ) = town.dwellings[static_cast<size_t>( building->newPool )].basic.growth;
-                    if ( town.race == Race::KNGT && action.building == BUILD_TRAINING_GROUNDS ) town.mask &= ~BUILD_WEL2;
-                    else if ( town.race == Race::KNGT && action.building == BUILD_WEL2 ) town.mask &= ~BUILD_TRAINING_GROUNDS;
+                    if ( town.race == Race::KNGT && action.building == BUILD_TRAINING_GROUNDS ) {
+                        town.mask &= ~BUILD_WEL2;
+                        state.economy.towns[i].troops.order = 0;
+                    }
+                    else if ( town.race == Race::KNGT && action.building == BUILD_WEL2 ) {
+                        town.mask &= ~BUILD_TRAINING_GROUNDS;
+                        state.economy.towns[i].troops.order = 0;
+                    }
                     town.mask |= action.building; town.buildAvailable = false;
                     const int64_t income = state.economy.nonTaxIncome + building->income[0];
                     if ( income > EconomyBudget::resourceMaximum ) return stop( Status::Incomplete, "income_overflow", action.id, day );

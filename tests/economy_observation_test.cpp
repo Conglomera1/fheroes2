@@ -1,9 +1,13 @@
 #include "economy_forecast.h"
 #include "difficulty.h"
+#include "game_io.h"
+#include "knight_economy.h"
 #include "kingdom.h"
 #include "map_format_info.h"
 #include "players.h"
 #include "race.h"
+#include "save_format_version.h"
+#include "serialize.h"
 #include "settings.h"
 #include "world.h"
 #include "ai_common.h"
@@ -36,6 +40,26 @@ int main( int argc, char ** argv )
     kingdom.OddFundsResource( kingdom.GetFunds() );
     kingdom.AddFundsResource( Funds( Resource::GOLD, 340 ) );
     kingdom.AddFundsResource( kingdom.GetFunds() ); // Exercise aliased credit logging too.
+    const bool adjustable = Conscription::settings().mode == 2;
+    if ( adjustable ) {
+        assert( towns[1]->getConscriptionOrder() == 0 );
+        towns[1]->setConscriptionOrder( 4 );
+        towns[2]->setConscriptionOrder( 2 );
+
+        RWStreamBuf data;
+        data << *towns[1];
+        Game::SetVersionOfCurrentSaveFile( CURRENT_FORMAT_VERSION );
+        Castle restored( 2, 1, Race::KNGT );
+        data >> restored;
+        assert( !data.fail() && restored.getConscriptionOrder() == 4 );
+
+        RWStreamBuf earlierData;
+        earlierData << *towns[1];
+        Game::SetVersionOfCurrentSaveFile( FORMAT_VERSION_KNIGHT_TRAINING_LOSSES );
+        earlierData >> restored;
+        assert( !earlierData.fail() && restored.getConscriptionOrder() == 0 && earlierData.get32() == 4 );
+        Game::SetVersionOfCurrentSaveFile( CURRENT_FORMAT_VERSION );
+    }
     world.NewDay(); // Day 1 skips daily income and conscription.
     for ( int i = 0; i < 6; ++i ) {
         const auto before = kingdom.economySnapshot();
@@ -69,6 +93,7 @@ int main( int argc, char ** argv )
             const auto & a = actual.towns[n].troops;
             const auto & b = predicted.end.towns[n].troops;
             assert( a.garrison == b.garrison && a.hut == b.hut && a.pools == b.pools );
+            assert( a.order == b.order && a.order == ( adjustable && n == 1 ? 4U : adjustable && n == 2 ? 2U : 0U ) );
             assert( a.state.total == b.state.total && a.state.quotas == b.state.quotas && a.state.used == b.state.used );
             assert( a.state.next == b.state.next && a.state.lossRemainder == b.state.lossRemainder );
         }
@@ -78,6 +103,16 @@ int main( int argc, char ** argv )
     assert( towns[0]->BuyBuilding( BUILD_WELL ) );
     assert( towns[0]->RecruitMonster( Troop( Monster( Monster::PEASANT ), 1 ), false ) );
     assert( AI::tradeAtMarketplace( kingdom, Funds( Resource::GEMS, 13 ) ) );
+    if ( adjustable ) {
+        Players::Get( PlayerColor::BLUE )->SetControl( CONTROL_AI );
+        kingdom.OddFundsResource( kingdom.GetFunds() );
+        AI::KnightEconomy::planDailyOrders( kingdom );
+        assert( towns[1]->getConscriptionOrder() == 0 && towns[2]->getConscriptionOrder() == 0 );
+        kingdom.AddFundsResource( Funds( Resource::GOLD, 100000 ) );
+        towns[1]->GetArmy().JoinTroop( Monster( Monster::PEASANT ), 12, false );
+        AI::KnightEconomy::planDailyOrders( kingdom );
+        assert( towns[1]->getConscriptionOrder() > 0 );
+    }
     const auto final = kingdom.economySnapshot();
     std::cout << "RESULT " << final.gold;
     for ( const auto & town : final.towns ) std::cout << ' ' << town.troops.state.total << ' ' << town.troops.hut << ' ' << town.troops.garrison

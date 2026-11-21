@@ -341,6 +341,9 @@ public:
     bool conscript( ArmyTroop & troop );
     static void processDailyConscription( Kingdom & kingdom );
     std::string dailyConscriptionDescription() const;
+    std::string conscriptionOrderPreview( uint32_t count ) const;
+    uint32_t getConscriptionOrder() const { return _conscriptionOrder; }
+    void setConscriptionOrder( const uint32_t count ) { _conscriptionOrder = std::min( count, Conscription::maxDailyOrder ); }
     Conscription::TownDay conscriptionDaySnapshot() const;
 
     BuildingStatus CheckBuyBuilding( const uint32_t build ) const;
@@ -455,6 +458,7 @@ private:
 
     MageGuild _mageGuild;
     std::array<uint32_t, maxNumOfDwellings> _dwelling{ 0 };
+    uint32_t _conscriptionOrder = 0;
     Conscription::State _conscription;
     uint32_t _conscriptionWeek = 0;
     uint32_t _conscriptionThisWeek = 0;

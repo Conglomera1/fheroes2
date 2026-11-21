@@ -110,6 +110,9 @@ namespace Economy
               << ",\"source_path_bytes\":" << jsonQuote( state.source ) << ",\"map_seed\":" << world.GetMapSeed()
               << ",\"peasant_cost\":" << Monster( Monster::PEASANT ).GetCost().gold << ",\"tax_rate\":" << Kingdom::GetTaxpayerGoldPerPeasantPerDay()
               << ",\"require_farms\":" << ( Kingdom::TaxpayerRequiresFarms() ? "true" : "false" )
+              << ",\"mode\":" << config.mode << ",\"price_increment\":" << config.goldIncrement
+              << ",\"increment_multiplier\":" << config.goldIncrementMultiplier << ",\"increment_step\":" << config.goldIncrementStep
+              << ",\"uniform_batch_price\":" << ( config.uniformBatchPrice ? "true" : "false" )
               << ",\"enabled\":" << ( config.enabled ? "true" : "false" ) << ",\"odd_limit\":" << config.oddDayLimit << ",\"even_limit\":" << config.evenDayLimit
               << ",\"success_scaled\":" << config.successRate << ",\"fee\":" << config.goldPerPeasant
               << ",\"composition\":[" << config.quotas[0] << ',' << config.quotas[1] << ',' << config.quotas[2] << ']'

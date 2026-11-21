@@ -21,6 +21,7 @@
 #pragma once
 
 #include <array>
+#include <cmath>
 #include <algorithm>
 #include <cstdint>
 #include <cstddef>
@@ -106,7 +107,12 @@ namespace Conscription
 
     struct Settings
     {
-        uint32_t goldPerPeasant = 100;
+        uint32_t goldPerPeasant = 50;
+        uint32_t mode = 1;
+        double goldIncrement = 1.0;
+        double goldIncrementMultiplier = 1.0;
+        uint32_t goldIncrementStep = 1;
+        bool uniformBatchPrice = false;
         Quotas quotas{ 8, 5, 4 };
         uint32_t weeklyLimit = 0; // Legacy save compatibility; no longer used.
         uint32_t dailyLimit = 3;
@@ -115,8 +121,8 @@ namespace Conscription
         bool enabled = true;
         uint32_t successRate = successScale;
         uint32_t requiredBuildings = 0;
-        int32_t trainingGold = 2500, trainingWood = 10, trainingOre = 10;
-        int32_t farmGold = 1500, farmWood = 0, farmOre = 0;
+        int32_t trainingGold = 1750, trainingWood = 10, trainingOre = 5;
+        int32_t farmGold = 1250, farmWood = 0, farmOre = 0;
     };
     const Settings & settings();
 
@@ -128,7 +134,97 @@ namespace Conscription
         std::array<uint64_t, 3> pools{};
         uint32_t fromGarrison = 0, fromHut = 0;
         uint32_t failed = 0;
+        uint32_t order = 0;
+        uint64_t trainingFees = 0;
+        int64_t goldBefore = 0;
     };
+
+    constexpr uint32_t maxDailyOrder = static_cast<uint32_t>( std::numeric_limits<int32_t>::max() );
+    constexpr uint64_t feeDisplayLimit = static_cast<uint64_t>( std::numeric_limits<int64_t>::max() / 2 );
+
+    inline std::array<uint64_t, 3> train( State & state, const uint32_t count, const Settings & config )
+    {
+        const uint64_t losses = state.lossRemainder + uint64_t{ count } * ( successScale - std::min( config.successRate, successScale ) );
+        state.lossRemainder = static_cast<uint32_t>( losses % successScale );
+        return advance( state, count - static_cast<uint32_t>( losses / successScale ), config.quotas );
+    }
+
+    // Combining adjacent blocks avoids work proportional to the order size.
+    // Each block carries multiplier^length, the final surcharge, and the sum
+    // of the surcharges before each step, normalized to an initial increment of 1.
+    inline uint64_t trainingCost( const Settings & config, const uint32_t count )
+    {
+        if ( count == 0 ) return 0;
+        const long double initial = static_cast<long double>( count ) * config.goldPerPeasant;
+        if ( config.mode != 2 || config.goldIncrement <= 0 ) return uint64_t{ count } * config.goldPerPeasant;
+
+        // When the first Peasant is free, the ratio is an absolute increment in gold.
+        const long double increment = config.goldIncrement * static_cast<long double>( std::max( 1U, config.goldPerPeasant ) );
+        const long double normalizedLimit = ( static_cast<long double>( feeDisplayLimit ) / std::max( increment, 1e-12L ) ) + 1;
+        struct Block
+        {
+            uint64_t length;
+            long double multiplier;
+            long double surcharge;
+            long double sum;
+        };
+        const auto combine = [normalizedLimit]( const Block & first, const Block & second ) {
+            const auto cap = [normalizedLimit]( const long double value ) { return std::min( value, normalizedLimit ); };
+            return Block{ first.length + second.length, cap( first.multiplier * second.multiplier ),
+                          cap( first.surcharge + first.multiplier * second.surcharge ),
+                          cap( first.sum + second.length * first.surcharge + first.multiplier * second.sum ) };
+        };
+        const uint32_t step = std::max( 1U, config.goldIncrementStep );
+        const uint32_t lastTier = ( count - 1 ) / step;
+        Block result{ 0, 1, 0, 0 };
+        Block power{ 1, config.goldIncrementMultiplier, 1, 0 };
+        for ( uint32_t tiers = lastTier; tiers; tiers >>= 1 ) {
+            if ( tiers & 1U ) result = combine( result, power );
+            if ( tiers > 1 ) power = combine( power, power );
+        }
+        const long double extra = config.uniformBatchPrice ? count * result.surcharge
+                                                           : step * result.sum + ( count - uint64_t{ lastTier } * step ) * result.surcharge;
+        const long double total = initial + extra * increment;
+        if ( total >= static_cast<long double>( feeDisplayLimit ) ) return feeDisplayLimit;
+        return static_cast<uint64_t>( std::ceil( total ) );
+    }
+
+    inline uint64_t batchCost( const Settings & config, const uint32_t count, const uint64_t garrison, const uint32_t peasantCost )
+    {
+        return trainingCost( config, count ) + ( count - std::min<uint64_t>( count, garrison ) ) * peasantCost;
+    }
+
+    inline void scheduleOrder( TownDay & town, int64_t & gold, const Settings & config, const uint32_t peasantCost )
+    {
+        town.goldBefore = gold;
+        if ( gold < 0 ) return;
+        uint32_t low = 0;
+        uint32_t high = static_cast<uint32_t>( std::min<uint64_t>( town.order, town.garrison + town.hut ) );
+        const auto canTrain = [&]( const uint32_t count ) {
+            if ( batchCost( config, count, town.garrison, peasantCost ) > static_cast<uint64_t>( gold )
+                 || town.state.total > std::numeric_limits<uint64_t>::max() - count ) return false;
+            auto state = town.state;
+            const auto recruits = train( state, count, config );
+            for ( size_t i = 0; i < 3; ++i ) {
+                if ( town.pools[i] + recruits[i] > std::numeric_limits<uint32_t>::max() ) return false;
+            }
+            return true;
+        };
+        while ( low < high ) {
+            const uint32_t candidate = low + ( high - low + 1 ) / 2;
+            if ( canTrain( candidate ) ) low = candidate;
+            else high = candidate - 1;
+        }
+        const auto recruits = train( town.state, low, config );
+        town.failed = low - static_cast<uint32_t>( std::accumulate( recruits.begin(), recruits.end(), uint64_t{ 0 } ) );
+        town.fromGarrison = static_cast<uint32_t>( std::min<uint64_t>( low, town.garrison ) );
+        town.fromHut = low - town.fromGarrison;
+        town.trainingFees = trainingCost( config, low );
+        gold -= static_cast<int64_t>( town.trainingFees + uint64_t{ town.fromHut } * peasantCost );
+        town.garrison -= town.fromGarrison;
+        town.hut -= town.fromHut;
+        for ( size_t i = 0; i < 3; ++i ) town.pools[i] += recruits[i];
+    }
 
     // Pure scheduler shared by real turns and forecasts. Input order is the interface order.
     inline uint32_t dailyLimitForDay( const Settings & config, const uint32_t day )
@@ -137,9 +233,25 @@ namespace Conscription
         return calendarDay % 2 == 0 ? config.evenDayLimit : config.oddDayLimit;
     }
 
+    inline uint64_t scheduleWork( const Settings & config, const TownDay & town, const uint32_t day )
+    {
+        if ( !config.enabled ) return 0;
+        // Adjustable orders are evaluated in bulk, whereas fixed quotas run one attempt at a time.
+        return config.mode == 2 ? ( town.order == 0 ? 0 : 32 ) : dailyLimitForDay( config, day );
+    }
+
     inline void scheduleDay( std::vector<TownDay> & towns, int64_t & gold, const Settings & config, const uint32_t peasantCost, const uint32_t day = 0 )
     {
+        for ( auto & town : towns ) {
+            town.fromGarrison = town.fromHut = town.failed = 0;
+            town.trainingFees = 0;
+            town.goldBefore = gold;
+        }
         if ( !config.enabled ) return;
+        if ( config.mode == 2 ) {
+            for ( auto & town : towns ) scheduleOrder( town, gold, config, peasantCost );
+            return;
+        }
         const uint32_t limit = day == 0 ? config.dailyLimit : dailyLimitForDay( config, day );
         for ( uint32_t pass = 0; pass < limit; ++pass ) {
             bool progress = false;
@@ -157,6 +269,7 @@ namespace Conscription
                 for ( size_t i = 0; i < 3; ++i ) fits = fits && town.pools[i] + recruits[i] <= std::numeric_limits<uint32_t>::max();
                 if ( !fits ) continue;
                 gold -= cost;
+                town.trainingFees += config.goldPerPeasant;
                 if ( town.garrison ) { --town.garrison; ++town.fromGarrison; }
                 else { --town.hut; ++town.fromHut; }
                 town.state = next;

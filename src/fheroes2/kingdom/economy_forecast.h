@@ -174,8 +174,8 @@ namespace Economy
             const int64_t beforeTraining = next.gold;
             std::vector<Conscription::TownDay> training;
             for ( const Town & town : next.towns ) if ( town.training ) training.push_back( town.troops );
-            const uint64_t dayWork = next.day > 1 && config.enabled
-                                         ? uint64_t{ Conscription::dailyLimitForDay( config, next.day ) } * training.size() : 0;
+            uint64_t dayWork = 0;
+            if ( next.day > 1 ) for ( const auto & town : training ) dayWork += Conscription::scheduleWork( config, town, next.day );
             if ( dayWork > workLimit - work ) { result.reason = "work_limit"; return result; }
             work += dayWork;
             if ( next.day > 1 ) Conscription::scheduleDay( training, next.gold, config, next.peasantCost, next.day );

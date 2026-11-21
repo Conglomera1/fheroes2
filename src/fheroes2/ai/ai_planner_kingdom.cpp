@@ -1141,6 +1141,8 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         }
     }
 
+    AI::KnightEconomy::planDailyOrders( kingdom );
+
     // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
     if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
         const Monster peasant( Monster::PEASANT );

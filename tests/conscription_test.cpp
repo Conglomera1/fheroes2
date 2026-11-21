@@ -67,6 +67,7 @@ int main()
     state = {};
     assert( (advance( state,17,Quotas{} ) == std::array<uint64_t,3>{8,5,4}) );
     Settings config;
+    config.goldPerPeasant = 100;
     assert( dailyLimitForDay( config, 1 ) == 2 );
     assert( dailyLimitForDay( config, 2 ) == 3 );
     assert( 4 * dailyLimitForDay( config, 1 ) + 3 * dailyLimitForDay( config, 2 ) == 17 );
@@ -118,18 +119,21 @@ int main()
     assert( towns[0].state.total == 0 && towns[0].garrison == 8 );
     // Deterministic losses, even when the INI changes daily limits or is restarted.
     config = {};
+    config.goldPerPeasant = 100;
     config.dailyLimit = 1;
     config.successRate = 850000;
     towns = std::vector<TownDay>( 1 );
     towns[0].garrison = 20;
     gold = 2000;
+    uint32_t failedTotal = 0;
     for ( uint32_t attempt = 1; attempt <= 20; ++attempt ) {
         const auto successes = towns[0].state.total;
         scheduleDay( towns, gold, config, 20 );
         const bool failed = attempt == 7 || attempt == 14 || attempt == 20;
-        assert( towns[0].state.total == successes + !failed );
+        assert( towns[0].state.total == successes + !failed && towns[0].failed == failed );
+        failedTotal += towns[0].failed;
     }
-    assert( gold == 0 && towns[0].garrison == 0 && towns[0].failed == 3 );
+    assert( gold == 0 && towns[0].garrison == 0 && failedTotal == 3 );
     assert( towns[0].state.total == 17 && towns[0].state.lossRemainder == 0 );
     assert( towns[0].pools == ( std::array<uint64_t,3>{8,5,4} ) );
     // Lack of funds must not advance either counter. Preview copies stay isolated.
@@ -154,5 +158,60 @@ int main()
     gold = 100;
     scheduleDay( towns, gold, config, 20 );
     assert( towns[0].state.total == 1 );
+    config = {};
+    config.mode = 2;
+    config.oddDayLimit = config.evenDayLimit = 0;
+    assert( trainingCost( config, 0 ) == 0 && trainingCost( config, 4 ) == 500 );
+    config.goldIncrementMultiplier = 2.0;
+    assert( trainingCost( config, 4 ) == 750 );
+    config.goldIncrementStep = 2;
+    assert( trainingCost( config, 5 ) == 500 );
+    config.goldIncrementMultiplier = 1.5;
+    assert( trainingCost( config, 5 ) == 475 );
+    config.goldIncrement = 0.5;
+    assert( trainingCost( config, 5 ) == 363 );
+    config.goldIncrement = 0.0;
+    assert( trainingCost( config, maxDailyOrder ) == uint64_t{ maxDailyOrder } * 50 );
+    config.goldIncrement = 1.0;
+    config.goldIncrementMultiplier = 2.0;
+    config.goldIncrementStep = 1;
+    assert( trainingCost( config, maxDailyOrder ) == feeDisplayLimit );
+
+    config.goldIncrementMultiplier = 1.0;
+    config.uniformBatchPrice = true;
+    assert( trainingCost( config, 4 ) == 800 );
+    towns = std::vector<TownDay>( 2 );
+    towns[0].order = 4;
+    towns[0].garrison = 2;
+    towns[0].hut = 1;
+    towns[1].order = 4;
+    towns[1].garrison = 5;
+    gold = 520;
+    scheduleDay( towns, gold, config, 20, 9 );
+    assert( towns[0].order == 4 && towns[0].state.total == 3 && towns[0].trainingFees == 450 && towns[0].fromHut == 1 );
+    assert( towns[1].order == 4 && towns[1].state.total == 1 && towns[1].goldBefore == 50 && gold == 0 );
+
+    config.goldPerPeasant = 0;
+    config.uniformBatchPrice = false;
+    config.goldIncrement = 50;
+    assert( trainingCost( config, 4 ) == 300 );
+    assert( trainingCost( config, 1 ) == 0 );
+    gold = 0;
+    scheduleDay( towns, gold, config, 20, 10 );
+    assert( towns[1].state.total == 2 && towns[1].trainingFees == 0 && towns[1].fromGarrison == 1 );
+    towns[1].order = 0;
+    scheduleDay( towns, gold, config, 20, 11 );
+    assert( towns[1].fromGarrison == 0 && towns[1].failed == 0 && towns[1].state.total == 2 );
+
+    config = {};
+    config.mode = 2;
+    config.successRate = 850000;
+    TownDay bulk;
+    bulk.order = bulk.garrison = 20;
+    towns = { bulk };
+    gold = 20000;
+    scheduleDay( towns, gold, config, 20, 10 );
+    assert( towns[0].failed == 3 && towns[0].state.total == 17 && towns[0].state.lossRemainder == 0 );
+    assert( ( towns[0].pools == std::array<uint64_t,3>{8,5,4} ) );
     std::cout << "Conscription cycle and daily scheduler checks passed\n";
 }

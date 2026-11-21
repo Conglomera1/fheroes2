@@ -67,10 +67,38 @@ const Conscription::Settings & Conscription::settings()
             return fallback;
         };
         section( "Conscription" );
-        section( "Enable conscription and Training Grounds construction: 0 = no, 1 = yes." );
-        result.enabled = read( "conscription.enabled", 1, 1 ) != 0;
+        section( "Conscription mode: 0 = disabled, 1 = fixed daily quotas, 2 = orders per town." );
+        const int32_t legacyMode = config.Exists( "conscription.enabled" ) ? std::clamp( config.IntParams( "conscription.enabled" ), 0, 1 ) : 1;
+        result.mode = read( "conscription.mode", legacyMode, 2 );
+        result.enabled = result.mode != 0;
         section( "Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price." );
-        result.goldPerPeasant = read( "conscription.gold_per_peasant", 100, 1000000 );
+        result.goldPerPeasant = read( "conscription.gold_per_peasant", 50, 1000000 );
+        const auto readDecimal = [&]( const char * key, const double minimum, const double maximum ) {
+            double value = 1.0;
+            if ( config.Exists( key ) ) {
+                const auto text = config.StrParams( key );
+                try {
+                    size_t consumed = 0;
+                    const double decimal = std::stod( text, &consumed );
+                    if ( consumed == text.size() && std::isfinite( decimal ) ) value = std::clamp( decimal, minimum, maximum );
+                }
+                catch ( const std::exception & ) {
+                    // Invalid values keep the default.
+                }
+            }
+            else if ( additions ) additions << comments << key << " = 1.0\n";
+            comments.clear();
+            return value;
+        };
+        section( "Mode 2: increase per tier as a fraction of the base fee. 1.0 = the same amount; 0 = flat pricing." );
+        comments += "# If the base fee is zero, this is an increment in gold.\n";
+        result.goldIncrement = readDecimal( "conscription.gold_increment", 0.0, 1000000.0 );
+        section( "Mode 2: multiply each successive increment by this factor. Minimum 1.0." );
+        result.goldIncrementMultiplier = readDecimal( "conscription.gold_increment_multiplier", 1.0, 1000000.0 );
+        section( "Mode 2: number of Peasants per price tier. Minimum 1." );
+        result.goldIncrementStep = std::max( 1, read( "conscription.gold_increment_step", 1, std::numeric_limits<int32_t>::max() ) );
+        section( "Mode 2: 0 = individual price per rank, 1 = last rank's price for the entire order." );
+        result.uniformBatchPrice = read( "conscription.uniform_batch_price", 0, 1 ) != 0;
         section( "Maximum attempts per town. Odd: days 1, 3, 5, 7. Even: days 2, 4, 6." );
         result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
         result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
@@ -97,11 +125,11 @@ const Conscription::Settings & Conscription::settings()
                           static_cast<uint32_t>( read( "conscription.swordsmen", 4, 10000 ) ) };
         if ( result.quotas == Quotas{} ) result.quotas = { 8, 5, 4 };
         section( "Farm to Training Grounds" );
-        result.trainingGold = read( "training_grounds.gold", 2500, 1000000 );
+        result.trainingGold = read( "training_grounds.gold", 1750, 1000000 );
         result.trainingWood = read( "training_grounds.wood", 10, 1000000 );
-        result.trainingOre = read( "training_grounds.ore", 10, 1000000 );
+        result.trainingOre = read( "training_grounds.ore", 5, 1000000 );
         section( "Training Grounds back to Farm" );
-        result.farmGold = read( "farm_reconversion.gold", 1500, 1000000 );
+        result.farmGold = read( "farm_reconversion.gold", 1250, 1000000 );
         result.farmWood = read( "farm_reconversion.wood", 0, 1000000 );
         result.farmOre = read( "farm_reconversion.ore", 0, 1000000 );
         section( "Training Grounds requirements" );
@@ -233,7 +261,8 @@ void Castle::processDailyConscription( Kingdom & kingdom )
     }
     int64_t gold = kingdom.GetFunds().gold;
     const auto before = snapshots;
-    Conscription::scheduleDay( snapshots, gold, config, Monster( Monster::PEASANT ).GetCost().gold, world.CountDay() );
+    const uint32_t peasantCost = Monster( Monster::PEASANT ).GetCost().gold;
+    Conscription::scheduleDay( snapshots, gold, config, peasantCost, world.CountDay() );
     kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ) );
     for ( size_t n = 0; n < towns.size(); ++n ) {
         Castle & town = *towns[n];
@@ -250,14 +279,30 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         town._dwelling[0] -= snapshot.fromHut;
         town._conscription = snapshot.state;
         for ( size_t i = 0; i < 3; ++i ) town._dwelling[i + 1] = static_cast<uint32_t>( snapshot.pools[i] );
+        if ( config.mode == 2 ) {
+            const uint32_t stockLimited = static_cast<uint32_t>( std::min<uint64_t>( snapshot.order, before[n].garrison + before[n].hut ) );
+            const uint32_t attempts = snapshot.fromGarrison + snapshot.fromHut;
+            [[maybe_unused]] const bool goldLimited = Conscription::batchCost( config, stockLimited, before[n].garrison, peasantCost )
+                                                    > static_cast<uint64_t>( std::max<int64_t>( 0, snapshot.goldBefore ) );
+            ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_EXECUTION", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
+                << ",\"town\":" << town.GetIndex() << ",\"requested\":" << snapshot.order << ",\"attempted\":" << attempts
+                << ",\"gold_before\":" << snapshot.goldBefore << ",\"stock_limited\":" << ( stockLimited < snapshot.order ? "true" : "false" )
+                << ",\"gold_limited\":" << ( goldLimited ? "true" : "false" )
+                << ",\"pool_or_counter_limited\":" << ( !goldLimited && attempts < stockLimited ? "true" : "false" )
+                << ",\"training_fees\":" << snapshot.trainingFees << ",\"hut_purchase\":" << uint64_t{ snapshot.fromHut } * peasantCost
+                << ",\"quoted_training_fees\":" << Conscription::trainingCost( config, snapshot.order )
+                << ",\"uniform_batch_price\":" << ( config.uniformBatchPrice ? "true" : "false" )
+                << ",\"price_increment\":" << config.goldIncrement << ",\"increment_multiplier\":" << config.goldIncrementMultiplier
+                << ",\"increment_step\":" << config.goldIncrementStep );
+        }
         ECONOMY_TRACE( 1, "CONSCRIPTION_DAY", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
-                       << ",\"town\":" << town.GetIndex() << ",\"order\":" << n << ",\"limit\":" << Conscription::dailyLimitForDay( config, world.CountDay() )
+                       << ",\"town\":" << town.GetIndex() << ",\"order\":" << n << ",\"limit\":" << ( config.mode == 2 ? snapshot.order : Conscription::dailyLimitForDay( config, world.CountDay() ) )
                        << ",\"garrison_used\":" << snapshot.fromGarrison << ",\"hut_used\":" << snapshot.fromHut << ",\"failed\":" << snapshot.failed
                        << ",\"garrison_before\":" << before[n].garrison << ",\"garrison_after\":" << snapshot.garrison
                        << ",\"hut_before\":" << before[n].hut << ",\"hut_after\":" << snapshot.hut
                        << ",\"enabled\":" << ( config.enabled ? "true" : "false" ) << ",\"odd_limit\":" << config.oddDayLimit << ",\"even_limit\":" << config.evenDayLimit
                        << ",\"success_rate_scaled\":" << config.successRate << ",\"fee_per_attempt\":" << config.goldPerPeasant
-                       << ",\"fees\":" << ( uint64_t{ snapshot.fromGarrison } + snapshot.fromHut ) * config.goldPerPeasant + uint64_t{ snapshot.fromHut } * Monster( Monster::PEASANT ).GetCost().gold
+                       << ",\"fees\":" << snapshot.trainingFees + uint64_t{ snapshot.fromHut } * peasantCost
                        << ",\"recruits\":[" << snapshot.pools[0] - before[n].pools[0] << ',' << snapshot.pools[1] - before[n].pools[1] << ',' << snapshot.pools[2] - before[n].pools[2]
                        << "],\"success_total_before\":" << before[n].state.total << ",\"success_total_after\":" << snapshot.state.total
                        << ",\"loss_remainder_before\":" << before[n].state.lossRemainder << ",\"loss_remainder_after\":" << snapshot.state.lossRemainder );
@@ -268,6 +313,7 @@ Conscription::TownDay Castle::conscriptionDaySnapshot() const
 {
     Conscription::TownDay result;
     result.state = _conscription;
+    result.order = _conscriptionOrder;
     for ( size_t i = 0; i < _army.Size(); ++i ) {
         const auto * troop = _army.GetTroop( i );
         if ( troop->GetID() == Monster::PEASANT ) result.garrison += troop->GetCount();
@@ -281,6 +327,12 @@ std::string Castle::dailyConscriptionDescription() const
 {
     const auto & config = Conscription::settings();
     if ( !config.enabled ) return _( "Conscription is disabled in knight_mod.ini." );
+    if ( config.mode == 2 ) {
+        std::string hutFee = _( "Peasants are taken from the garrison first. Peasants from the Thatched Hut cost an extra %{price} gold each." );
+        StringReplace( hutFee, "%{price}", Monster( Monster::PEASANT ).GetCost().gold );
+        return std::string( _( "Set a daily order to train Peasants into infantry at the start of each day." ) ) + "\n\n" + hutFee + "\n\n"
+               + _( "Trained troops enter this town's recruitment pools and must be purchased normally." );
+    }
     std::string description = _( "Automatically trains up to %{count} Peasants per day into infantry." );
     StringReplace( description, "%{count}", std::max( config.oddDayLimit, config.evenDayLimit ) );
     description += "\n\n";
@@ -322,4 +374,23 @@ std::string Castle::dailyConscriptionDescription() const
         forecast += std::to_string( count ) + " " + Monster( _race, GetActualDwelling( dwellings[i] ) ).GetPluralName( count );
     }
     return description + "\n\n" + _( "Expected Tomorrow:" ) + "\n" + ( forecast.empty() ? _( "No troops" ) : forecast );
+}
+
+std::string Castle::conscriptionOrderPreview( const uint32_t count ) const
+{
+    const auto & config = Conscription::settings();
+    auto state = _conscription;
+    const auto recruits = Conscription::train( state, count, config );
+    const uint32_t dwellings[] = { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
+    std::string forecast;
+    for ( size_t i = 0; i < recruits.size(); ++i ) {
+        if ( !recruits[i] ) continue;
+        forecast += std::to_string( recruits[i] ) + " " + Monster( _race, GetActualDwelling( dwellings[i] ) ).GetPluralName( static_cast<uint32_t>( recruits[i] ) )
+                    + "\n";
+    }
+    if ( forecast.empty() ) forecast = std::string( _( "No troops" ) ) + "\n";
+    const auto cost = Conscription::trainingCost( config, count );
+    std::string price = cost == Conscription::feeDisplayLimit ? _( "Total training cost: over %{gold} gold" ) : _( "Total training cost: %{gold} gold" );
+    StringReplace( price, "%{gold}", std::to_string( cost ) );
+    return forecast + "\n" + price;
 }

@@ -21,6 +21,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <functional>
@@ -37,6 +38,7 @@
 #include "castle.h" // IWYU pragma: associated
 #include "castle_building_info.h"
 #include "color.h"
+#include "conscription.h"
 #include "cursor.h"
 #include "dialog.h"
 #include "game.h"
@@ -65,12 +67,100 @@
 #include "ui_constants.h"
 #include "ui_dialog.h"
 #include "ui_kingdom.h"
+#include "ui_text.h"
 #include "ui_tool.h"
 #include "ui_window.h"
 #include "world.h"
 
 namespace
 {
+    void editTrainingOrder( Castle & castle )
+    {
+        fheroes2::Display & display = fheroes2::Display::instance();
+        constexpr int32_t width = 350;
+        const fheroes2::Text heading( _( "Training order for tomorrow" ), fheroes2::FontType::normalYellow() );
+        const fheroes2::StandardWindow window( width, 182, true );
+        const auto & area = window.activeArea();
+        heading.draw( area.x + ( width - heading.width() ) / 2, area.y + 5, display );
+
+        constexpr auto maximum = static_cast<int32_t>( Conscription::maxDailyOrder );
+        const auto selectorSize = fheroes2::ValueSelectionDialogElement::getArea();
+        fheroes2::ValueSelectionDialogElement selector( 0, maximum, static_cast<int32_t>( castle.getConscriptionOrder() ), 1,
+                                                       { area.x + ( width - selectorSize.width ) / 2, area.y + 29 } );
+        const fheroes2::Rect preview{ area.x + 8, area.y + 61, width - 16, 83 };
+        fheroes2::ImageRestorer previewBackground( display, preview.x, preview.y, preview.width, preview.height );
+        fheroes2::ButtonGroup buttons( area, Dialog::OK | Dialog::CANCEL );
+        buttons.draw();
+        const auto redraw = [&]() {
+            previewBackground.restore();
+            fheroes2::Text( castle.conscriptionOrderPreview( static_cast<uint32_t>( selector.getValue() ) ), fheroes2::FontType::smallWhite() )
+                .draw( preview.x, preview.y, preview.width, display );
+            selector.draw( display );
+        };
+        redraw();
+        display.render();
+
+        std::string typed;
+        LocalEvent & event = LocalEvent::Get();
+        while ( event.HandleEvents() ) {
+            if ( const auto value = fheroes2::processIntegerValueTyping( 0, maximum, typed ); value ) {
+                selector.setValue( *value );
+                redraw();
+            }
+            else if ( selector.processEvents() ) {
+                typed.clear();
+                redraw();
+            }
+            const int result = buttons.processEvents();
+            if ( result == Dialog::OK ) castle.setConscriptionOrder( static_cast<uint32_t>( selector.getValue() ) );
+            if ( result != Dialog::ZERO ) break;
+            display.render( window.totalArea() );
+        }
+    }
+
+    void showTrainingOrder( Castle & castle )
+    {
+        const CursorRestorer cursor( true, Cursor::POINTER );
+        fheroes2::Display & display = fheroes2::Display::instance();
+        constexpr int32_t width = 350;
+        constexpr int32_t textWidth = width - 16;
+        const fheroes2::Text name( _( "Training Grounds" ), fheroes2::FontType::normalYellow() );
+        const fheroes2::Text description( castle.dailyConscriptionDescription(), fheroes2::FontType::normalWhite() );
+        const fheroes2::Text heading( _( "Training order for tomorrow" ), fheroes2::FontType::normalYellow() );
+        const int32_t descriptionHeight = description.height( textWidth );
+        fheroes2::StandardWindow window( width, descriptionHeight + 160, true );
+        const auto & area = window.activeArea();
+        const int32_t headingY = area.y + descriptionHeight + 42;
+        name.draw( area.x + ( width - name.width() ) / 2, area.y + 5, display );
+        description.draw( area.x + 8, area.y + 26, textWidth, display );
+        heading.draw( area.x + ( width - heading.width() ) / 2, headingY, display );
+        fheroes2::ImageRestorer previewBackground( display, area.x + 8, headingY + 20, textWidth, 65 );
+
+        fheroes2::ButtonSprite change;
+        fheroes2::ButtonSprite okay;
+        using Padding = fheroes2::StandardWindow::Padding;
+        window.renderTextAdaptedButtonSprite( change, _( "Change" ), { 24, 5 }, Padding::BOTTOM_LEFT );
+        window.renderTextAdaptedButtonSprite( okay, _( "Okay" ), { 24, 5 }, Padding::BOTTOM_RIGHT );
+        const auto redraw = [&]() {
+            previewBackground.restore();
+            fheroes2::Text( castle.conscriptionOrderPreview( castle.getConscriptionOrder() ), fheroes2::FontType::smallWhite() )
+                .draw( area.x + 8, headingY + 20, textWidth, display );
+            display.render( window.totalArea() );
+        };
+        redraw();
+        LocalEvent & event = LocalEvent::Get();
+        while ( event.HandleEvents() ) {
+            change.drawOnState( event.isMouseLeftButtonPressedAndHeldInArea( change.area() ) );
+            okay.drawOnState( event.isMouseLeftButtonPressedAndHeldInArea( okay.area() ) );
+            if ( event.MouseClickLeft( okay.area() ) || Game::HotKeyCloseWindow() ) break;
+            if ( event.MouseClickLeft( change.area() ) ) {
+                editTrainingOrder( castle );
+                redraw();
+            }
+            display.render( window.totalArea() );
+        }
+    }
+
     BuildingType getPressedBuildingHotkey()
     {
         if ( HotKeyPressEvent( Game::HotKeyEvent::TOWN_DWELLING_LEVEL_1 ) ) {
@@ -399,6 +489,21 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
 
     std::string statusMessage;
     LocalEvent & le = LocalEvent::Get();
+    const auto extendedFarmArea = [&]( const BuildingType building ) {
+        if ( _race != Race::KNGT || ( building != BUILD_WEL2 && building != BUILD_TRAINING_GROUNDS ) ) return fheroes2::Rect{};
+        const auto & town = cacheBuildings;
+        const auto entry = std::find_if( town.crbegin(), town.crend(), [&]( const auto & candidate ) { return candidate.id == building; } );
+        if ( entry == town.crend() || entry->areas.empty() ) return fheroes2::Rect{};
+        const auto & farm = entry->areas.front();
+        const fheroes2::Rect extra{ farm.x + 45, farm.y - 22, farm.width - 45, 22 };
+        if ( !le.isMouseCursorPosInArea( extra ) ) return fheroes2::Rect{};
+        for ( const auto & other : town ) {
+            if ( !isBuild( other.id ) ) continue;
+            if ( std::any_of( other.areas.begin(), other.areas.end(), [&]( const auto & area ) { return le.isMouseCursorPosInArea( area ); } ) )
+                return fheroes2::Rect{};
+        }
+        return extra;
+    };
     auto updateStatusBar = [&]() {
         bool isRedrawNeeded{ false };
 
@@ -418,7 +523,7 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 continue;
             }
 
-            bool isMouseInArea{ false };
+            bool isMouseInArea = le.isMouseCursorPosInArea( extendedFarmArea( it->id ) );
             for ( const auto & area : it->areas ) {
                 if ( le.isMouseCursorPosInArea( area ) ) {
                     isMouseInArea = true;
@@ -654,7 +759,8 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 const uint32_t monsterDwelling = GetActualDwelling( it->id );
                 const bool isMonsterDwelling = ( monsterDwelling != BUILD_NOTHING );
 
-                bool isRightButtonInArea{ false };
+                const auto extendedArea = extendedFarmArea( it->id );
+                bool isRightButtonInArea = le.isMouseRightButtonPressedInArea( extendedArea );
                 for ( const auto & area : it->areas ) {
                     if ( le.isMouseRightButtonPressedInArea( area ) ) {
                         isRightButtonInArea = true;
@@ -678,6 +784,7 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                 const bool isMagicGuild = ( BUILD_MAGEGUILD & it->id ) != 0;
 
                 bool isBuildingClicked = ( hotKeyBuilding == it->id || ( isMagicGuild && hotKeyBuilding == BUILD_MAGEGUILD ) );
+                isBuildingClicked = isBuildingClicked || le.MouseClickLeft( extendedArea );
                 if ( !isBuildingClicked ) {
                     for ( const auto & area : it->areas ) {
                         if ( le.MouseClickLeft( area ) ) {
@@ -737,7 +844,12 @@ Castle::CastleDialogReturnValue Castle::OpenDialog( const bool openConstructionW
                         case BUILD_SPEC:
                         case BUILD_SHRINE: {
                             const fheroes2::ButtonRestorer exitRestorer( buttonExit );
-                            fheroes2::showStandardTextMessage( GetStringBuilding( it->id ), GetDescriptionBuilding( it->id ), Dialog::OK );
+                            if ( it->id == BUILD_TRAINING_GROUNDS && hasTrainingGrounds() && Conscription::settings().mode == 2 ) {
+                                showTrainingOrder( *this );
+                            }
+                            else {
+                                fheroes2::showStandardTextMessage( GetStringBuilding( it->id ), GetDescriptionBuilding( it->id ), Dialog::OK );
+                            }
                             break;
                         }
 

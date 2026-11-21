@@ -187,6 +187,7 @@ namespace AI::EconomyBudget
     {
         int32_t town = -1;
         uint32_t firstMorning = 0, lastMorning = 0; // Inclusive; construction afternoon is not a paid morning.
+        uint32_t order = 0;
     };
 
     struct ChargeBound
@@ -210,19 +211,14 @@ namespace AI::EconomyBudget
                      && periods[j].firstMorning <= periods[i].lastMorning ) { result.reason = "duplicate_training_period"; return result; }
             }
         }
-        const uint64_t unitCost = uint64_t{ config.goldPerPeasant } + peasantCost;
         for ( uint64_t date = uint64_t{ today } + 1; date <= throughDay; ++date ) {
             const auto day = static_cast<uint32_t>( date );
             uint64_t charge = 0;
             if ( config.enabled ) {
-                const uint64_t limit = Conscription::dailyLimitForDay( config, day );
+                const uint32_t limit = Conscription::dailyLimitForDay( config, day );
                 for ( const auto & period : periods ) {
                     if ( day < period.firstMorning || day > period.lastMorning ) continue;
-                    // Test before multiplication: extreme INI values cannot wrap or become cheap.
-                    if ( limit && unitCost > static_cast<uint64_t>( resourceMaximum ) / limit ) {
-                        result.reason = "charge_out_of_range"; return result;
-                    }
-                    const uint64_t cost = limit * unitCost;
+                    const uint64_t cost = Conscription::batchCost( config, config.mode == 2 ? period.order : limit, 0, peasantCost );
                     if ( cost > static_cast<uint64_t>( resourceMaximum ) - charge ) { result.reason = "charge_out_of_range"; return result; }
                     charge += cost;
                 }

@@ -524,7 +524,11 @@ private:
     BattleTurnOrderState _battleTurnOrderState{ BattleTurnOrderState::OFF };
     bool _isMapSmoothScrollingEnabled{ false };
     bool _taxpayerTestRevealMap{ false };
+#if defined( FHEROES2_KNIGHT_MODE2_TEST )
+    int _taxpayerTestDiagnostics{ 1 };
+#else
     int _taxpayerTestDiagnostics{ 0 };
+#endif
     bool _knightObserverEnabled{ false };
 
     fheroes2::Point pos_radr{ -1, -1 };

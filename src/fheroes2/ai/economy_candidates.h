@@ -266,7 +266,7 @@ namespace AI::EconomyCandidates
                 uint64_t date = firstMorning;
                 const uint64_t boundary = std::min<uint64_t>( std::numeric_limits<uint32_t>::max(), uint64_t{ today } + 28 );
                 for ( ; date <= boundary; ++date ) {
-                    const uint32_t limit = Conscription::dailyLimitForDay( base.config, static_cast<uint32_t>( date ) );
+                    const uint32_t limit = base.config.mode == 2 ? economic.troops.order : Conscription::dailyLimitForDay( base.config, static_cast<uint32_t>( date ) );
                     if ( needed <= limit ) break;
                     needed -= limit;
                 }
