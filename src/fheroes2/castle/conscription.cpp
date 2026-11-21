@@ -74,13 +74,13 @@ const Conscription::Settings & Conscription::settings()
         section( "Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price." );
         result.goldPerPeasant = read( "conscription.gold_per_peasant", 50, 1000000 );
         const auto readDecimal = [&]( const char * key, const double minimum, const double maximum ) {
-            double value = 1.0;
+            double parsed = 1.0;
             if ( config.Exists( key ) ) {
                 const auto text = config.StrParams( key );
                 try {
                     size_t consumed = 0;
                     const double decimal = std::stod( text, &consumed );
-                    if ( consumed == text.size() && std::isfinite( decimal ) ) value = std::clamp( decimal, minimum, maximum );
+                    if ( consumed == text.size() && std::isfinite( decimal ) ) parsed = std::clamp( decimal, minimum, maximum );
                 }
                 catch ( const std::exception & ) {
                     // Invalid values keep the default.
@@ -88,7 +88,7 @@ const Conscription::Settings & Conscription::settings()
             }
             else if ( additions ) additions << comments << key << " = 1.0\n";
             comments.clear();
-            return value;
+            return parsed;
         };
         section( "Mode 2: increase per tier as a fraction of the base fee. 1.0 = the same amount; 0 = flat pricing." );
         comments += "# If the base fee is zero, this is an increment in gold.\n";

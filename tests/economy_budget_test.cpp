@@ -166,6 +166,7 @@ int main()
         for ( const uint32_t limit : { 0U, 2U, 3U } ) {
             config = {};
             config.oddDayLimit = limit; config.evenDayLimit = limit + 1;
+            config.goldPerPeasant = 100;
             config.successRate = 850000;
             Economy::Snapshot state;
             state.day = 7; state.gold = cash; state.nonTaxIncome = 300; state.peasantCost = 20;
@@ -210,6 +211,7 @@ int main()
     training.training = true; training.troops.garrison = 1;
     scarce.towns = { training };
     config = {};
+    config.goldPerPeasant = 100;
     scarce.gold = 99;
     assert( Economy::forecast( scarce, config, 1 ).end.gold == 99 );
     scarce.gold = 100;
