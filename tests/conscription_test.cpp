@@ -162,6 +162,9 @@ int main()
     config.mode = 2;
     config.oddDayLimit = config.evenDayLimit = 0;
     assert( trainingCost( config, 0 ) == 0 && trainingCost( config, 4 ) == 500 );
+    config.goldIncrement = 0.1;
+    assert( trainingCost( config, 2 ) == 105 );
+    config.goldIncrement = 1.0;
     config.goldIncrementMultiplier = 2.0;
     assert( trainingCost( config, 4 ) == 750 );
     config.goldIncrementStep = 2;

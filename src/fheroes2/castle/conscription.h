@@ -186,12 +186,18 @@ namespace Conscription
                                                            : step * result.sum + ( count - uint64_t{ lastTier } * step ) * result.surcharge;
         const long double total = initial + extra * increment;
         if ( total >= static_cast<long double>( feeDisplayLimit ) ) return feeDisplayLimit;
-        return static_cast<uint64_t>( std::ceil( total ) );
+        const long double nearest = std::round( total );
+        // Decimal INI values are read as doubles, so an integral price can arrive
+        // a few representable values above the integer (e.g. 0.1 * 50).
+        const long double tolerance = std::min( 1e-5L, 8 * std::numeric_limits<double>::epsilon() * total );
+        return static_cast<uint64_t>( std::abs( total - nearest ) <= tolerance ? nearest : std::ceil( total ) );
     }
 
     inline uint64_t batchCost( const Settings & config, const uint32_t count, const uint64_t garrison, const uint32_t peasantCost )
     {
-        return trainingCost( config, count ) + ( count - std::min<uint64_t>( count, garrison ) ) * peasantCost;
+        const uint64_t fees = trainingCost( config, count );
+        const uint64_t hutPurchase = ( count - std::min<uint64_t>( count, garrison ) ) * peasantCost;
+        return fees + std::min( hutPurchase, std::numeric_limits<uint64_t>::max() - fees );
     }
 
     inline void scheduleOrder( TownDay & town, int64_t & gold, const Settings & config, const uint32_t peasantCost )
@@ -237,7 +243,7 @@ namespace Conscription
     {
         if ( !config.enabled ) return 0;
         // Adjustable orders are evaluated in bulk, whereas fixed quotas run one attempt at a time.
-        return config.mode == 2 ? ( town.order == 0 ? 0 : 32 ) : dailyLimitForDay( config, day );
+        return config.mode == 2 ? std::min( town.order, 32U ) : dailyLimitForDay( config, day );
     }
 
     inline void scheduleDay( std::vector<TownDay> & towns, int64_t & gold, const Settings & config, const uint32_t peasantCost, const uint32_t day = 0 )

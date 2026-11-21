@@ -133,6 +133,7 @@ int main()
 
     // Conscription ceilings follow calendar day, configured prices, activation periods and enabled.
     Conscription::Settings config;
+    config.goldPerPeasant = 100;
     auto bound = B::conscriptionBound( config, 20, 7, 9, { { 42, 8, 9 } } );
     assert( bound.complete && bound.days[0].second == 240 && bound.days[1].second == 360 ); ++checks;
     config.oddDayLimit = 4; config.evenDayLimit = 1; config.goldPerPeasant = 125;

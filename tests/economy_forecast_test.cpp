@@ -23,6 +23,7 @@ int main()
     training.poolGrowth = { 1, 1, 1 };
     start.towns = { farm, training };
     Conscription::Settings config;
+    config.goldPerPeasant = 100;
     auto projected = Economy::forecast( start, config, 2 );
     assert( projected.complete && projected.days.size() == 2 );
     assert( projected.days[0].tax == 30 && projected.days[0].fees == 220 && projected.days[0].closingGold == 910 );

@@ -109,7 +109,13 @@ int main( int argc, char ** argv )
         AI::KnightEconomy::planDailyOrders( kingdom );
         assert( towns[1]->getConscriptionOrder() == 0 && towns[2]->getConscriptionOrder() == 0 );
         kingdom.AddFundsResource( Funds( Resource::GOLD, 100000 ) );
-        towns[1]->GetArmy().JoinTroop( Monster( Monster::PEASANT ), 12, false );
+        auto & training = *towns[1];
+        training.GetArmy().Clean();
+        assert( training.GetArmy().JoinTroop( Monster( Monster::PEASANT ), 12, false ) );
+        for ( const uint32_t dwelling : { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 } ) {
+            const auto available = training.getMonstersInDwelling( dwelling );
+            if ( available ) assert( training.RecruitMonster( Troop( Monster( Race::KNGT, dwelling ), available ), false ) );
+        }
         AI::KnightEconomy::planDailyOrders( kingdom );
         assert( towns[1]->getConscriptionOrder() > 0 );
     }

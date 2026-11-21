@@ -16,6 +16,11 @@ inline P::Input fixture( const bool training = false, const uint32_t day = 7 )
 {
     P::Input input;
     input.throughDay = day + 1;
+    // Keep the fixture's established costs independent of experimental defaults.
+    input.config.goldPerPeasant = 100;
+    input.config.trainingGold = 2500;
+    input.config.trainingOre = 10;
+    input.config.farmGold = 1500;
     input.config.requiredBuildings = BUILD_WEL2 | DWELLING_MONSTER2 | DWELLING_MONSTER3 | DWELLING_MONSTER4 | BUILD_CAPTAIN;
     auto & state = input.start;
     state.economy.day = day; state.economy.gold = 10000; state.economy.materials = { 20, 20, 0, 0, 0, 0 };
