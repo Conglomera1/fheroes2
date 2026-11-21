@@ -1,0 +1,50 @@
+name: Publish Knight Mod 1.0b
+on:
+  push:
+    branches: [km-1.0b-publication]
+    paths:
+      - '.github/workflows/km-publish.yml'
+      - 'distribution/**'
+permissions:
+  contents: write
+concurrency:
+  group: publish-knight-mod-1-0b
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify the approved package
+        run: |
+          echo "b16f2f673498a14d66504ef7421a4246c24ddb94a7169806cf08e3598807bddd  distribution/fheroes2_KM-1.0b_Windows.zip" | sha256sum -c -
+          python3 - <<'PY'
+          import io, struct, zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('distribution/fheroes2_KM-1.0b_Windows.zip') as package:
+              assert package.testzip() is None
+              for arch, machine in [('x86', 0x14c), ('x64', 0x8664)]:
+                  name = f'Knight-Mod-1.0b-Windows-{arch}.zip'
+                  with zipfile.ZipFile(io.BytesIO(package.read(name))) as inner:
+                      assert inner.testzip() is None
+                      binary = inner.read('fheroes2KM.exe')
+                      offset = struct.unpack_from('<I', binary, 0x3c)[0]
+                      assert struct.unpack_from('<H', binary, offset + 4)[0] == machine
+                      assert inner.read('Uninstall_KM.bat') == Path('packaging/km/Uninstall_KM.bat').read_bytes()
+          PY
+      - name: Publish the beta
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view km-1.0b --json tagName >/dev/null 2>&1; then
+            echo 'The release already exists; leaving it unchanged.'
+            exit 0
+          fi
+          gh release create km-1.0b distribution/fheroes2_KM-1.0b_Windows.zip \
+            --target "$GITHUB_SHA" \
+            --title "Knight Mod 1.0b - Taxpayer & Peasant Conscription" \
+            --prerelease \
+            --notes-file distribution/release-notes.md
