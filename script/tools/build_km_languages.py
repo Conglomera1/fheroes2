@@ -49,13 +49,16 @@ for lang,translations in base.items():
     updates=dict(zip(KEYS+EXTRA,translations+extra[lang]))
     if lang == 'fr':
         updates.update({
-            "Set a daily order to train Peasants into infantry at the start of each day.": "Fixez le nombre de Paysans à former dans l'infanterie au début de chaque journée.",
-            "Peasants are taken from the garrison first. Peasants from the Thatched Hut cost an extra %{price} gold each.": "Les Paysans sont prélevés en priorité dans la garnison. Ceux qui viennent de la Hutte coûtent %{price} pièces d'or de plus chacun.",
+            "Set how many Peasants to train as infantry each day.": "Fixez le nombre de Paysans à former dans l'infanterie chaque jour.",
+            "Conscripts are taken from the garrison first. Those taken from the Thatched Hut cost an extra %{price} gold each.": "La garnison fournit les Paysans en priorité. Chaque Paysan pris dans la Hutte coûte %{price} pièces d'or de plus.",
+            "Trained troops are added to this town's recruitment pools and must still be purchased at the usual price.": "Les troupes formées sont à recruter au tarif habituel dans les demeures.",
             "Training order for tomorrow": "Formation prévue pour demain",
-            "Total training cost: %{gold} gold": "Coût total de formation : %{gold} or",
-            "Total training cost: over %{gold} gold": "Coût total de formation : plus de %{gold} or",
+            "Peasants to train per day:": "Paysans à former par jour :",
+            "Training cost: %{gold} gold": "Coût de la formation : %{gold} or",
+            "Training cost: over %{gold} gold": "Coût de la formation : plus de %{gold} or",
+            "Conscription": "Conscription",
+            "CHANGE": "MODIFIER",
         })
-        updates["Change"] = "Modifier"
     catalog=load_po(ROOT/'files/lang'/f'{lang}.po');catalog.update(updates);cp=CP[lang]
     for k,v in updates.items():assert unicodedata.normalize('NFC',encode(v,cp).decode(cp))==unicodedata.normalize('NFC',v),(lang,'unrepresentable translation',v)
     for k,v in updates.items():assert sorted(re.findall(r'%\{[^}]+\}',k))==sorted(re.findall(r'%\{[^}]+\}',v)),(lang,k)

@@ -59,6 +59,7 @@
 #include "monster.h"
 #include "mus.h"
 #include "screen.h"
+#include "settings.h"
 #include "statusbar.h"
 #include "tools.h"
 #include "translations.h"
@@ -74,35 +75,60 @@
 
 namespace
 {
+    constexpr int32_t conscriptionWindowWidth = 299;
+    constexpr int32_t conscriptionMargin = 18;
+    constexpr int32_t conscriptionTextWidth = conscriptionWindowWidth - 2 * conscriptionMargin;
+    constexpr int32_t conscriptionGap = 16;
+
     void editTrainingOrder( Castle & castle )
     {
         fheroes2::Display & display = fheroes2::Display::instance();
-        constexpr int32_t width = 350;
-        const fheroes2::Text heading( _( "Training order for tomorrow" ), fheroes2::FontType::normalYellow() );
-        const fheroes2::StandardWindow window( width, 182, true );
-        const auto & area = window.activeArea();
-        heading.draw( area.x + ( width - heading.width() ) / 2, area.y + 5, display );
-
         constexpr auto maximum = static_cast<int32_t>( Conscription::maxDailyOrder );
+        const auto bodyFont = fheroes2::FontType::normalWhite();
+        const fheroes2::Text heading( _( "Training order for tomorrow" ), fheroes2::FontType::normalYellow() );
+        const fheroes2::Text quantity( _( "Peasants to train per day:" ), bodyFont );
+        const fheroes2::Text longestPreview( castle.conscriptionOrderPreview( maximum ), bodyFont );
+        const int32_t previewHeight = std::max( 5 * quantity.height(), longestPreview.height( conscriptionTextWidth ) );
         const auto selectorSize = fheroes2::ValueSelectionDialogElement::getArea();
+        const auto okayIcn = Settings::Get().isEvilInterfaceEnabled() ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON;
+        const int32_t buttonHeight = Assets::getImage( okayIcn, 0 ).height();
+        const int32_t headingHeight = heading.height( conscriptionTextWidth );
+        const int32_t quantityHeight = quantity.height( conscriptionTextWidth );
+        const int32_t height = 2 * conscriptionMargin + 3 * conscriptionGap + headingHeight + quantityHeight + 4 + selectorSize.height + previewHeight + buttonHeight;
+        const fheroes2::StandardWindow window( conscriptionWindowWidth, height, true );
+        const auto & area = window.activeArea();
+        const int32_t textX = area.x + conscriptionMargin;
+        const int32_t headingY = area.y + conscriptionMargin;
+        const int32_t quantityY = headingY + headingHeight + conscriptionGap;
+        const int32_t selectorY = quantityY + quantityHeight + 4;
+        const int32_t previewY = selectorY + selectorSize.height + conscriptionGap;
+
+        heading.draw( textX, headingY, conscriptionTextWidth, display );
+        quantity.draw( textX, quantityY, conscriptionTextWidth, display );
         fheroes2::ValueSelectionDialogElement selector( 0, maximum, static_cast<int32_t>( castle.getConscriptionOrder() ), 1,
-                                                       { area.x + ( width - selectorSize.width ) / 2, area.y + 29 } );
-        const fheroes2::Rect preview{ area.x + 8, area.y + 61, width - 16, 83 };
-        fheroes2::ImageRestorer previewBackground( display, preview.x, preview.y, preview.width, preview.height );
-        fheroes2::ButtonGroup buttons( area, Dialog::OK | Dialog::CANCEL );
+                                                       { area.x + ( area.width - selectorSize.width ) / 2, selectorY } );
+        fheroes2::ImageRestorer previewBackground( display, textX, selectorY, conscriptionTextWidth, previewY + previewHeight - selectorY );
+        fheroes2::ButtonGroup buttons( { area.x, area.y, area.width, area.height - conscriptionMargin }, Dialog::OK | Dialog::CANCEL );
         buttons.draw();
+
         const auto redraw = [&]() {
             previewBackground.restore();
-            fheroes2::Text( castle.conscriptionOrderPreview( static_cast<uint32_t>( selector.getValue() ) ), fheroes2::FontType::smallWhite() )
-                .draw( preview.x, preview.y, preview.width, display );
             selector.draw( display );
+            fheroes2::Text( castle.conscriptionOrderPreview( static_cast<uint32_t>( selector.getValue() ) ), bodyFont )
+                .draw( textX, previewY, conscriptionTextWidth, display );
+            display.render( window.totalArea() );
         };
         redraw();
-        display.render();
-
         std::string typed;
         LocalEvent & event = LocalEvent::Get();
         while ( event.HandleEvents() ) {
+            const int result = buttons.processEvents();
+            if ( result == Dialog::OK ) {
+                castle.setConscriptionOrder( static_cast<uint32_t>( selector.getValue() ) );
+            }
+            if ( result != Dialog::ZERO ) {
+                break;
+            }
             if ( const auto value = fheroes2::processIntegerValueTyping( 0, maximum, typed ); value ) {
                 selector.setValue( *value );
                 redraw();
@@ -111,10 +137,6 @@ namespace
                 typed.clear();
                 redraw();
             }
-            const int result = buttons.processEvents();
-            if ( result == Dialog::OK ) castle.setConscriptionOrder( static_cast<uint32_t>( selector.getValue() ) );
-            if ( result != Dialog::ZERO ) break;
-            display.render( window.totalArea() );
         }
     }
 
@@ -123,28 +145,44 @@ namespace
         const CursorRestorer cursor( true, Cursor::POINTER );
         fheroes2::Display & display = fheroes2::Display::instance();
         constexpr int32_t width = 350;
-        constexpr int32_t textWidth = width - 16;
-        const fheroes2::Text name( _( "Training Grounds" ), fheroes2::FontType::normalYellow() );
-        const fheroes2::Text description( castle.dailyConscriptionDescription(), fheroes2::FontType::normalWhite() );
-        const fheroes2::Text heading( _( "Training order for tomorrow" ), fheroes2::FontType::normalYellow() );
-        const int32_t descriptionHeight = description.height( textWidth );
-        fheroes2::StandardWindow window( width, descriptionHeight + 160, true );
-        const auto & area = window.activeArea();
-        const int32_t headingY = area.y + descriptionHeight + 42;
-        name.draw( area.x + ( width - name.width() ) / 2, area.y + 5, display );
-        description.draw( area.x + 8, area.y + 26, textWidth, display );
-        heading.draw( area.x + ( width - heading.width() ) / 2, headingY, display );
-        fheroes2::ImageRestorer previewBackground( display, area.x + 8, headingY + 20, textWidth, 65 );
+        constexpr int32_t textWidth = width - 2 * conscriptionMargin;
+        const auto headingFont = fheroes2::FontType::normalYellow();
+        const auto bodyFont = fheroes2::FontType::normalWhite();
+        const fheroes2::Text name( _( "Conscription" ), headingFont );
+        const fheroes2::Text description( castle.dailyConscriptionDescription(), bodyFont );
+        const fheroes2::Text heading( _( "Training order for tomorrow" ), headingFont );
+        const fheroes2::Text longestPreview( castle.conscriptionOrderPreview( Conscription::maxDailyOrder ), bodyFont );
 
+        const int32_t previewHeight = std::max( 5 * description.height(), longestPreview.height( textWidth ) );
+        const int32_t nameHeight = name.height( textWidth );
+        const int32_t descriptionHeight = description.height( textWidth );
+        const int32_t headingHeight = heading.height( textWidth );
+        const auto okayIcn = Settings::Get().isEvilInterfaceEnabled() ? ICN::UNIFORM_EVIL_OKAY_BUTTON : ICN::UNIFORM_GOOD_OKAY_BUTTON;
+        const int32_t buttonHeight = Assets::getImage( okayIcn, 0 ).height();
+        const int32_t height = 2 * conscriptionMargin + 4 * conscriptionGap + nameHeight + descriptionHeight + headingHeight + previewHeight + buttonHeight;
+        fheroes2::StandardWindow window( width, height, true );
+        const auto & area = window.activeArea();
+        const int32_t textX = area.x + conscriptionMargin;
+        const int32_t nameY = area.y + conscriptionMargin;
+        const int32_t descriptionY = nameY + nameHeight + conscriptionGap;
+        const int32_t headingY = descriptionY + descriptionHeight + conscriptionGap;
+        const int32_t previewY = headingY + headingHeight + conscriptionGap;
+
+        name.draw( textX, nameY, textWidth, display );
+        description.draw( textX, descriptionY, textWidth, display );
+        heading.draw( textX, headingY, textWidth, display );
+        fheroes2::ImageRestorer previewBackground( display, textX, previewY, textWidth, previewHeight );
         fheroes2::ButtonSprite change;
-        fheroes2::ButtonSprite okay;
+        fheroes2::Button okay;
         using Padding = fheroes2::StandardWindow::Padding;
-        window.renderTextAdaptedButtonSprite( change, _( "Change" ), { 24, 5 }, Padding::BOTTOM_LEFT );
-        window.renderTextAdaptedButtonSprite( okay, _( "Okay" ), { 24, 5 }, Padding::BOTTOM_RIGHT );
+        const fheroes2::Point buttonMargin{ conscriptionMargin, conscriptionMargin };
+        window.renderTextAdaptedButtonSprite( change, _( "CHANGE" ), buttonMargin, Padding::BOTTOM_LEFT );
+        window.renderButton( okay, okayIcn, 0, 1, buttonMargin, Padding::BOTTOM_RIGHT );
+
         const auto redraw = [&]() {
             previewBackground.restore();
-            fheroes2::Text( castle.conscriptionOrderPreview( castle.getConscriptionOrder() ), fheroes2::FontType::smallWhite() )
-                .draw( area.x + 8, headingY + 20, textWidth, display );
+            fheroes2::Text( castle.conscriptionOrderPreview( castle.getConscriptionOrder() ), bodyFont )
+                .draw( textX, previewY, textWidth, display );
             display.render( window.totalArea() );
         };
         redraw();
@@ -152,12 +190,13 @@ namespace
         while ( event.HandleEvents() ) {
             change.drawOnState( event.isMouseLeftButtonPressedAndHeldInArea( change.area() ) );
             okay.drawOnState( event.isMouseLeftButtonPressedAndHeldInArea( okay.area() ) );
-            if ( event.MouseClickLeft( okay.area() ) || Game::HotKeyCloseWindow() ) break;
+            if ( event.MouseClickLeft( okay.area() ) || Game::HotKeyCloseWindow() ) {
+                break;
+            }
             if ( event.MouseClickLeft( change.area() ) ) {
                 editTrainingOrder( castle );
                 redraw();
             }
-            display.render( window.totalArea() );
         }
     }
 

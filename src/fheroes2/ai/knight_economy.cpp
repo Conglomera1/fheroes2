@@ -22,7 +22,6 @@ namespace
     namespace M = AI::EconomyMilitary;
     constexpr int64_t reserveGold = 2000; // Existing taxpayer investment reserve.
     constexpr uint32_t horizon = 14;
-    constexpr uint32_t maxAIOrder = 8;
 
     struct InfantryProfile
     {
@@ -57,7 +56,8 @@ namespace
         if ( !config.successRate ) { result.reason = "training_cannot_succeed"; return result; }
         if ( !town.garrison && !town.hut ) { result.reason = "no_peasants"; return result; }
         const auto hutFee = Monster( Monster::PEASANT ).GetCost().gold;
-        const uint32_t limit = static_cast<uint32_t>( std::min( { uint64_t{ maxAIOrder }, town.garrison + town.hut, infantry.weeklyGrowth - stock } ) );
+        const uint32_t limit
+            = static_cast<uint32_t>( std::min( { uint64_t{ Conscription::maxDailyOrder }, town.garrison + town.hut, infantry.weeklyGrowth - stock } ) );
         result.reason = "budget_reserved";
         for ( uint32_t count = 1; count <= limit; ++count ) {
             if ( town.state.total > UINT64_MAX - count ) break;
@@ -71,13 +71,58 @@ namespace
         return result;
     }
 
-    int64_t dailyOrderBudget( const int64_t cash, const int64_t recurringIncome, const int64_t reserve )
+    P::Resources openingFunds( const Economy::Snapshot & today )
     {
-        // Spread discretionary cash over the role review horizon. A full
-        // treasury can still fund a burst, without committing it all tomorrow.
-        const int64_t surplus = cash - reserve;
-        const int64_t allowance = recurringIncome + std::max<int64_t>( 0, surplus ) / horizon;
-        return std::max<int64_t>( 0, std::min( surplus + recurringIncome, allowance ) );
+        auto balance = P::funds( today );
+        balance[0] = std::clamp<int64_t>( balance[0] + today.nonTaxIncome + Economy::taxIncome( today ), 0, INT32_MAX );
+        for ( size_t i = 0; i < today.materialIncome.size(); ++i ) {
+            balance[i + 1] = std::clamp<int64_t>( balance[i + 1] + today.materialIncome[i], 0, INT32_MAX );
+        }
+        return balance;
+    }
+
+    Conscription::TownDay morningStock( const Economy::Town & town, const bool newWeek )
+    {
+        auto morning = town.troops;
+        if ( newWeek ) {
+            morning.hut += town.hutGrowth;
+            for ( size_t i = 0; i < morning.pools.size(); ++i ) {
+                morning.pools[i] += town.poolGrowth[i];
+            }
+        }
+        return morning;
+    }
+
+    // Reserve purchases already possible without conscription. Simulate slots and
+    // payments on copies so castles cannot reserve the same gold or resources twice.
+    int64_t plannedRecruitmentGold( const P::State & state, P::Resources funds, const bool newWeek )
+    {
+        const int64_t gold = funds[0];
+        for ( size_t city = 0; city < state.towns.size(); ++city ) {
+            const auto & town = state.towns[city];
+            if ( !town.available ) continue;
+            auto garrison = town.garrison;
+            auto visitor = town.visitor;
+            for ( size_t pool = town.dwellings.size(); pool-- > 1; ) {
+                const auto & dwelling = town.dwellings[pool];
+                const auto & unit = dwelling.creature( town.mask );
+                if ( !( town.mask & dwelling.base ) || unit.id == 0 || !AI::EconomyBudget::validAmounts( unit.price ) ) continue;
+                uint64_t count = pool < 4 ? state.economy.towns[city].troops.pools[pool - 1] : town.extraPools[pool - 4];
+                if ( newWeek ) {
+                    count += unit.growth + ( town.mask & BUILD_WELL ? town.wellBonus : 0 );
+                }
+                for ( size_t r = 0; r < funds.size(); ++r ) {
+                    if ( unit.price[r] > 0 ) count = std::min<uint64_t>( count, funds[r] / unit.price[r] );
+                }
+                auto & army = G::capacity( garrison, unit.id ) > 0 || town.hero < 0 ? garrison : visitor;
+                count = std::min( count, G::capacity( army, unit.id ) );
+                if ( count == 0 || !P::join( army, unit.id, static_cast<uint32_t>( count ) ) ) continue;
+                for ( size_t r = 0; r < funds.size(); ++r ) {
+                    funds[r] -= unit.price[r] * static_cast<int64_t>( count );
+                }
+            }
+        }
+        return gold - funds[0];
     }
 
     int64_t orderBudget( const Kingdom & kingdom, const int64_t entryCost = 0 )
@@ -86,7 +131,7 @@ namespace
         int64_t conversionReserve = reserveGold;
         for ( const auto * town : kingdom.GetCastles() ) if ( town->hasTrainingGrounds() ) conversionReserve += Conscription::settings().farmGold;
         const int64_t income = kingdom.GetIncome( Kingdom::INCOME_ALL ).gold;
-        return dailyOrderBudget( int64_t{ kingdom.GetFunds().gold } - entryCost, income, conversionReserve + development );
+        return std::max<int64_t>( 0, int64_t{ kingdom.GetFunds().gold } + income - entryCost - conversionReserve - development );
     }
 
     struct MobilizationPlan { uint32_t seed = 0, until = 0; uint64_t segment = 0; int owner = -1; bool recovering = false; };
@@ -203,8 +248,10 @@ namespace
             }
             if ( !purchases.empty() && !advance( state, captured.config, day, std::move( purchases ), work ) ) return {};
             if ( captured.config.mode == 2 && day < captured.throughDay ) {
-                const int64_t income = state.economy.nonTaxIncome + Economy::taxIncome( state.economy );
-                int64_t budget = dailyOrderBudget( state.economy.gold, income, recovery );
+                const bool newWeek = day % 7 == 0;
+                auto funds = openingFunds( state.economy );
+                funds[0] = std::max<int64_t>( 0, funds[0] - recovery );
+                int64_t budget = funds[0] - plannedRecruitmentGold( state, funds, newWeek );
                 for ( size_t city = 0; city < state.towns.size(); ++city ) {
                     auto & town = state.economy.towns[city];
                     if ( !town.training ) continue;
@@ -213,9 +260,7 @@ namespace
                         units.prices[pool] = static_cast<uint32_t>( state.towns[city].dwellings[pool + 1].creature( state.towns[city].mask ).price[0] );
                         units.weeklyGrowth += town.poolGrowth[pool];
                     }
-                    auto morning = town.troops;
-                    if ( day % 7 == 0 ) morning.hut += town.hutGrowth;
-                    const auto order = pickOrder( morning, captured.config, units, budget );
+                    const auto order = pickOrder( morningStock( town, newWeek ), captured.config, units, budget );
                     town.troops.order = order.count;
                     budget -= static_cast<int64_t>( order.fees + order.recruitCost );
                 }
@@ -232,13 +277,33 @@ void AI::KnightEconomy::planDailyOrders( Kingdom & kingdom )
 {
     const auto & config = Conscription::settings();
     if ( config.mode != 2 || !kingdom.isControlAI() || fheroes2::taxpayerSimulationDepth ) return;
-    int64_t budget = orderBudget( kingdom );
+    const auto & castles = kingdom.GetCastles();
+    if ( std::none_of( castles.begin(), castles.end(), []( const Castle * castle ) { return castle->hasTrainingGrounds(); } ) ) return;
+
+    // Book next-day development before deciding what will actually be ordered.
+    // The orders left from today must not consume tomorrow's construction budget.
+    KnightConstruction::refresh( true );
+    const auto day = world.CountDay();
+    const bool newWeek = day % 7 == 0;
+    const auto state = P::capture( kingdom, day ).start;
+    const auto opening = openingFunds( state.economy );
+    const auto development = KnightConstruction::reservedDevelopment( kingdom );
+    const int64_t operating = KnightConstruction::operatingReserve( kingdom );
+    auto funds = opening;
+    for ( size_t i = 0; i < funds.size(); ++i ) {
+        funds[i] = std::max<int64_t>( 0, funds[i] - development[i] );
+    }
+    funds[0] = std::max<int64_t>( 0, funds[0] - operating );
+    const int64_t recruitment = plannedRecruitmentGold( state, funds, newWeek );
+    int64_t budget = funds[0] - recruitment;
+    ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_BUDGET", ",\"player\":" << static_cast<int>( kingdom.GetColor() )
+        << ",\"opening_gold\":" << opening[0] << ",\"development\":" << development[0] << ",\"recruitment\":" << recruitment
+        << ",\"operating_reserve\":" << operating << ",\"budget\":" << budget );
+    size_t city = 0;
     for ( Castle * town : kingdom.GetCastles() ) {
+        const auto & economic = state.economy.towns[city++];
         if ( !town->hasTrainingGrounds() ) continue;
-        auto morning = town->conscriptionDaySnapshot();
-        if ( world.CountDay() % 7 == 0 && town->isBuild( DWELLING_MONSTER1 ) ) {
-            morning.hut += Monster( Monster::PEASANT ).GetGrown() + ( town->isBuild( BUILD_WELL ) ? Castle::GetGrownWell() : 0 );
-        }
+        const auto morning = morningStock( economic, newWeek );
         const auto order = pickOrder( morning, config, infantry( *town ), budget );
         ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_AI", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << town->GetIndex()
             << ",\"previous\":" << town->getConscriptionOrder() << ",\"requested\":" << order.count << ",\"budget\":" << budget
@@ -252,9 +317,10 @@ void AI::KnightEconomy::planDailyOrders( Kingdom & kingdom )
 uint32_t AI::KnightEconomy::supplyOrder( const Castle & castle )
 {
     auto snapshot = castle.conscriptionDaySnapshot();
+    const auto units = infantry( castle );
     // A shortage must not erase the demand which triggers a delivery.
-    snapshot.garrison = std::max<uint64_t>( snapshot.garrison, maxAIOrder );
-    return pickOrder( snapshot, Conscription::settings(), infantry( castle ), orderBudget( castle.GetKingdom() ) ).count;
+    snapshot.garrison = std::max( snapshot.garrison, units.weeklyGrowth );
+    return pickOrder( snapshot, Conscription::settings(), units, orderBudget( castle.GetKingdom() ) ).count;
 }
 
 AI::KnightEconomy::WeekFunding AI::KnightEconomy::weekFunding( const Castle & castle )

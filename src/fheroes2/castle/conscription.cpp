@@ -73,6 +73,10 @@ const Conscription::Settings & Conscription::settings()
         result.enabled = result.mode != 0;
         section( "Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price." );
         result.goldPerPeasant = read( "conscription.gold_per_peasant", 50, 1000000 );
+        section( "Mode 1: Daily conscription limit per town. Odd days of the week: 1, 3, 5, 7. Even days: 2, 4, 6." );
+        result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
+        result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
+        result.dailyLimit = std::max( result.oddDayLimit, result.evenDayLimit );
         const auto readDecimal = [&]( const char * key, const double minimum, const double maximum ) {
             double parsed = 1.0;
             if ( config.Exists( key ) ) {
@@ -99,10 +103,6 @@ const Conscription::Settings & Conscription::settings()
         result.goldIncrementStep = std::max( 1, read( "conscription.gold_increment_step", 1, std::numeric_limits<int32_t>::max() ) );
         section( "Mode 2: 0 = individual price per rank, 1 = last rank's price for the entire order." );
         result.uniformBatchPrice = read( "conscription.uniform_batch_price", 0, 1 ) != 0;
-        section( "Maximum attempts per town. Odd: days 1, 3, 5, 7. Even: days 2, 4, 6." );
-        result.oddDayLimit = read( "conscription.odd_day_limit", 2, 10000 );
-        result.evenDayLimit = read( "conscription.even_day_limit", 3, 10000 );
-        result.dailyLimit = std::max( result.oddDayLimit, result.evenDayLimit );
         section( "Proportion of conscripted Peasants who complete their training." );
         comments += "# 1.0 = all, 0.9 = 90%. Failed conscripts are lost and still paid for.\n";
         if ( config.Exists( "conscription.peasant_success_ratio" ) ) {
@@ -328,10 +328,10 @@ std::string Castle::dailyConscriptionDescription() const
     const auto & config = Conscription::settings();
     if ( !config.enabled ) return _( "Conscription is disabled in knight_mod.ini." );
     if ( config.mode == 2 ) {
-        std::string hutFee = _( "Peasants are taken from the garrison first. Peasants from the Thatched Hut cost an extra %{price} gold each." );
+        std::string hutFee = _( "Conscripts are taken from the garrison first. Those taken from the Thatched Hut cost an extra %{price} gold each." );
         StringReplace( hutFee, "%{price}", Monster( Monster::PEASANT ).GetCost().gold );
-        return std::string( _( "Set a daily order to train Peasants into infantry at the start of each day." ) ) + "\n\n" + hutFee + "\n\n"
-               + _( "Trained troops enter this town's recruitment pools and must be purchased normally." );
+        return std::string( _( "Set how many Peasants to train as infantry each day." ) ) + "\n\n" + hutFee + "\n\n"
+               + _( "Trained troops are added to this town's recruitment pools and must still be purchased at the usual price." );
     }
     std::string description = _( "Automatically trains up to %{count} Peasants per day into infantry." );
     StringReplace( description, "%{count}", std::max( config.oddDayLimit, config.evenDayLimit ) );
@@ -390,7 +390,7 @@ std::string Castle::conscriptionOrderPreview( const uint32_t count ) const
     }
     if ( forecast.empty() ) forecast = std::string( _( "No troops" ) ) + "\n";
     const auto cost = Conscription::trainingCost( config, count );
-    std::string price = cost == Conscription::feeDisplayLimit ? _( "Total training cost: over %{gold} gold" ) : _( "Total training cost: %{gold} gold" );
+    std::string price = cost == Conscription::feeDisplayLimit ? _( "Training cost: over %{gold} gold" ) : _( "Training cost: %{gold} gold" );
     StringReplace( price, "%{gold}", std::to_string( cost ) );
     return forecast + "\n" + price;
 }

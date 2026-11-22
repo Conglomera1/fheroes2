@@ -1,6 +1,7 @@
 #include "economy_forecast.h"
 #include "difficulty.h"
 #include "game_io.h"
+#include "knight_construction.h"
 #include "knight_economy.h"
 #include "kingdom.h"
 #include "map_format_info.h"
@@ -108,16 +109,48 @@ int main( int argc, char ** argv )
         kingdom.OddFundsResource( kingdom.GetFunds() );
         AI::KnightEconomy::planDailyOrders( kingdom );
         assert( towns[1]->getConscriptionOrder() == 0 && towns[2]->getConscriptionOrder() == 0 );
+        // Clear the next week's ordinary growth before checking a midweek order.
+        world.NewDay();
+        kingdom.ActionNewDayResourceUpdate( {} );
         kingdom.AddFundsResource( Funds( Resource::GOLD, 100000 ) );
-        auto & training = *towns[1];
-        training.GetArmy().Clean();
-        assert( training.GetArmy().JoinTroop( Monster( Monster::PEASANT ), 12, false ) );
-        for ( const uint32_t dwelling : { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 } ) {
-            const auto available = training.getMonstersInDwelling( dwelling );
-            if ( available ) assert( training.RecruitMonster( Troop( Monster( Race::KNGT, dwelling ), available ), false ) );
+        const std::array<uint32_t, 3> infantry{ DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
+        for ( size_t city = 1; city < towns.size(); ++city ) {
+            auto & training = *towns[city];
+            training.GetArmy().Clean();
+            for ( const uint32_t dwelling : infantry ) {
+                const auto available = training.getMonstersInDwelling( dwelling );
+                if ( available ) assert( training.RecruitMonster( Troop( Monster( Race::KNGT, dwelling ), available ), false ) );
+            }
+            assert( training.GetArmy().JoinTroop( Monster( Monster::PEASANT ), 12, false ) );
         }
+        const auto cost = [&]( const Castle & castle, const uint32_t count ) {
+            const auto & config = Conscription::settings();
+            auto state = castle.conscriptionDaySnapshot().state;
+            const auto units = Conscription::train( state, count, config );
+            uint64_t gold = Conscription::trainingCost( config, count );
+            for ( size_t i = 0; i < units.size(); ++i ) {
+                gold += units[i] * Monster( Race::KNGT, infantry[i] ).GetCost().gold;
+            }
+            return gold;
+        };
+        const auto budget = cost( *towns[1], 9 );
+        int64_t regularRecruitment = 0;
+        for ( const uint32_t dwelling : infantry ) {
+            regularRecruitment += int64_t{ towns[0]->getMonstersInDwelling( dwelling ) } * Monster( Race::KNGT, dwelling ).GetCost().gold;
+        }
+        assert( regularRecruitment > 0 );
+        const int64_t openingReserve = AI::KnightConstruction::operatingReserve( kingdom );
+        const int64_t cash = openingReserve + regularRecruitment + static_cast<int64_t>( budget ) - kingdom.GetIncome( Kingdom::INCOME_ALL ).gold;
+        assert( cash >= 0 && cash <= INT32_MAX );
+        kingdom.OddFundsResource( kingdom.GetFunds() );
+        kingdom.AddFundsResource( Funds( Resource::GOLD, static_cast<int32_t>( cash ) ) );
         AI::KnightEconomy::planDailyOrders( kingdom );
-        assert( towns[1]->getConscriptionOrder() > 0 );
+        assert( towns[1]->getConscriptionOrder() > 8 );
+        assert( cost( *towns[1], towns[1]->getConscriptionOrder() ) + cost( *towns[2], towns[2]->getConscriptionOrder() ) <= budget );
+        world.NewDay();
+        kingdom.ActionNewDayResourceUpdate( {} );
+        assert( towns[1]->GetArmy().GetCountMonsters( Monster::PEASANT ) == 12 - towns[1]->getConscriptionOrder() );
+        assert( kingdom.GetFunds().gold >= openingReserve + regularRecruitment );
     }
     const auto final = kingdom.economySnapshot();
     std::cout << "RESULT " << final.gold;

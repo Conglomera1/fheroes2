@@ -363,10 +363,12 @@ namespace
         return status == BuildingStatus::ALLOW_BUILD || status == BuildingStatus::LACK_RESOURCES || status == BuildingStatus::NOT_TODAY;
     }
 
-    std::optional<KC::Resources> tomorrowFunds( const Kingdom & kingdom )
+    std::optional<KC::Resources> tomorrowFunds( const Kingdom & kingdom, const bool beforeTrainingOrders = false )
     {
         if ( world.CountDay() == UINT32_MAX ) return {};
-        const auto projection = Economy::forecast( kingdom.economySnapshot(), Conscription::settings(), 1 );
+        auto config = Conscription::settings();
+        if ( beforeTrainingOrders ) config.enabled = false;
+        const auto projection = Economy::forecast( kingdom.economySnapshot(), config, 1 );
         if ( !projection.complete ) return {};
         return EP::funds( projection.end );
     }
@@ -1635,17 +1637,18 @@ void AI::KnightConstruction::notePopulationRoute( const Heroes & hero, const int
     }
 }
 
-void AI::KnightConstruction::refresh()
+void AI::KnightConstruction::refresh( const bool beforeTrainingOrders )
 {
     if ( !constructionContext ) return;
     const auto & kingdom = *constructionContext->kingdom;
-    const auto future = tomorrowFunds( kingdom );
+    const auto future = tomorrowFunds( kingdom, beforeTrainingOrders );
     if ( !future ) return;
     constructionContext->ledger.promises.clear();
     size_t order = 0;
     for ( const auto * castle : kingdom.GetCastles() ) {
         if ( !castle ) continue;
-        if ( castle->hasTrainingGrounds() && castle->CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD )
+        // Mode 2 order planning already holds the Farm restoration cost in the operating reserve.
+        if ( !beforeTrainingOrders && castle->hasTrainingGrounds() && castle->CheckBuyBuilding( BUILD_WEL2 ) == BuildingStatus::ALLOW_BUILD )
             constructionContext->ledger.book( castle->GetIndex(), Promise{ BUILD_WEL2, 0, order++, constructionResources( castle->getBuildingCost( BUILD_WEL2 ) ) }, *future );
     }
     for ( const auto * castle : kingdom.GetCastles() ) if ( castle ) reservePrimary( constructionContext->ledger, *castle, *future, order++ );
@@ -1681,11 +1684,15 @@ AI::KnightConstruction::Resources AI::KnightConstruction::reservedDevelopment( c
 int64_t AI::KnightConstruction::operatingReserve( const Kingdom & kingdom )
 {
     bool knight = false; int64_t reserve = 2000;
+    const bool adjustable = Conscription::settings().mode == 2;
     for ( const auto * c : kingdom.GetCastles() ) if ( c && c->GetRace() == Race::KNGT ) {
         knight = true;
         if ( !c->hasTrainingGrounds() ) continue;
+        reserve += c->getBuildingCost( BUILD_WEL2 ).gold;
+        // Adjustable orders are re-budgeted each evening, not a week-long obligation.
+        if ( adjustable ) continue;
         const auto week = KnightEconomy::weekFunding( *c );
-        reserve += c->getBuildingCost( BUILD_WEL2 ).gold + week.fees[0] + ( recruitmentTown == c ? 0 : week.recruits[0] );
+        reserve += week.fees[0] + ( recruitmentTown == c ? 0 : week.recruits[0] );
     }
     return knight ? reserve : 0;
 }

@@ -107,7 +107,7 @@ namespace AI::KnightConstruction
         const Castle * previous_;
     };
     void setRoles( const Kingdom & kingdom, const std::vector<int> & knownFront, const std::vector<int> & endangered );
-    void refresh();
+    void refresh( bool beforeTrainingOrders = false );
     bool active( const Kingdom & kingdom );
     class Emergency
     {

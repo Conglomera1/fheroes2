@@ -6,23 +6,26 @@
 taxpayer.gold_per_peasant_per_day = 2
 taxpayer.max_taxable_peasants_per_farm = 0
 
-# Conscription: fees are per attempt; Hut recruits also pay the Peasant price.
+# Conscription
 # Trained units must still be purchased normally.
 # 0 = disabled; 1 = fixed quotas; 2 = adjustable daily order per town.
 conscription.mode = 1
+
+# Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price.
 conscription.gold_per_peasant = 50
 
-# Mode 2 only. 1.0 adds the base fee at the first step, then the multiplier scales each successive increment.
-# If the base fee is zero, gold_increment is an absolute amount in gold. 0 = flat pricing.
+# Mode 1: Daily conscription limit per town. Odd days of the week: 1, 3, 5, 7. Even days: 2, 4, 6.
+conscription.odd_day_limit = 2
+conscription.even_day_limit = 3
+
+# Mode 2: increase per tier as a fraction of the base fee. 1.0 = the same amount; 0 = flat pricing.
+# If the base fee is zero, this is an increment in gold.
 conscription.gold_increment = 1.0
+# Mode 2: multiply each successive increment by this factor. Minimum 1.0.
 conscription.gold_increment_multiplier = 1.0
 conscription.gold_increment_step = 1
 # 0 = marginal price by rank, 1 = all Peasants in the fulfilled order pay the highest rank's price.
 conscription.uniform_batch_price = 0
-
-# Mode 1 only. Odd/even refer to days 1..7 of each week. The default quotas allow 17 per week.
-conscription.odd_day_limit = 2
-conscription.even_day_limit = 3
 
 # Training success: 1.0=100%; failed attempts consume Peasants and fees.
 conscription.peasant_success_ratio = 1.0
