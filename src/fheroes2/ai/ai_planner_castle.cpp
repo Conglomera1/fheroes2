@@ -758,7 +758,9 @@ bool AI::Planner::shouldKeepTaxpayersInGarrison( const Castle & castle ) const
 
 bool AI::Planner::shouldPreserveTaxpayerPeasants( const Castle & castle, const Troop & candidate, const Troop & incoming ) const
 {
-    if ( !shouldKeepTaxpayersInGarrison( castle ) || candidate.GetID() != Monster::PEASANT ) {
+    // A defense task still warrants checking whether sacrificing a training reserve is decisive.
+    const bool hasTrainingReserve = castle.hasTrainingGrounds() && Conscription::settings().enabled;
+    if ( candidate.GetID() != Monster::PEASANT || ( !hasTrainingReserve && !shouldKeepTaxpayersInGarrison( castle ) ) ) {
         return false;
     }
     const uint64_t weeklyTax = static_cast<uint64_t>( candidate.GetCount() ) * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
@@ -936,18 +938,27 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
             weakestTroop = weakestTroop && Troop( *weakestTroop ).GetStrength() < Troop( *weakestGarrisonTroop ).GetStrength() ? weakestTroop : weakestGarrisonTroop;
         }
 
-        if ( KC::populationDepositProtected( castle ) || ( guestHero && KC::cancelledCargo( *guestHero ) ) ) {
-            // Preserve returned cargo while choosing any ordinary military replacement.
-            weakestTroop = nullptr;
+        const bool protectCargo = KC::populationDepositProtected( castle ) || ( guestHero && KC::cancelledCargo( *guestHero ) );
+        const bool preferTrainingPopulation = castle.hasTrainingGrounds() && Conscription::settings().enabled && weakestTroop->GetID() == Monster::PEASANT;
+        if ( protectCargo || preferTrainingPopulation ) {
+            // Free a military slot first when the incoming troops would strengthen it.
+            Troop * weakestMilitaryTroop = nullptr;
             const auto consider = [&]( Army & candidate ) {
                 for ( size_t slot = 0; slot < candidate.Size(); ++slot ) {
                     auto * unit = candidate.GetTroop( slot );
                     if ( !unit->isValid() || unit->GetID() == Monster::PEASANT ) continue;
-                    if ( !weakestTroop || Troop( *unit ).GetStrength() < Troop( *weakestTroop ).GetStrength() ) weakestTroop = unit;
+                    if ( !weakestMilitaryTroop || Troop( *unit ).GetStrength() < Troop( *weakestMilitaryTroop ).GetStrength() ) weakestMilitaryTroop = unit;
                 }
             };
-            consider( garrison ); if ( guestHero ) consider( guestHero->GetArmy() );
-            if ( !weakestTroop ) continue;
+            consider( garrison );
+            if ( guestHero ) consider( guestHero->GetArmy() );
+            if ( protectCargo ) {
+                if ( !weakestMilitaryTroop ) continue;
+                weakestTroop = weakestMilitaryTroop;
+            }
+            else if ( weakestMilitaryTroop && Troop( *weakestMilitaryTroop ).GetStrength() < troop.GetStrength() ) {
+                weakestTroop = weakestMilitaryTroop;
+            }
         }
 
         // If we still can't find a slot, let's try to dismiss the weakest unit of those that are present in the garrison and in the army of the guest hero - provided
