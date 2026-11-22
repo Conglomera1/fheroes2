@@ -75,6 +75,8 @@ namespace AI::KnightConstruction
     bool canTradeForBuilding( const Castle & castle, uint32_t building, const Funds & transaction );
     Resources reservedDevelopment( const Kingdom & kingdom );
     int64_t operatingReserve( const Kingdom & kingdom );
+    enum class ReinforcementNeed { None, Visitor, Defense };
+    ReinforcementNeed reinforcementNeed( const Castle & castle );
     bool mobilizationPreservesDevelopment( const Castle & castle );
     bool hasPrimaryChoice( const Castle & castle );
     bool economicTown( const Castle & castle );

@@ -19,12 +19,52 @@ int main( int argc, char ** argv )
     auto * castle = world.getCastle( { tile % 36, tile / 36 } ); assert( castle ); kingdom.GetCastles().push_back( castle );
     world.getTile( tile ).setMainObjectType( MP2::OBJ_CASTLE );
     Maps::Map_Format::CastleMetadata meta; meta.customBuildings = true;
+    const bool alreadyTraining = mode == "recover" || mode == "expensive" || mode == "idle_training";
     meta.builtBuildings = { BUILD_CASTLE, BUILD_WELL, DWELLING_MONSTER1, DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4,
-                           ( mode == "recover" || mode == "expensive" ) ? BUILD_TRAINING_GROUNDS : BUILD_WEL2 };
+                           alreadyTraining ? BUILD_TRAINING_GROUNDS : BUILD_WEL2 };
     if ( mode == "stocked" ) meta.availableToHireMonsterCount = { 0, 10, 7, 6, 0, 0 };
+    if ( mode == "priority_recruitment" || mode == "idle_training" ) meta.availableToHireMonsterCount = { 0, 30, 30, 30, 0, 0 };
     if ( mode != "prerequisite" ) meta.builtBuildings.push_back( BUILD_CAPTAIN );
     castle->loadFromResurrectionMap( meta ); castle->SetModes( Castle::ALLOW_TO_BUILD_TODAY );
-    castle->GetArmy().Clean(); assert( castle->GetArmy().JoinTroop( Monster::PEASANT, ( mode == "recover" || mode == "expensive" ) ? 100 : 20, false ) );
+    castle->GetArmy().Clean(); assert( castle->GetArmy().JoinTroop( Monster::PEASANT, alreadyTraining ? 100 : 20, false ) );
+    if ( mode == "priority_recruitment" ) {
+        assert( Conscription::settings().mode == 2 );
+        Players::Get( PlayerColor::BLUE )->SetControl( CONTROL_AI );
+        constexpr int trainingTile = 170;
+        world.addCastle( trainingTile, static_cast<uint8_t>( Race::KNGT ), PlayerColor::BLUE );
+        auto * training = world.getCastle( { trainingTile % 36, trainingTile / 36 } );
+        assert( training );
+        kingdom.GetCastles().push_back( training );
+        world.getTile( trainingTile ).setMainObjectType( MP2::OBJ_CASTLE );
+        meta.builtBuildings.back() = BUILD_STATUE;
+        std::replace( meta.builtBuildings.begin(), meta.builtBuildings.end(), BUILD_WEL2, BUILD_TRAINING_GROUNDS );
+        meta.availableToHireMonsterCount = {};
+        training->loadFromResurrectionMap( meta );
+        training->GetArmy().Clean();
+        assert( training->GetArmy().JoinTroop( Monster::PEASANT, 20, false ) );
+        kingdom.OddFundsResource( kingdom.GetFunds() );
+        kingdom.AddFundsResource( Funds( 100, 100, 100, 100, 100, 100, 5500 ) );
+        const auto funds = kingdom.GetFunds();
+        {
+            AI::KnightConstruction::Scope scope( kingdom );
+            AI::KnightConstruction::setRoles( kingdom, {}, { tile } );
+            assert( AI::KnightConstruction::reinforcementNeed( *castle ) == AI::KnightConstruction::ReinforcementNeed::Defense );
+            AI::KnightEconomy::planDailyOrders( kingdom );
+            assert( training->getConscriptionOrder() == 0 );
+            AI::KnightConstruction::setRoles( kingdom, {}, {} );
+            assert( AI::KnightConstruction::reinforcementNeed( *castle ) == AI::KnightConstruction::ReinforcementNeed::None );
+            AI::KnightEconomy::planDailyOrders( kingdom );
+            assert( training->getConscriptionOrder() > 0 );
+        }
+        assert( kingdom.GetFunds() == funds && training->GetArmy().GetCountMonsters( Monster::PEASANT ) == 20 );
+        const auto order = training->getConscriptionOrder();
+        world.NewDay();
+        kingdom.ActionNewDayResourceUpdate( {} );
+        assert( training->GetArmy().GetCountMonsters( Monster::PEASANT ) == 20 - order );
+        std::cout << "RESULT priority_recruitment defense=0 quiet=" << order << " executed=" << order << '\n';
+        kingdom.GetCastles().clear();
+        return 0;
+    }
     if ( mode == "weekday" ) world.NewDay();
     if ( mode == "mobile" ) {
         auto * h = world.GetHeroes( Heroes::LORDKILBURN ); h->SetColor( PlayerColor::BLUE ); h->SetCenter( castle->GetCenter() );
@@ -42,8 +82,8 @@ int main( int argc, char ** argv )
         << " force=" << decision.keepForce << "/" << decision.switchForce << " gold=" << decision.keepGold << "/" << decision.switchGold
         << " projections=" << decision.projections << std::endl;
     std::cout << "LIVE_BEGIN" << std::endl;
-    if ( mode == "rich" || mode == "mobile" || mode == "recover" || mode == "expensive" || mode == "custom_cost" || ( mode == "stocked" && decision.building ) ) {
-        const auto expected = ( mode == "recover" || mode == "expensive" ) ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS;
+    if ( mode == "rich" || mode == "mobile" || alreadyTraining || mode == "custom_cost" || ( mode == "stocked" && decision.building ) ) {
+        const auto expected = alreadyTraining ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS;
         assert( decision.building == expected ); const auto price = castle->getBuildingCost( expected );
         assert( AI::KnightEconomy::develop( *castle, true ) ); // Real production role adapter, diagnostics may be zero.
         assert( castle->isBuild( expected ) && !castle->isBuild( expected == BUILD_TRAINING_GROUNDS ? BUILD_WEL2 : BUILD_TRAINING_GROUNDS ) );

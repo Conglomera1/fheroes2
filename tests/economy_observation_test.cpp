@@ -140,17 +140,20 @@ int main( int argc, char ** argv )
         }
         assert( regularRecruitment > 0 );
         const int64_t openingReserve = AI::KnightConstruction::operatingReserve( kingdom );
-        const int64_t cash = openingReserve + regularRecruitment + static_cast<int64_t>( budget ) - kingdom.GetIncome( Kingdom::INCOME_ALL ).gold;
+        // The unthreatened Farm has ordinary stocks but no buyer expected tomorrow.
+        const int64_t cash = openingReserve + static_cast<int64_t>( budget ) - kingdom.GetIncome( Kingdom::INCOME_ALL ).gold;
         assert( cash >= 0 && cash <= INT32_MAX );
         kingdom.OddFundsResource( kingdom.GetFunds() );
         kingdom.AddFundsResource( Funds( Resource::GOLD, static_cast<int32_t>( cash ) ) );
         AI::KnightEconomy::planDailyOrders( kingdom );
         assert( towns[1]->getConscriptionOrder() > 8 );
         assert( cost( *towns[1], towns[1]->getConscriptionOrder() ) + cost( *towns[2], towns[2]->getConscriptionOrder() ) <= budget );
+        const auto fees = Conscription::trainingCost( Conscription::settings(), towns[1]->getConscriptionOrder() )
+                          + Conscription::trainingCost( Conscription::settings(), towns[2]->getConscriptionOrder() );
         world.NewDay();
         kingdom.ActionNewDayResourceUpdate( {} );
         assert( towns[1]->GetArmy().GetCountMonsters( Monster::PEASANT ) == 12 - towns[1]->getConscriptionOrder() );
-        assert( kingdom.GetFunds().gold >= openingReserve + regularRecruitment );
+        assert( kingdom.GetFunds().gold == openingReserve + static_cast<int64_t>( budget - fees ) );
     }
     const auto final = kingdom.economySnapshot();
     std::cout << "RESULT " << final.gold;

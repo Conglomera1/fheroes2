@@ -20,6 +20,7 @@ namespace
     namespace P = AI::EconomyProject;
     namespace G = AI::EconomyCandidates;
     namespace M = AI::EconomyMilitary;
+    namespace KC = AI::KnightConstruction;
     constexpr int64_t reserveGold = 2000; // Existing taxpayer investment reserve.
     constexpr uint32_t horizon = 14;
 
@@ -93,12 +94,28 @@ namespace
         return morning;
     }
 
-    // Reserve purchases already possible without conscription. Simulate slots and
-    // payments on copies so castles cannot reserve the same gold or resources twice.
-    int64_t plannedRecruitmentGold( const P::State & state, P::Resources funds, const bool newWeek )
+    std::vector<size_t> priorityRecruitment( const Kingdom & kingdom )
+    {
+        std::vector<size_t> defenders;
+        std::vector<size_t> visitors;
+        size_t city = 0;
+        for ( const Castle * castle : kingdom.GetCastles() ) {
+            if ( !castle ) continue;
+            const auto need = KC::reinforcementNeed( *castle );
+            if ( need == KC::ReinforcementNeed::Defense ) defenders.push_back( city );
+            if ( need == KC::ReinforcementNeed::Visitor ) visitors.push_back( city );
+            ++city;
+        }
+        defenders.insert( defenders.end(), visitors.begin(), visitors.end() );
+        return defenders;
+    }
+
+    // Reserve ordinary recruitment at threatened towns and for eligible visiting heroes.
+    // Simulate slots and payments with one treasury shared by those actual priorities.
+    int64_t plannedRecruitmentGold( const P::State & state, P::Resources funds, const bool newWeek, const std::vector<size_t> & priorities )
     {
         const int64_t gold = funds[0];
-        for ( size_t city = 0; city < state.towns.size(); ++city ) {
+        for ( const size_t city : priorities ) {
             const auto & town = state.towns[city];
             if ( !town.available ) continue;
             auto garrison = town.garrison;
@@ -154,12 +171,15 @@ namespace
         int64_t reserve = reserveGold;
         for ( size_t i = 0; i < state.towns.size(); ++i ) {
             if ( state.towns[i].race != Race::KNGT || !( state.towns[i].mask & BUILD_TRAINING_GROUNDS ) ) continue;
+            reserve += config.farmGold;
+            // Mode 2 forecasts re-budget each evening, as the live AI does.
+            if ( config.mode == 2 ) continue;
             std::vector<Conscription::TownDay> days{ state.economy.towns[i].troops };
             constexpr int64_t money = INT64_MAX / 4;
             int64_t gold = money;
             for ( uint32_t offset = 1; offset <= 7; ++offset )
                 Conscription::scheduleDay( days, gold, config, Monster( Monster::PEASANT ).GetCost().gold, state.economy.day + offset );
-            reserve += config.farmGold + money - gold;
+            reserve += money - gold;
             if ( recruiting != i ) {
                 for ( size_t pool = 0; pool < 3; ++pool ) {
                     const auto & dwelling = state.towns[i].dwellings[pool + 1];
@@ -186,6 +206,7 @@ namespace
     Rollout rollout( const Kingdom & kingdom, const P::Input & captured, size_t townIndex, uint32_t building, Work & work, const bool returnToFarm = false, const bool includeVisitor = true, const P::Resources & overhead = {} )
     {
         auto state = captured.start; const auto today = state.economy.day;
+        const auto priorities = captured.config.mode == 2 ? priorityRecruitment( kingdom ) : std::vector<size_t>{};
         std::vector<P::Action> initial;
         if ( building ) {
             P::Action a; a.id = a.project = 1; a.day = today; a.town = state.towns[townIndex].tile;
@@ -221,6 +242,7 @@ namespace
             for ( size_t city = 0; city < planned.towns.size(); ++city ) {
                 auto & t = planned.towns[city];
                 if ( !t.available ) continue;
+                if ( captured.config.mode == 2 && std::find( priorities.begin(), priorities.end(), city ) == priorities.end() ) continue;
                 for ( size_t pool = 6; pool-- > 1; ) {
                     const auto & dwelling = t.dwellings[pool];
                     const auto & creature = dwelling.creature( t.mask );
@@ -251,7 +273,7 @@ namespace
                 const bool newWeek = day % 7 == 0;
                 auto funds = openingFunds( state.economy );
                 funds[0] = std::max<int64_t>( 0, funds[0] - recovery );
-                int64_t budget = funds[0] - plannedRecruitmentGold( state, funds, newWeek );
+                int64_t budget = funds[0] - plannedRecruitmentGold( state, funds, newWeek, priorities );
                 for ( size_t city = 0; city < state.towns.size(); ++city ) {
                     auto & town = state.economy.towns[city];
                     if ( !town.training ) continue;
@@ -294,10 +316,12 @@ void AI::KnightEconomy::planDailyOrders( Kingdom & kingdom )
         funds[i] = std::max<int64_t>( 0, funds[i] - development[i] );
     }
     funds[0] = std::max<int64_t>( 0, funds[0] - operating );
-    const int64_t recruitment = plannedRecruitmentGold( state, funds, newWeek );
+    const auto priorities = priorityRecruitment( kingdom );
+    const int64_t recruitment = plannedRecruitmentGold( state, funds, newWeek, priorities );
     int64_t budget = funds[0] - recruitment;
     ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_BUDGET", ",\"player\":" << static_cast<int>( kingdom.GetColor() )
         << ",\"opening_gold\":" << opening[0] << ",\"development\":" << development[0] << ",\"recruitment\":" << recruitment
+        << ",\"recruitment_towns\":" << priorities.size()
         << ",\"operating_reserve\":" << operating << ",\"budget\":" << budget );
     size_t city = 0;
     for ( Castle * town : kingdom.GetCastles() ) {

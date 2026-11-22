@@ -801,8 +801,7 @@ void AI::Planner::reinforceCastle( Castle & castle, const bool defensiveStrategy
 {
     assert( castle.isControlAI() );
     if ( auto * guest = castle.GetHero() ) KC::settleCancelledCargo( *guest, castle );
-    if ( const auto * guest = castle.GetHero(); guest && ( AI::KnightConstruction::isOpeningSeaExplorer( *guest ) || AI::KnightConstruction::keepPopulationCargo( *guest ) )
-         && !( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) ) ) return;
+    if ( castle.GetHero() && KC::reinforcementNeed( castle ) == KC::ReinforcementNeed::None ) return;
     const uint32_t region = world.getTile( castle.GetIndex() ).GetRegion();
     const bool urgent = ( constructionContext && constructionContext->endangered.count( castle.GetIndex() ) )
         || ( defensiveStrategy && ( isCriticalTask( castle.GetIndex() ) || ( region < _regions.size() && _regions[region].safetyFactor < 0 ) ) );
@@ -1219,6 +1218,18 @@ bool AI::KnightConstruction::canSpend( const Castle & castle, const uint32_t bui
 
 AI::KnightConstruction::Emergency::Emergency( const bool active ) : active_( active ) { if ( active_ ) ++emergencyDepth; }
 AI::KnightConstruction::Emergency::~Emergency() { if ( active_ ) --emergencyDepth; }
+AI::KnightConstruction::ReinforcementNeed AI::KnightConstruction::reinforcementNeed( const Castle & castle )
+{
+    if ( constructionContext && constructionContext->kingdom == &castle.GetKingdom() && constructionContext->endangered.count( castle.GetIndex() ) )
+        return ReinforcementNeed::Defense;
+
+    const auto * guest = castle.GetHero();
+    if ( guest && !isOpeningSeaExplorer( *guest ) && !keepPopulationCargo( *guest ) )
+        return ReinforcementNeed::Visitor;
+
+    return ReinforcementNeed::None;
+}
+
 bool AI::KnightConstruction::economicTown( const Castle & castle )
 {
     return constructionContext && constructionContext->kingdom == &castle.GetKingdom() && constructionContext->economic.count( castle.GetIndex() );
