@@ -66,7 +66,9 @@ const Conscription::Settings & Conscription::settings()
             comments.clear();
             return fallback;
         };
-        section( "Conscription" );
+        comments = "\n# --------------------------------------------------\n"
+                   "# Conscription\n"
+                   "# --------------------------------------------------\n";
         section( "Conscription mode: 0 = disabled, 1 = fixed daily quotas, 2 = orders per town." );
         const int32_t legacyMode = config.Exists( "conscription.enabled" ) ? std::clamp( config.IntParams( "conscription.enabled" ), 0, 1 ) : 1;
         result.mode = read( "conscription.mode", legacyMode, 2 );

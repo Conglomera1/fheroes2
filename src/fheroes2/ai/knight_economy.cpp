@@ -125,13 +125,13 @@ namespace
         return gold - funds[0];
     }
 
-    int64_t orderBudget( const Kingdom & kingdom, const int64_t entryCost = 0 )
+    int64_t orderBudget( const Kingdom & kingdom )
     {
         const auto development = AI::KnightConstruction::reservedDevelopment( kingdom )[0];
         int64_t conversionReserve = reserveGold;
         for ( const auto * town : kingdom.GetCastles() ) if ( town->hasTrainingGrounds() ) conversionReserve += Conscription::settings().farmGold;
         const int64_t income = kingdom.GetIncome( Kingdom::INCOME_ALL ).gold;
-        return std::max<int64_t>( 0, int64_t{ kingdom.GetFunds().gold } + income - entryCost - conversionReserve - development );
+        return std::max<int64_t>( 0, int64_t{ kingdom.GetFunds().gold } + income - conversionReserve - development );
     }
 
     struct MobilizationPlan { uint32_t seed = 0, until = 0; uint64_t segment = 0; int owner = -1; bool recovering = false; };
@@ -327,10 +327,10 @@ AI::KnightEconomy::WeekFunding AI::KnightEconomy::weekFunding( const Castle & ca
 {
     WeekFunding out;
     if ( castle.GetRace() != Race::KNGT || world.CountDay() > UINT32_MAX - 7 ) return out;
-    const auto & config = Conscription::settings();
+    auto config = Conscription::settings();
+    // A new TG is evaluated against the fixed schedule, independently of live adjustable orders.
+    if ( config.mode == 2 ) config.mode = 1;
     std::vector<Conscription::TownDay> towns{ castle.conscriptionDaySnapshot() };
-    if ( config.mode == 2 && !castle.hasTrainingGrounds() )
-        towns[0].order = pickOrder( towns[0], config, infantry( castle ), orderBudget( castle.GetKingdom(), config.trainingGold ) ).count;
     const auto pools = towns[0].pools;
     const auto total = towns[0].state.total;
     constexpr int64_t money = INT64_MAX / 4;
@@ -356,6 +356,8 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     out.dailyOverhead = overhead( castle.GetKingdom() );
     // Starting mobilisation is weekly; financial recovery is checked every safe day.
     const bool training = castle.hasTrainingGrounds();
+    const auto & config = Conscription::settings();
+    out.comparisonMode = !training && config.mode == 2 ? 1 : config.mode;
     bool lowCashRecovery = Conscription::settings().mode != 2 && training && int64_t{ castle.GetKingdom().GetFunds().gold } < reserveGold + castle.getBuildingCost( BUILD_WEL2 ).gold;
     if ( lowCashRecovery ) {
         const auto tomorrow = Economy::forecast( castle.GetKingdom().economySnapshot(), Conscription::settings(), 1 );
@@ -394,13 +396,13 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
     if ( !training ) {
         if ( Conscription::settings().mode == 2 ) {
             const auto troops = castle.conscriptionDaySnapshot();
-            out.comparisonOrder = pickOrder( troops, Conscription::settings(), infantry( castle ), orderBudget( kingdom, price.gold ) ).count;
             const auto taxRate = static_cast<uint64_t>( std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
             const auto cap = Kingdom::GetMaxTaxablePeasantsPerFarm();
             const uint64_t people = troops.garrison + ( visitor ? visitor->GetArmy().GetCountMonsters( Monster::PEASANT ) : 0 );
             out.farmTax = taxRate * std::min( people, cap ? uint64_t{ cap } : people );
         }
         const auto week = weekFunding( castle );
+        out.comparisonWeekTrained = week.trained;
         if ( !week.complete || !week.trained ) { out.reason = "no_funded_conscription"; return out; }
         auto development = KnightConstruction::reservedDevelopment( kingdom );
         const std::array<int64_t, 7> entry{ price.gold, price.wood, price.ore, price.mercury, price.sulfur, price.crystal, price.gems };
@@ -412,6 +414,7 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
         }
     }
     auto input = P::capture( kingdom, day + horizon );
+    input.config.mode = out.comparisonMode;
     const auto town = std::find_if( input.start.towns.begin(), input.start.towns.end(), [&]( const auto & t ) { return t.tile == castle.GetIndex(); } );
     if ( town == input.start.towns.end() ) { out.reason = "town_missing"; return out; }
     const size_t index = static_cast<size_t>( town - input.start.towns.begin() );
@@ -470,7 +473,8 @@ bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
         << ",\"keep_gold\":" << decision.keepGold << ",\"switch_gold\":" << decision.switchGold << ",\"projections\":" << decision.projections
         << ",\"forecast_towns\":" << decision.towns << ",\"daily_overhead\":" << Economy::arrayJson( decision.dailyOverhead )
         << ",\"entry_funding\":" << Economy::arrayJson( decision.entryFunding ) << ",\"plan_until\":" << decision.planUntil
-        << ",\"conscription_mode\":" << Conscription::settings().mode << ",\"comparison_order\":" << decision.comparisonOrder
+        << ",\"conscription_mode\":" << Conscription::settings().mode << ",\"comparison_mode\":" << decision.comparisonMode
+        << ",\"comparison_week_trained\":" << decision.comparisonWeekTrained
         << ",\"farm_tax_at_risk_daily\":" << decision.farmTax );
     if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) || !KnightConstruction::canSpend( castle, decision.building ) ) return false;
     // One immediate, synchronous purchase. Comparisons above issue no future

@@ -6,7 +6,10 @@
 taxpayer.gold_per_peasant_per_day = 2
 taxpayer.max_taxable_peasants_per_farm = 0
 
+# --------------------------------------------------
 # Conscription
+# --------------------------------------------------
+
 # Trained units must still be purchased normally.
 # 0 = disabled; 1 = fixed quotas; 2 = adjustable daily order per town.
 conscription.mode = 1
