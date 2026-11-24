@@ -9,6 +9,8 @@ using System.Runtime.InteropServices;
 public static class Native {
     [DllImport("user32.dll", SetLastError=true)]
     public static extern bool PostMessage(IntPtr window, uint message, IntPtr command, IntPtr parameter);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)]
+    public static extern IntPtr FindWindow(string windowClass, string title);
 }
 '@
 function Wait-Until([scriptblock]$Condition, [string]$Failure) {
@@ -29,7 +31,7 @@ $exe = Join-Path $game.FullName 'KnightModLauncher.exe'
 Copy-Item $Launcher $exe
 Copy-Item $GameProbe (Join-Path $game.FullName 'fheroes2KM.exe')
 Set-Content -LiteralPath $ini -Encoding ASCII -Value @('# keep me', 'external.setting = 47', 'conscription.mode = 2', 'conscription.gold_per_peasant = 65')
-$process = Start-Process -FilePath $exe -PassThru
+$process = Start-Process -FilePath $exe -ArgumentList "--language=en" -PassThru
 try {
     Wait-Until { $process.Refresh(); $process.MainWindowHandle -ne [IntPtr]::Zero } 'The launcher did not create its main window.'
     $window = $process.MainWindowHandle
@@ -39,6 +41,16 @@ try {
     foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
         if (-not $settings.Contains($line)) { throw "Saving lost an existing value: $line" }
     }
+    foreach ($entry in @(@(307,'Save As'), @(308,'Load Profile'))) {
+        $command = [int]$entry[0]
+        $title = [string]$entry[1]
+        if (-not [Native]::PostMessage($window, 0x111, [IntPtr]$command, [IntPtr]::Zero)) { throw "Cannot open $title." }
+        Wait-Until { [Native]::FindWindow('#32770', $title) -ne [IntPtr]::Zero } "The native dialog $title did not open."
+        if (-not [Native]::PostMessage([Native]::FindWindow('#32770', $title), 0x10, [IntPtr]::Zero, [IntPtr]::Zero)) {
+            throw "Cannot close $title."
+        }
+        Wait-Until { [Native]::FindWindow('#32770', $title) -eq [IntPtr]::Zero } "The native dialog $title did not close."
+    }
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]304, [IntPtr]::Zero)) { throw 'Cannot click Play.' }
     $marker = Join-Path $game.FullName 'launcher-probe.txt'
     Wait-Until { Test-Path -LiteralPath $marker } 'The launcher did not start the x64 probe in the game folder.'
@@ -46,7 +58,7 @@ try {
     if ($process.HasExited -or $process.MainWindowHandle -eq [IntPtr]::Zero) { throw 'Play closed the launcher.' }
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]305, [IntPtr]::Zero)) { throw 'Cannot click Quit.' }
     if (-not $process.WaitForExit(5000) -or $process.ExitCode -ne 0) { throw 'Quit did not close the launcher cleanly.' }
-    Write-Output 'x86 GUI, real INI write, x64 child process, working directory, Play and Quit passed.'
+    Write-Output 'x86 GUI, real INI write, native profile dialogs, x64 child process, working directory, Play and Quit passed.'
 } finally {
     if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
     Remove-Item -LiteralPath $temp -Recurse -Force

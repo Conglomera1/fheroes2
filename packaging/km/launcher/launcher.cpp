@@ -296,8 +296,9 @@ namespace
             _tooltip = CreateWindowExW( WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, CW_USEDEFAULT,
                                         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, _window, nullptr, _instance, nullptr );
             SendMessageW( _tooltip, TTM_SETMAXTIPWIDTH, 0, 430 );
-            SendMessageW( _tooltip, TTM_SETDELAYTIME, TTDT_INITIAL, 550 );
-            SendMessageW( _tooltip, TTM_SETDELAYTIME, TTDT_AUTOPOP, 32767 );
+            auto tool = tooltipInfo();
+            SendMessageW( _tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>( &tool ) );
+            SetTimer( _window, 1, 50, nullptr );
 
             for ( size_t i = 0; i < km::count; ++i ) {
                 auto & row = _rows[i];
@@ -318,15 +319,7 @@ namespace
                         row.spin = spin( row.input, static_cast<int>( setting.minimum ), static_cast<int>( setting.maximum ) );
                     break;
                 }
-                for ( const HWND item : { row.label, row.input, row.reset } ) {
-                    TOOLINFOW tool{};
-                    tool.cbSize = sizeof( tool );
-                    tool.hwnd = _panel;
-                    tool.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
-                    tool.uId = reinterpret_cast<UINT_PTR>( item );
-                    tool.lpszText = LPSTR_TEXTCALLBACKW;
-                    SendMessageW( _tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>( &tool ) );
-                }
+
             }
             for ( auto & title : _headings )
                 title = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
@@ -602,20 +595,56 @@ namespace
             status( _values == _saved ? L"" : tr( L"Modifications non enregistrées", L"Unsaved changes" ) );
         }
 
-        void toolText( NMTTDISPINFOW & info )
+        TOOLINFOW tooltipInfo() const
         {
-            const HWND source = reinterpret_cast<HWND>( info.hdr.idFrom );
-            for ( size_t i = 0; i < km::count; ++i ) {
-                auto & row = _rows[i];
-                if ( source != row.label && source != row.reset && source != row.input )
-                    continue;
-                const auto & setting = km::settings[i];
-                const double initial = i == km::index( "base" ) && _values[km::index( "mode" )] == 1 ? 100 : setting.initial;
-                row.help = std::wstring( tr( setting.frenchHelp, setting.englishHelp ) ) + tr( L"\r\nPar défaut : ", L"\r\nDefault: " )
-                           + number( initial, setting.kind == km::Kind::Decimal );
-                info.lpszText = row.help.data();
-                break;
+            TOOLINFOW tool{};
+            tool.cbSize = sizeof( tool );
+            tool.hwnd = _window;
+            tool.uId = 1;
+            tool.uFlags = TTF_TRACK;
+            tool.lpszText = const_cast<wchar_t *>( L"" );
+            return tool;
+        }
+
+        void updateTooltip()
+        {
+            POINT cursor{};
+            size_t rowIndex = km::count;
+            if ( GetForegroundWindow() == _window && GetCursorPos( &cursor ) ) {
+                const HWND hovered = WindowFromPoint( cursor );
+                if ( hovered ) {
+                    for ( size_t i = 0; i < km::count; ++i ) {
+                        const auto & row = _rows[i];
+                        if ( hovered == row.label || hovered == row.input || hovered == row.reset || hovered == row.spin ) {
+                            rowIndex = i;
+                            break;
+                        }
+                    }
+                }
             }
+
+            auto tool = tooltipInfo();
+            const ULONGLONG now = GetTickCount64();
+            if ( rowIndex != _hoveredRow ) {
+                if ( _showingTooltip )
+                    SendMessageW( _tooltip, TTM_TRACKACTIVATE, FALSE, reinterpret_cast<LPARAM>( &tool ) );
+                _showingTooltip = false;
+                _hoveredRow = rowIndex;
+                _hoverStarted = now;
+            }
+            if ( rowIndex == km::count || _showingTooltip || now - _hoverStarted < 550 )
+                return;
+
+            auto & row = _rows[rowIndex];
+            const auto & setting = km::settings[rowIndex];
+            const double initial = rowIndex == km::index( "base" ) && _values[km::index( "mode" )] == 1 ? 100 : setting.initial;
+            row.help = std::wstring( tr( setting.frenchHelp, setting.englishHelp ) ) + tr( L"\r\nPar défaut : ", L"\r\nDefault: " )
+                       + number( initial, setting.kind == km::Kind::Decimal );
+            tool.lpszText = row.help.data();
+            SendMessageW( _tooltip, TTM_UPDATETIPTEXTW, 0, reinterpret_cast<LPARAM>( &tool ) );
+            SendMessageW( _tooltip, TTM_TRACKPOSITION, 0, MAKELPARAM( cursor.x, cursor.y + 20 ) );
+            SendMessageW( _tooltip, TTM_TRACKACTIVATE, TRUE, reinterpret_cast<LPARAM>( &tool ) );
+            _showingTooltip = true;
         }
 
         std::optional<fs::path> profilePath( const bool save )
@@ -810,10 +839,11 @@ namespace
                     _scroll = 0;
                     layout();
                 }
-                if ( info.hwndFrom == _tooltip && info.code == TTN_GETDISPINFOW )
-                    toolText( *reinterpret_cast<NMTTDISPINFOW *>( lParam ) );
                 return 0;
             }
+            case WM_TIMER:
+                updateTooltip();
+                return 0;
             case WM_MOUSEWHEEL:
                 _scroll = std::clamp( _scroll - GET_WHEEL_DELTA_WPARAM( wParam ) * rowHeight * 3 / WHEEL_DELTA, 0, _scrollMaximum );
                 layout();
@@ -863,7 +893,9 @@ namespace
         HWND _window{}, _panel{}, _tabs{}, _tooltip{}, _language{}, _sample{}, _sampleLabel{}, _sampleSpin{}, _quote{};
         HWND _defaults{}, _save{}, _play{}, _quit{}, _guide{}, _folder{}, _saveProfile{}, _loadProfile{}, _status{};
         int _scroll{}, _scrollMaximum{};
-        bool _french{}, _updating{};
+        size_t _hoveredRow = km::count;
+        ULONGLONG _hoverStarted{};
+        bool _french{}, _updating{}, _showingTooltip{};
     };
 }
 
