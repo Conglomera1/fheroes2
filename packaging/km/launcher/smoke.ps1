@@ -135,6 +135,18 @@ try {
         if ($settings -notmatch "(?m)^conscription.mode = $($preset[0])\r?$" -or
             $settings -notmatch "(?m)^conscription.gold_per_peasant = $($preset[1])\r?$") { throw 'Changing the mode did not restore its base price.' }
     }
+    $baseReadme = Join-Path $game.FullName 'README.txt'
+    Set-Content -LiteralPath $baseReadme -Encoding ASCII -Value 'fheroes2 documentation'
+    Set-Content -LiteralPath (Join-Path $game.FullName 'Testing_and_Balance_Guide.pdf') -Encoding ASCII -Value 'Root-level guide fixture'
+    foreach ($command in @(315,301)) {
+        if (-not [Native]::PostMessage($window, 0x111, [IntPtr]$command, [IntPtr]::Zero)) { throw 'Cannot click the documentation button.' }
+        Wait-Until { [Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero } 'An absent mod document should show a missing-document message.'
+        $dialog = [Native]::FindWindow('#32770', 'Knight Mod Launcher')
+        if (-not [Native]::PostMessage($dialog, 0x10, [IntPtr]::Zero, [IntPtr]::Zero)) { throw 'Cannot close the missing-document message.' }
+        Wait-Until { [Native]::FindWindow('#32770', 'Knight Mod Launcher') -eq [IntPtr]::Zero } 'The missing-document message did not close.'
+    }
+    if ((Get-Content -LiteralPath $baseReadme) -ne 'fheroes2 documentation') { throw 'The base game Readme was changed.' }
+    Write-Output 'The documentation buttons leave the base game Readme alone.'
     foreach ($entry in @(@(307,'Save As'), @(308,'Load Profile'))) {
         $command = [int]$entry[0]
         $title = [string]$entry[1]

@@ -1150,16 +1150,17 @@ namespace
                 error( L"Impossible d’ouvrir le fichier ou le dossier.", L"Could not open the file or folder." );
         }
 
-        void openReadme()
+        void openDocumentation( const wchar_t * frenchName, const wchar_t * englishName )
         {
-            const auto english = _installation / L"Readme.txt";
-            const auto french = _installation / L"Readme_FR.txt";
+            const auto directory = _installation / L"docs" / L"Knight Mod";
+            const auto english = directory / englishName;
+            const auto french = directory / frenchName;
             if ( _french && fileExists( french ) )
                 open( french );
             else if ( fileExists( english ) )
                 open( english );
             else
-                error( L"Le Readme est introuvable dans le dossier du jeu.", L"The Readme could not be found in the game folder." );
+                error( L"Document introuvable dans docs\\Knight Mod.", L"Document not found in docs\\Knight Mod." );
         }
 
         void changeLanguage()
@@ -1252,10 +1253,10 @@ namespace
                 profile( id == saveProfileId );
                 break;
             case guideId:
-                open( _installation / tr( L"Guide_de_Test_et_Equilibrage.pdf", L"Testing_and_Balance_Guide.pdf" ) );
+                openDocumentation( L"Guide_de_Test_et_Equilibrage.pdf", L"Testing_and_Balance_Guide.pdf" );
                 break;
             case readmeId:
-                openReadme();
+                openDocumentation( L"Readme_FR.txt", L"Readme.txt" );
                 break;
             case settingsTabId:
             case advancedTabId:
