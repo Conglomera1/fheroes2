@@ -46,6 +46,7 @@ jobs:
           & packaging/km/launcher/smoke.ps1 -Launcher "$build/KnightModLauncher.exe" -GameProbe "$build/game-x64.exe" -ScreenshotFolder "$build/screenshots"
           Get-FileHash "$build/KnightModLauncher.exe" -Algorithm SHA256
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Knight-Mod-Launcher-Windows-x86
           path: |

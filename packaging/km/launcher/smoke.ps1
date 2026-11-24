@@ -7,6 +7,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type @'
 using System;
 using System.Runtime.InteropServices;
+using System.Text;
 public static class Native {
     [StructLayout(LayoutKind.Sequential)]
     public struct Rect { public int Left, Top, Right, Bottom; }
@@ -20,6 +21,8 @@ public static class Native {
     public static extern bool IsWindowVisible(IntPtr window);
     [DllImport("user32.dll", CharSet=CharSet.Unicode)]
     public static extern IntPtr SendMessage(IntPtr window, uint message, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode, EntryPoint="SendMessageW")]
+    public static extern IntPtr TextMessage(IntPtr window, uint message, IntPtr wParam, StringBuilder text);
     [DllImport("user32.dll")]
     public static extern bool GetWindowRect(IntPtr window, out Rect rect);
     [DllImport("user32.dll")]
@@ -50,6 +53,11 @@ function Save-LauncherCapture([IntPtr]$Window, [string]$Path) {
         $bitmap.Dispose()
     }
 }
+function Read-ControlText([IntPtr]$Handle) {
+    $text = [System.Text.StringBuilder]::new(256)
+    [void][Native]::TextMessage($Handle, 0xD, [IntPtr]256, $text)
+    return $text.ToString()
+}
 $temp = Join-Path ([IO.Path]::GetTempPath()) ("Knight Mod launcher " + [guid]::NewGuid())
 $game = New-Item -ItemType Directory -Path (Join-Path $temp 'game install') -Force
 $homeFolder = New-Item -ItemType Directory -Path (Join-Path $temp 'profile with spaces') -Force
@@ -71,6 +79,10 @@ try {
     } 'The launcher did not create its main window.'
     $window = [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher')
     Write-Output 'The native launcher window opened.'
+    if ($ScreenshotFolder) {
+        $screenshots = New-Item -ItemType Directory -Path $ScreenshotFolder -Force
+        Save-LauncherCapture $window (Join-Path $screenshots.FullName 'Launcher-startup.png')
+    }
     $panel = [Native]::GetDlgItem($window, 318)
     $readme = [Native]::GetDlgItem($window, 315)
     $conversion = [Native]::GetDlgItem($panel, 316)
@@ -92,9 +104,11 @@ try {
     [void][Native]::SendMessage($panel, 0x111, [IntPtr]317, $requirements)
     [void][Native]::SendMessage($window, 0x111, [IntPtr]310, [IntPtr]::Zero)
     Write-Output 'The Readme control and Advanced panels passed.'
+    Write-Output "The base fee at startup is $(Read-ControlText ([Native]::GetDlgItem($panel, 203)))."
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]303, [IntPtr]::Zero)) { throw 'Cannot click Save.' }
     Wait-Until {
         if ([Native]::FindWindow('#32770', 'Invalid value') -ne [IntPtr]::Zero) { throw 'The launcher rejected a setting from the fixture on Save.' }
+        if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher reported an error while saving the fixture.' }
         (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1'
     } 'Saving did not update the actual INI.'
     $settings = Get-Content -LiteralPath $ini -Raw
@@ -142,6 +156,8 @@ try {
         if (-not $process.WaitForExit(5000)) { throw 'The French launcher did not close.' }
     }
 } finally {
+    Write-Output 'INI after running the launcher test:'
+    Get-Content -LiteralPath $ini
     if (-not $process.HasExited) {
         Stop-Process -Id $process.Id -Force
         [void]$process.WaitForExit(5000)
