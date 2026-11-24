@@ -10,10 +10,8 @@
 #include "settings.h"
 
 #include <filesystem>
-#include <fstream>
-#include <iterator>
+#include <memory>
 #include <stdexcept>
-#include <system_error>
 #include <vector>
 
 namespace
@@ -96,15 +94,68 @@ namespace
         return fs::path( path ).parent_path();
     }
 
+    struct FileCloser
+    {
+        void operator()( void * file ) const { CloseHandle( file ); }
+    };
+
+    std::unique_ptr<void, FileCloser> openFile( const wchar_t * path, const DWORD access, const DWORD share, const DWORD disposition )
+    {
+        // The filesystem runtime in newer MSVC toolsets can import CreateFile2.
+        const HANDLE file = CreateFileW( path, access, share, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr );
+        return std::unique_ptr<void, FileCloser>( file == INVALID_HANDLE_VALUE ? nullptr : file );
+    }
+
+    fs::path absolutePath( const fs::path & path )
+    {
+        const DWORD capacity = GetFullPathNameW( path.c_str(), 0, nullptr, nullptr );
+        if ( !capacity )
+            throw std::runtime_error( "Absolute path" );
+        std::wstring value( capacity, L'\0' );
+        const DWORD length = GetFullPathNameW( path.c_str(), capacity, value.data(), nullptr );
+        if ( !length || length >= capacity )
+            throw std::runtime_error( "Absolute path" );
+        value.resize( length );
+        return fs::path( value );
+    }
+
+    bool fileExists( const fs::path & path )
+    {
+        const DWORD attributes = GetFileAttributesW( path.c_str() );
+        if ( attributes != INVALID_FILE_ATTRIBUTES )
+            return true;
+        const DWORD error = GetLastError();
+        if ( error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND )
+            return false;
+        throw std::runtime_error( "File attributes" );
+    }
+
+    void createDirectories( const fs::path & path )
+    {
+        const fs::path full = absolutePath( path );
+        const int result = SHCreateDirectoryExW( nullptr, full.c_str(), nullptr );
+        if ( result == ERROR_SUCCESS )
+            return;
+        const DWORD attributes = GetFileAttributesW( full.c_str() );
+        if ( attributes == INVALID_FILE_ATTRIBUTES || !( attributes & FILE_ATTRIBUTE_DIRECTORY ) )
+            throw std::runtime_error( "Create directory" );
+    }
+
     std::string readFile( const fs::path & path )
     {
-        std::ifstream file( path, std::ios::binary );
+        const auto file = openFile( path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, OPEN_EXISTING );
         if ( !file )
-            throw std::runtime_error( "Read file" );
-        std::string contents( ( std::istreambuf_iterator<char>( file ) ), std::istreambuf_iterator<char>() );
-        if ( file.bad() )
-            throw std::runtime_error( "Read contents" );
-        return contents;
+            throw std::runtime_error( "Open file for reading" );
+        std::string contents;
+        char data[16384];
+        while ( true ) {
+            DWORD read = 0;
+            if ( !ReadFile( file.get(), data, sizeof( data ), &read, nullptr ) )
+                throw std::runtime_error( "Read contents" );
+            if ( !read )
+                return contents;
+            contents.append( data, read );
+        }
     }
 
     void writeFile( const fs::path & path, const std::string & contents )
@@ -113,11 +164,21 @@ namespace
         if ( !GetTempFileNameW( path.parent_path().c_str(), L"km", 0, temporary ) )
             throw std::runtime_error( "Temporary file" );
         try {
-            std::ofstream file( fs::path( temporary ), std::ios::binary | std::ios::trunc );
-            file.write( contents.data(), static_cast<std::streamsize>( contents.size() ) );
-            file.close();
-            if ( !file || !MoveFileExW( temporary, path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
-                throw std::runtime_error( "Write settings" );
+            {
+                const auto file = openFile( temporary, GENERIC_WRITE, 0, TRUNCATE_EXISTING );
+                if ( !file )
+                    throw std::runtime_error( "Open settings for writing" );
+                std::string_view remaining( contents );
+                while ( !remaining.empty() ) {
+                    const auto chunk = static_cast<DWORD>( std::min( remaining.size(), size_t{ 65536 } ) );
+                    DWORD written = 0;
+                    if ( !WriteFile( file.get(), remaining.data(), chunk, &written, nullptr ) || !written )
+                        throw std::runtime_error( "Write settings" );
+                    remaining.remove_prefix( written );
+                }
+            }
+            if ( !MoveFileExW( temporary, path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
+                throw std::runtime_error( "Replace settings" );
         }
         catch ( ... ) {
             DeleteFileW( temporary );
@@ -151,9 +212,14 @@ namespace
 
     bool matches( const fs::path & first, const fs::path & second )
     {
-        std::error_code error;
-        return ( fs::equivalent( first, second, error ) && !error )
-               || _wcsicmp( first.lexically_normal().c_str(), second.lexically_normal().c_str() ) == 0;
+        if ( _wcsicmp( absolutePath( first ).c_str(), absolutePath( second ).c_str() ) == 0 )
+            return true;
+        constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+        const auto firstFile = openFile( first.c_str(), 0, share, OPEN_EXISTING );
+        const auto secondFile = openFile( second.c_str(), 0, share, OPEN_EXISTING );
+        BY_HANDLE_FILE_INFORMATION a{}, b{};
+        return firstFile && secondFile && GetFileInformationByHandle( firstFile.get(), &a ) && GetFileInformationByHandle( secondFile.get(), &b )
+               && a.dwVolumeSerialNumber == b.dwVolumeSerialNumber && a.nFileIndexHigh == b.nFileIndexHigh && a.nFileIndexLow == b.nFileIndexLow;
     }
 
     class Launcher
@@ -167,16 +233,16 @@ namespace
             , _localeFile( _config / L"knight_mod_launcher.language" )
         {
             _french = PRIMARYLANGID( GetUserDefaultUILanguage() ) == LANG_FRENCH;
-            if ( fs::exists( _localeFile ) )
+            if ( fileExists( _localeFile ) )
                 _french = km::trim( readFile( _localeFile ) ) == "fr";
-            else if ( fs::exists( _installation / L"KnightModLauncher.language" ) )
+            else if ( fileExists( _installation / L"KnightModLauncher.language" ) )
                 _french = km::trim( readFile( _installation / L"KnightModLauncher.language" ) ) == "fr";
 
             const std::wstring args = GetCommandLineW();
             if ( args.find( L"--language=" ) != args.npos )
                 _french = args.find( L"--language=fr" ) != args.npos;
             _values = km::defaults();
-            if ( fs::exists( _ini ) ) {
+            if ( fileExists( _ini ) ) {
                 const auto content = readFile( _ini );
                 km::load( content, _values, false );
                 if ( _values[km::index( "mode" )] == 1 && content.find( "conscription.gold_per_peasant" ) == content.npos )
@@ -649,7 +715,7 @@ namespace
 
         std::optional<fs::path> profilePath( const bool save )
         {
-            fs::create_directories( _config );
+            createDirectories( _config );
             IFileDialog * nativeDialog = nullptr;
             if ( FAILED( CoCreateInstance( save ? CLSID_FileSaveDialog : CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
                                            IID_PPV_ARGS( &nativeDialog ) ) ) )
@@ -689,8 +755,8 @@ namespace
         {
             if ( !capture() )
                 return;
-            fs::create_directories( _config );
-            const std::string existing = fs::exists( _ini ) ? readFile( _ini ) : "# Knight Mod settings\r\n";
+            createDirectories( _config );
+            const std::string existing = fileExists( _ini ) ? readFile( _ini ) : "# Knight Mod settings\r\n";
             writeFile( _ini, km::updateIni( existing, _values ) );
             _saved = _values;
             status( tr( L"Réglages enregistrés.", L"Settings saved." ) );
@@ -747,7 +813,7 @@ namespace
             _french = chosen == frenchId;
             localize();
             setControls();
-            fs::create_directories( _config );
+            createDirectories( _config );
             writeFile( _localeFile, _french ? "fr\n" : "en\n" );
         }
 
@@ -806,7 +872,7 @@ namespace
                 open( _installation / tr( L"Guide_de_Test_et_Equilibrage.pdf", L"Testing_and_Balance_Guide.pdf" ) );
                 break;
             case folderId:
-                fs::create_directories( _config );
+                createDirectories( _config );
                 open( _config );
                 break;
             case quitId:
