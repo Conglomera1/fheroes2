@@ -66,7 +66,8 @@ try {
         $process.Refresh()
         if ($process.HasExited) { throw "The launcher exited during startup with code $($process.ExitCode)." }
         if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher displayed a startup error.' }
-        [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher') -ne [IntPtr]::Zero
+        $main = [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher')
+        $main -ne [IntPtr]::Zero -and [Native]::IsWindowVisible($main)
     } 'The launcher did not create its main window.'
     $window = [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher')
     Write-Output 'The native launcher window opened.'
@@ -76,7 +77,9 @@ try {
     $requirements = [Native]::GetDlgItem($panel, 317)
     $goldCost = [Native]::GetDlgItem($panel, 214)
     $captain = [Native]::GetDlgItem($panel, 220)
-    if (@($panel, $readme, $conversion, $requirements, $goldCost, $captain) -contains [IntPtr]::Zero) { throw 'The launcher controls are incomplete.' }
+    if (@($panel, $readme, $conversion, $requirements, $goldCost, $captain) -contains [IntPtr]::Zero) {
+        throw "The launcher controls are incomplete. Panel=$panel Readme=$readme Conversion=$conversion Requirements=$requirements Gold=$goldCost Captain=$captain"
+    }
     if (-not [Native]::IsWindowVisible($readme)) { throw 'The Readme button is hidden.' }
     [void][Native]::SendMessage($window, 0x111, [IntPtr]313, [IntPtr]::Zero)
     if (-not ([Native]::IsWindowVisible($conversion) -and [Native]::IsWindowVisible($requirements))) { throw 'Advanced sections are missing.' }
@@ -90,7 +93,10 @@ try {
     [void][Native]::SendMessage($window, 0x111, [IntPtr]310, [IntPtr]::Zero)
     Write-Output 'The Readme control and Advanced panels passed.'
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]303, [IntPtr]::Zero)) { throw 'Cannot click Save.' }
-    Wait-Until { (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1' } 'Saving did not update the actual INI.'
+    Wait-Until {
+        if ([Native]::FindWindow('#32770', 'Invalid value') -ne [IntPtr]::Zero) { throw 'The launcher rejected a setting from the fixture on Save.' }
+        (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1'
+    } 'Saving did not update the actual INI.'
     $settings = Get-Content -LiteralPath $ini -Raw
     foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
         if (-not $settings.Contains($line)) { throw "Saving lost an existing value: $line" }
