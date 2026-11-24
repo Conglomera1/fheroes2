@@ -33,13 +33,32 @@ namespace km
     constexpr size_t count = std::size( settings );
     using Values = std::array<double, count>;
 
-    inline size_t index( const std::string_view id )
+    inline constexpr size_t index( const std::string_view id )
     {
         for ( size_t i = 0; i < count; ++i ) {
             if ( settings[i].id == id )
                 return i;
         }
         return count;
+    }
+
+    inline constexpr auto modeIndex = index( "mode" );
+    inline constexpr auto baseIndex = index( "base" );
+
+    inline double defaultValue( const size_t i, const Values & values )
+    {
+        return i == baseIndex ? Conscription::defaultGoldPerPeasant( static_cast<int32_t>( values[modeIndex] ) ) : settings[i].initial;
+    }
+
+    inline bool selectMode( Values & values, const double mode )
+    {
+        if ( values[modeIndex] == mode )
+            return false;
+
+        values[modeIndex] = mode;
+        if ( mode != 0 )
+            values[baseIndex] = defaultValue( baseIndex, values );
+        return true;
     }
 
     inline Values defaults()
@@ -126,7 +145,6 @@ namespace km
         bool invalid = false;
         bool found = false;
         std::optional<double> legacyMode;
-        const size_t mode = index( "mode" );
         eachLine( withoutBom( text ), [&]( const std::string_view line ) {
             const auto name = key( line );
             const size_t i = settingForKey( name );
@@ -136,9 +154,9 @@ namespace km
             if ( profile )
                 value = trim( value.substr( 0, value.find_first_of( "#;" ) ) );
             if ( i == count ) {
-                const auto oldMode = parse( std::string( value ), settings[mode] );
+                const auto oldMode = parse( std::string( value ), settings[modeIndex] );
                 if ( !legacyMode && oldMode && *oldMode <= 1 )
-                    legacyMode = oldMode;
+                    legacyMode = *oldMode == 0 ? 0 : Conscription::defaultMode;
                 return;
             }
             if ( seen[i] )
@@ -162,12 +180,14 @@ namespace km
                     invalid = true;
             }
         } );
-        if ( !seen[mode] && legacyMode ) {
-            parsed[mode] = *legacyMode;
+        if ( !seen[modeIndex] && legacyMode ) {
+            parsed[modeIndex] = *legacyMode;
             found = true;
         }
         if ( profile && ( invalid || !found ) )
             return false;
+        if ( !seen[baseIndex] && ( !profile || seen[modeIndex] || legacyMode ) )
+            parsed[baseIndex] = defaultValue( baseIndex, parsed );
         values = parsed;
         return true;
     }

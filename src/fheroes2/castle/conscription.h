@@ -32,6 +32,13 @@
 namespace Conscription
 {
     constexpr uint32_t successScale = 1000000;
+    constexpr int32_t defaultMode = 2;
+
+    constexpr int32_t defaultGoldPerPeasant( const int32_t mode )
+    {
+        return mode == 1 ? 100 : 50;
+    }
+
     using Quotas = std::array<uint32_t, 3>;
     struct State
     {

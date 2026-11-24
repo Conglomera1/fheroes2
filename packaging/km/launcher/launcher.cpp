@@ -17,7 +17,21 @@
 namespace
 {
     namespace fs = std::filesystem;
-    constexpr int rowHeight = 34;
+    constexpr int rowHeight = 37;
+    constexpr int headerHeight = 66;
+    constexpr int tabsHeight = 41;
+    constexpr int footerHeight = 102;
+    constexpr int pageMargin = 22;
+    constexpr int minWidth = 620;
+    constexpr COLORREF ink = RGB( 23, 36, 54 );
+    constexpr COLORREF navy = RGB( 23, 44, 71 );
+    constexpr COLORREF blue = RGB( 36, 83, 142 );
+    constexpr COLORREF muted = RGB( 77, 93, 113 );
+    constexpr COLORREF white = RGB( 255, 255, 255 );
+    constexpr COLORREF edge = RGB( 174, 190, 209 );
+    constexpr COLORREF rule = RGB( 217, 225, 233 );
+    constexpr COLORREF wash = RGB( 238, 244, 251 );
+    constexpr COLORREF footer = RGB( 245, 248, 252 );
     constexpr int firstReset = 100;
     constexpr int firstInput = 200;
     constexpr int languageId = 300;
@@ -32,7 +46,13 @@ namespace
     constexpr int saveProfileId = 307;
     constexpr int loadProfileId = 308;
     constexpr int sampleId = 309;
-    constexpr int tabsId = 310;
+    constexpr int settingsTabId = 310;
+    constexpr int advancedTabId = 313;
+    constexpr int miscellaneousTabId = 314;
+    constexpr int readmeId = 315;
+    constexpr int conversionId = 316;
+    constexpr int requirementsId = 317;
+    constexpr int panelId = 318;
 
     struct ComRelease
     {
@@ -46,6 +66,44 @@ namespace
         HWND reset{};
         HWND spin{};
         std::wstring help;
+    };
+
+    void fill( HDC dc, const RECT & bounds, const COLORREF color )
+    {
+        SetDCBrushColor( dc, color );
+        FillRect( dc, &bounds, static_cast<HBRUSH>( GetStockObject( DC_BRUSH ) ) );
+    }
+
+    void surface( HDC dc, const RECT & bounds, const COLORREF background, const COLORREF border, const int radius )
+    {
+        const int saved = SaveDC( dc );
+        SelectObject( dc, GetStockObject( DC_BRUSH ) );
+        SelectObject( dc, GetStockObject( DC_PEN ) );
+        SetDCBrushColor( dc, background );
+        SetDCPenColor( dc, border );
+        RoundRect( dc, bounds.left, bounds.top, bounds.right, bounds.bottom, radius, radius );
+        RestoreDC( dc, saved );
+    }
+
+    struct UiResources
+    {
+        HFONT body{}, small{}, strong{}, title{};
+        HICON icon{};
+        HBRUSH paper{ CreateSolidBrush( white ) };
+        HBRUSH callout{ CreateSolidBrush( wash ) };
+        HBRUSH footerFill{ CreateSolidBrush( footer ) };
+
+        ~UiResources()
+        {
+            for ( const auto font : { body, small, strong, title } )
+                if ( font )
+                    DeleteObject( font );
+            for ( const auto brush : { paper, callout, footerFill } )
+                if ( brush )
+                    DeleteObject( brush );
+            if ( icon )
+                DestroyIcon( icon );
+        }
     };
 
     std::wstring windowText( HWND window )
@@ -242,20 +300,25 @@ namespace
             if ( args.find( L"--language=" ) != args.npos )
                 _french = args.find( L"--language=fr" ) != args.npos;
             _values = km::defaults();
-            if ( fileExists( _ini ) ) {
-                const auto content = readFile( _ini );
-                km::load( content, _values, false );
-                if ( _values[km::index( "mode" )] == 1 && content.find( "conscription.gold_per_peasant" ) == content.npos )
-                    _values[km::index( "base" )] = 100;
-            }
+            if ( fileExists( _ini ) )
+                km::load( readFile( _ini ), _values, false );
             _saved = _values;
+
+            if ( const auto dc = GetDC( nullptr ) ) {
+                _dpi = GetDeviceCaps( dc, LOGPIXELSX );
+                ReleaseDC( nullptr, dc );
+            }
+            _ui.body = makeFont( 14, FW_NORMAL );
+            _ui.small = makeFont( 12, FW_NORMAL );
+            _ui.strong = makeFont( 14, FW_BOLD );
+            _ui.title = makeFont( 23, FW_BOLD );
+            _ui.icon = static_cast<HICON>( LoadImageW( _instance, MAKEINTRESOURCEW( 1 ), IMAGE_ICON, px( 40 ), px( 40 ), 0 ) );
 
             WNDCLASSW cls{};
             cls.hInstance = _instance;
             cls.lpfnWndProc = windowProc;
             cls.hCursor = LoadCursorW( nullptr, IDC_ARROW );
             cls.hIcon = LoadIconW( _instance, MAKEINTRESOURCEW( 1 ) );
-            cls.hbrBackground = reinterpret_cast<HBRUSH>( COLOR_BTNFACE + 1 );
             cls.lpszClassName = L"KnightModLauncher";
             if ( !RegisterClassW( &cls ) )
                 throw std::runtime_error( "Window class" );
@@ -266,9 +329,12 @@ namespace
 
             RECT area{};
             SystemParametersInfoW( SPI_GETWORKAREA, 0, &area, 0 );
-            const auto width = std::min( 840L, area.right - area.left );
-            const auto height = std::min( 680L, area.bottom - area.top );
-            _window = CreateWindowExW( WS_EX_CONTROLPARENT, L"KnightModLauncher", L"Knight Mod Launcher", WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
+            constexpr DWORD style = WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN;
+            RECT preferred{ 0, 0, px( 648 ), px( 675 ) };
+            AdjustWindowRectEx( &preferred, style, FALSE, WS_EX_CONTROLPARENT );
+            const auto width = std::min( preferred.right - preferred.left, area.right - area.left );
+            const auto height = std::min( preferred.bottom - preferred.top, area.bottom - area.top );
+            _window = CreateWindowExW( WS_EX_CONTROLPARENT, L"KnightModLauncher", L"Knight Mod Launcher", style,
                                        area.left + ( area.right - area.left - width ) / 2, area.top + ( area.bottom - area.top - height ) / 2,
                                        width, height, nullptr, nullptr, _instance, this );
             if ( !_window )
@@ -281,16 +347,33 @@ namespace
         {
             MSG message{};
             while ( GetMessageW( &message, nullptr, 0, 0 ) > 0 ) {
+                const bool tabKey = message.message == WM_KEYDOWN && message.wParam == VK_TAB;
                 if ( !IsDialogMessageW( _window, &message ) ) {
                     TranslateMessage( &message );
                     DispatchMessageW( &message );
                 }
+                else if ( tabKey )
+                    revealFocusedField();
             }
             return static_cast<int>( message.wParam );
         }
 
     private:
         const wchar_t * tr( const wchar_t * fr, const wchar_t * en ) const { return _french ? fr : en; }
+
+        int px( const int value ) const { return MulDiv( value, _dpi, 96 ); }
+        int dip( const LONG value ) const { return MulDiv( value, 96, _dpi ); }
+
+        HFONT makeFont( const int height, const int weight ) const
+        {
+            return CreateFontW( -px( height ), 0, 0, 0, weight, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                                CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI" );
+        }
+
+        RECT bounds( const int x, const int y, const int width, const int height ) const
+        {
+            return { px( x ), px( y ), px( x + width ), px( y + height ) };
+        }
 
         static LRESULT CALLBACK windowProc( HWND hwnd, const UINT message, const WPARAM wParam, const LPARAM lParam )
         {
@@ -313,8 +396,19 @@ namespace
 
         static LRESULT CALLBACK panelProc( HWND hwnd, const UINT message, const WPARAM wParam, const LPARAM lParam )
         {
-            if ( message == WM_COMMAND || message == WM_NOTIFY || message == WM_VSCROLL || message == WM_MOUSEWHEEL )
-                return SendMessageW( GetParent( hwnd ), message, wParam, lParam );
+            const auto parent = GetParent( hwnd );
+            if ( message == WM_ERASEBKGND )
+                return 1;
+            if ( message == WM_PAINT ) {
+                auto * launcher = reinterpret_cast<Launcher *>( GetWindowLongPtrW( parent, GWLP_USERDATA ) );
+                if ( launcher ) {
+                    launcher->paintPanel( hwnd );
+                    return 0;
+                }
+            }
+            if ( message == WM_COMMAND || message == WM_NOTIFY || message == WM_VSCROLL || message == WM_MOUSEWHEEL || message == WM_DRAWITEM
+                 || message == WM_CTLCOLORSTATIC || message == WM_CTLCOLOREDIT )
+                return SendMessageW( parent, message, wParam, lParam );
             return DefWindowProcW( hwnd, message, wParam, lParam );
         }
 
@@ -330,13 +424,13 @@ namespace
                                                reinterpret_cast<HMENU>( static_cast<INT_PTR>( id ) ), _instance, nullptr );
             if ( !item )
                 throw std::runtime_error( "Control creation" );
-            SendMessageW( item, WM_SETFONT, reinterpret_cast<WPARAM>( GetStockObject( DEFAULT_GUI_FONT ) ), TRUE );
+            SendMessageW( item, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.body ), TRUE );
             return item;
         }
 
         HWND button( const int id, HWND parent = nullptr )
         {
-            return control( L"BUTTON", L"", WS_TABSTOP, id, parent );
+            return control( L"BUTTON", L"", WS_TABSTOP | BS_OWNERDRAW, id, parent );
         }
 
         HWND spin( HWND field, const int minimum, const int maximum )
@@ -350,18 +444,13 @@ namespace
         void create()
         {
             _updating = true;
-            _language = control( L"BUTTON", L"change language", WS_TABSTOP, languageId );
-            _tabs = control( WC_TABCONTROLW, L"", WS_TABSTOP, tabsId );
-            for ( int i = 0; i < 3; ++i ) {
-                TCITEMW item{};
-                item.mask = TCIF_TEXT;
-                item.pszText = const_cast<wchar_t *>( L" " );
-                SendMessageW( _tabs, TCM_INSERTITEMW, i, reinterpret_cast<LPARAM>( &item ) );
-            }
-            _panel = control( L"KnightModSettingsPanel", L"", WS_CLIPCHILDREN | WS_VSCROLL, 0, _window, WS_EX_CONTROLPARENT );
+            _language = button( languageId );
+            SetWindowTextW( _language, L"Change language" );
+            _tabs = { button( settingsTabId ), button( advancedTabId ), button( miscellaneousTabId ) };
+            _panel = control( L"KnightModSettingsPanel", L"", WS_CLIPCHILDREN | WS_VSCROLL, panelId, _window, WS_EX_CONTROLPARENT );
             _tooltip = CreateWindowExW( WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX, CW_USEDEFAULT,
                                         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, _window, nullptr, _instance, nullptr );
-            SendMessageW( _tooltip, TTM_SETMAXTIPWIDTH, 0, 430 );
+            SendMessageW( _tooltip, TTM_SETMAXTIPWIDTH, 0, px( 400 ) );
             auto tool = tooltipInfo();
             SendMessageW( _tooltip, TTM_ADDTOOLW, 0, reinterpret_cast<LPARAM>( &tool ) );
             SetTimer( _window, 1, 50, nullptr );
@@ -377,27 +466,41 @@ namespace
                     row.input = control( L"BUTTON", L"", BS_AUTOCHECKBOX | WS_TABSTOP, id, _panel );
                     break;
                 case km::Kind::Choice:
-                    row.input = control( L"COMBOBOX", L"", CBS_DROPDOWNLIST | WS_TABSTOP, id, _panel );
+                    row.input = control( L"COMBOBOX", L"", CBS_DROPDOWNLIST | CBS_OWNERDRAWFIXED | CBS_HASSTRINGS | WS_TABSTOP, id, _panel );
+                    SendMessageW( row.input, CB_SETITEMHEIGHT, static_cast<WPARAM>( -1 ), px( 24 ) );
+                    SendMessageW( row.input, CB_SETITEMHEIGHT, 0, px( 28 ) );
                     break;
                 default:
-                    row.input = control( L"EDIT", L"", WS_TABSTOP | ES_AUTOHSCROLL | ES_RIGHT, id, _panel, WS_EX_CLIENTEDGE );
+                    row.input = control( L"EDIT", L"", WS_TABSTOP | ES_AUTOHSCROLL | ES_RIGHT, id, _panel );
+                    SendMessageW( row.input, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM( px( 5 ), px( 5 ) ) );
                     if ( setting.kind == km::Kind::Integer )
                         row.spin = spin( row.input, static_cast<int>( setting.minimum ), static_cast<int>( setting.maximum ) );
                     break;
                 }
-
             }
-            for ( auto & title : _headings )
+            for ( auto & title : _headings ) {
                 title = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
+                SendMessageW( title, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.strong ), TRUE );
+            }
+            _capHint = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
+            _incrementHint = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
+            for ( const auto hint : { _capHint, _incrementHint } )
+                SendMessageW( hint, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.small ), TRUE );
+            _conversion = button( conversionId, _panel );
+            _requirements = button( requirementsId, _panel );
             _sampleLabel = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
-            _sample = control( L"EDIT", L"3", WS_TABSTOP | ES_AUTOHSCROLL | ES_RIGHT, sampleId, _panel, WS_EX_CLIENTEDGE );
+            _sample = control( L"EDIT", L"3", WS_TABSTOP | ES_AUTOHSCROLL | ES_RIGHT, sampleId, _panel );
+            SendMessageW( _sample, EM_SETMARGINS, EC_LEFTMARGIN | EC_RIGHTMARGIN, MAKELPARAM( px( 5 ), px( 5 ) ) );
             _sampleSpin = spin( _sample, 0, static_cast<int>( Conscription::maxDailyOrder ) );
-            _quote = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
+            _quote = control( L"STATIC", L"", SS_CENTERIMAGE | SS_RIGHT, 0, _panel );
+            SendMessageW( _quote, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.strong ), TRUE );
             _saveProfile = button( saveProfileId, _panel );
             _loadProfile = button( loadProfileId, _panel );
-            _status = control( L"STATIC", L"", SS_CENTERIMAGE );
+            _status = control( L"STATIC", L"", SS_CENTERIMAGE | SS_ENDELLIPSIS );
             _defaults = button( defaultsId );
             _guide = button( guideId );
+            _readme = button( readmeId );
+            SetWindowTextW( _readme, L"Readme" );
             _folder = button( folderId );
             _save = button( saveId );
             _play = button( playId );
@@ -427,12 +530,8 @@ namespace
         {
             _updating = true;
             const wchar_t * names[]{ tr( L"Réglages", L"Settings" ), tr( L"Avancé", L"Advanced" ), tr( L"Divers", L"Miscellaneous" ) };
-            for ( int i = 0; i < 3; ++i ) {
-                TCITEMW item{};
-                item.mask = TCIF_TEXT;
-                item.pszText = const_cast<wchar_t *>( names[i] );
-                SendMessageW( _tabs, TCM_SETITEMW, i, reinterpret_cast<LPARAM>( &item ) );
-            }
+            for ( size_t i = 0; i < _tabs.size(); ++i )
+                SetWindowTextW( _tabs[i], names[i] );
             for ( size_t i = 0; i < km::count; ++i ) {
                 const auto & setting = km::settings[i];
                 const auto & row = _rows[i];
@@ -459,12 +558,15 @@ namespace
             SetWindowTextW( _headings[5], tr( L"Prérequis des terrains d’entraînement", L"Training Grounds requirements" ) );
             SetWindowTextW( _headings[6], tr( L"Affichage", L"Display" ) );
             SetWindowTextW( _headings[7], tr( L"Profils", L"Profiles" ) );
+            SetWindowTextW( _conversion, tr( L"Coûts de conversion", L"Conversion costs" ) );
+            SetWindowTextW( _requirements, tr( L"Prérequis des terrains d’entraînement", L"Training Grounds requirements" ) );
+            SetWindowTextW( _incrementHint, tr( L"1,0 = le coût de base", L"1.0 = the base cost" ) );
             SetWindowTextW( _sampleLabel, tr( L"Paysans de garnison (exemple)", L"Garrison Peasants (example)" ) );
             SetWindowTextW( _saveProfile, tr( L"Enregistrer un profil", L"Save Profile" ) );
             SetWindowTextW( _loadProfile, tr( L"Charger un profil", L"Load Profile" ) );
             SetWindowTextW( _defaults, tr( L"Tout remettre par défaut", L"Restore all defaults" ) );
             SetWindowTextW( _guide, tr( L"Guide d’équilibrage", L"Balance guide" ) );
-            SetWindowTextW( _folder, tr( L"Ouvrir le dossier de configuration", L"Open configuration folder" ) );
+            SetWindowTextW( _folder, tr( L"Dossier de configuration", L"Configuration folder" ) );
             SetWindowTextW( _save, tr( L"Enregistrer", L"Save" ) );
             SetWindowTextW( _play, tr( L"Jouer", L"Play" ) );
             SetWindowTextW( _quit, tr( L"Quitter", L"Quit" ) );
@@ -523,124 +625,344 @@ namespace
             return true;
         }
 
-        static void place( HWND item, const int x, const int y, const int width, const int height )
+        void place( HWND item, const int x, const int y, const int width, const int height ) const
         {
-            MoveWindow( item, x, y, width, height, TRUE );
-            ShowWindow( item, SW_SHOWNA );
+            const auto rect = bounds( x, y, width, height );
+            SetWindowPos( item, nullptr, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top, SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW );
+        }
+
+        int textWidth( HDC dc, HWND item, HFONT font, const int padding ) const
+        {
+            const auto label = windowText( item );
+            const auto previous = SelectObject( dc, font );
+            SIZE size{};
+            GetTextExtentPoint32W( dc, label.c_str(), static_cast<int>( label.size() ), &size );
+            SelectObject( dc, previous );
+            return dip( size.cx ) + padding;
         }
 
         void layout()
         {
-            if ( !_panel )
+            if ( !_panel || !_quit )
                 return;
-            RECT rect{};
-            GetClientRect( _window, &rect );
-            const int w = rect.right;
-            const int h = rect.bottom;
-            place( _language, w - 159, 10, 149, 25 );
-            place( _tabs, 10, 41, w - 20, 29 );
-            const int panelHeight = std::max( 1, h - 169 );
-            place( _panel, 10, 70, w - 20, panelHeight );
-            RECT panelRect{};
-            GetClientRect( _panel, &panelRect );
-            const int panelWidth = panelRect.right;
-            const int resetX = std::max( 30, panelWidth - 217 );
-            const int inputX = resetX + 75;
-            const int choiceWidth = std::max( 80, panelWidth - inputX - 12 );
-            const int tab = static_cast<int>( SendMessageW( _tabs, TCM_GETCURSEL, 0, 0 ) );
-            for ( const auto & row : _rows ) {
-                for ( const HWND item : { row.label, row.input, row.reset, row.spin } )
-                    if ( item )
-                        ShowWindow( item, SW_HIDE );
-            }
-            for ( const HWND item : _headings )
-                ShowWindow( item, SW_HIDE );
-            for ( const HWND item : { _sampleLabel, _sample, _sampleSpin, _quote, _saveProfile, _loadProfile } )
-                ShowWindow( item, SW_HIDE );
+            RECT client{};
+            GetClientRect( _window, &client );
+            const int w = dip( client.right );
+            const int h = dip( client.bottom );
+            const int footerTop = h - footerHeight;
 
-            int y = 8 - _scroll;
-            const auto heading = [&]( const size_t i ) {
-                place( _headings[i], 10, y, panelWidth - 20, 27 );
-                y += 28;
+            const HDC dc = GetDC( _window );
+            const int languageWidth = textWidth( dc, _language, _ui.body, 24 );
+            place( _language, w - pageMargin - languageWidth, 16, languageWidth, 34 );
+
+            int x = pageMargin;
+            for ( const HWND tab : _tabs ) {
+                const int width = textWidth( dc, tab, _ui.strong, 2 );
+                place( tab, x, headerHeight, width, tabsHeight );
+                x += width + 24;
+            }
+            x = pageMargin;
+            for ( const HWND button : { _defaults, _guide, _readme, _folder } ) {
+                const int width = textWidth( dc, button, _ui.body, 18 );
+                place( button, x, footerTop + 12, width, 32 );
+                x += width + 7;
+            }
+            x = w - pageMargin;
+            for ( const HWND button : { _quit, _play, _save } ) {
+                const int width = std::max( 69, textWidth( dc, button, _ui.strong, 24 ) );
+                x -= width;
+                place( button, x, footerTop + 56, width, 33 );
+                x -= 7;
+            }
+            place( _status, pageMargin, footerTop + 56, std::max( 0, x - pageMargin - 7 ), 33 );
+            ReleaseDC( _window, dc );
+
+            const int top = headerHeight + tabsHeight;
+            place( _panel, 0, top, w, std::max( 1, footerTop - top ) );
+            layoutPanel();
+            InvalidateRect( _window, nullptr, FALSE );
+        }
+
+        void layoutPanel()
+        {
+            RECT panel{};
+            GetClientRect( _panel, &panel );
+            const int panelWidth = dip( panel.right );
+            const int panelHeight = std::max( 1, dip( panel.bottom ) );
+            const int right = panelWidth - pageMargin;
+            const int inputWidth = 156;
+            const int inputX = right - inputWidth;
+            const int resetX = inputX - 64;
+            const int left = pageMargin;
+            int y = 14 - _scroll;
+
+            std::vector<HWND> visible;
+            _fieldFrames.clear();
+            _sectionRule = {};
+            _sampleFrame = {};
+            const auto put = [&]( HWND item, const int x, const int top, const int width, const int height ) {
+                visible.push_back( item );
+                place( item, x, top, width, height );
             };
-            const auto row = [&]( const size_t i ) {
+            const auto heading = [&]( const size_t i, const int indent = 0 ) {
+                put( _headings[i], left + indent, y, right - left - indent, 28 );
+                y += 29;
+            };
+            const auto edit = [&]( HWND input, HWND spinner, const int x, const int top, const int width ) {
+                _fieldFrames.push_back( bounds( x, top, width, 32 ) );
+                const int arrowWidth = spinner ? 17 : 0;
+                put( input, x + 5, top + 6, width - arrowWidth - 10, 20 );
+                if ( spinner )
+                    put( spinner, x + width - arrowWidth - 3, top + 4, arrowWidth, 24 );
+            };
+            const auto row = [&]( const size_t i, const int indent = 0 ) {
                 const auto & entry = _rows[i];
                 const auto kind = km::settings[i].kind;
-                place( entry.label, 15, y, resetX - 22, 27 );
-                place( entry.reset, resetX, y, 68, 26 );
-                const int inputWidth = kind == km::Kind::Toggle ? 24 : choiceWidth;
-                const int inputHeight = kind == km::Kind::Choice ? 160 : 25;
-                place( entry.input, inputX, y, inputWidth - ( entry.spin ? 18 : 0 ), inputHeight );
-                if ( entry.spin )
-                    place( entry.spin, inputX + inputWidth - 18, y, 18, 25 );
-                y += rowHeight;
+                const bool hint = i == km::index( "cap" ) || i == km::index( "increment" );
+                const int labelX = left + indent;
+                put( entry.label, labelX, y, resetX - labelX - 10, hint ? 20 : 32 );
+                if ( hint )
+                    put( i == km::index( "cap" ) ? _capHint : _incrementHint, labelX, y + 18, resetX - labelX - 10, 16 );
+                put( entry.reset, resetX, y + 3, 55, 26 );
+                if ( kind == km::Kind::Toggle )
+                    put( entry.input, inputX, y + 3, 24, 26 );
+                else if ( kind == km::Kind::Choice )
+                    put( entry.input, inputX, y + 1, inputWidth, 180 );
+                else
+                    edit( entry.input, entry.spin, inputX, y, inputWidth );
+                y += hint ? 41 : rowHeight;
             };
-            const auto named = [&]( const char * id ) { row( km::index( id ) ); };
-            if ( tab <= 0 ) {
+            const auto named = [&]( const char * id, const int indent = 0 ) { row( km::index( id ), indent ); };
+            const auto disclosure = [&]( HWND item ) {
+                put( item, left, y + 5, right - left, 37 );
+                y += 51;
+            };
+
+            switch ( _selectedTab ) {
+            case 0:
                 heading( 0 );
                 named( "tax" );
                 named( "cap" );
+                _sectionRule = bounds( left, y + 2, right - left, 1 );
+                y += 13;
                 heading( 1 );
                 named( "mode" );
-                const auto mode = _values[km::index( "mode" )];
-                if ( mode != 0 )
+                if ( const auto mode = _values[km::modeIndex]; mode != 0 ) {
                     named( "base" );
-                if ( mode == 1 ) {
-                    named( "odd" );
-                    named( "even" );
+                    if ( mode == 1 ) {
+                        named( "odd" );
+                        named( "even" );
+                    }
+                    else {
+                        for ( const auto id : { "increment", "step", "multiplier", "uniform" } )
+                            named( id );
+                        y += 4;
+                        _sampleFrame = bounds( left, y, right - left, 48 );
+                        put( _sampleLabel, left + 12, y + 8, 210, 32 );
+                        edit( _sample, _sampleSpin, left + 224, y + 8, 96 );
+                        put( _quote, left + 332, y + 8, right - left - 345, 32 );
+                        y += 48;
+                    }
                 }
-                if ( mode == 2 ) {
-                    for ( const auto id : { "increment", "step", "multiplier", "uniform" } )
-                        named( id );
-                    place( _sampleLabel, 15, y, resetX - 22, 25 );
-                    place( _sample, resetX, y, 80, 25 );
-                    place( _sampleSpin, resetX + 80, y, 18, 25 );
-                    place( _quote, resetX + 104, y, panelWidth - resetX - 106, 25 );
-                    y += rowHeight;
-                }
-            }
-            else if ( tab == 1 ) {
+                break;
+            case 1:
                 heading( 2 );
                 for ( const auto id : { "success", "archers", "pikemen", "swordsmen" } )
                     named( id );
-                heading( 3 );
-                for ( const auto id : { "tg0", "tg1", "tg2" } )
-                    named( id );
-                heading( 4 );
-                for ( const auto id : { "farm0", "farm1", "farm2" } )
-                    named( id );
-                heading( 5 );
-                for ( size_t i = 0; i < km::count; ++i ) {
-                    if ( std::string_view( km::settings[i].key ).starts_with( "training_grounds.require_" ) )
-                        row( i );
+                disclosure( _conversion );
+                if ( _conversionOpen ) {
+                    heading( 3, 12 );
+                    for ( const auto id : { "tg0", "tg1", "tg2" } )
+                        named( id, 12 );
+                    y += 4;
+                    heading( 4, 12 );
+                    for ( const auto id : { "farm0", "farm1", "farm2" } )
+                        named( id, 12 );
                 }
-            }
-            else {
+                disclosure( _requirements );
+                if ( _requirementsOpen ) {
+                    for ( size_t i = 0; i < km::count; ++i ) {
+                        if ( std::string_view( km::settings[i].key ).starts_with( "training_grounds.require_" ) )
+                            row( i, 12 );
+                    }
+                }
+                break;
+            case 2:
                 heading( 6 );
                 named( "artwork" );
+                y += 9;
                 heading( 7 );
-                place( _saveProfile, 15, y, 175, 27 );
-                place( _loadProfile, 199, y, 175, 27 );
-                y += rowHeight;
+                put( _saveProfile, left, y, 167, 32 );
+                put( _loadProfile, left + 175, y, 167, 32 );
+                y += 36;
+                break;
             }
-            const int content = y + _scroll + 8;
+
+            const auto hideUnused = [&]( HWND item ) {
+                if ( item && std::find( visible.begin(), visible.end(), item ) == visible.end() )
+                    ShowWindow( item, SW_HIDE );
+            };
+            for ( const auto & entry : _rows )
+                for ( const auto item : { entry.label, entry.input, entry.reset, entry.spin } )
+                    hideUnused( item );
+            for ( const auto item : _headings )
+                hideUnused( item );
+            for ( const auto item : { _capHint, _incrementHint, _conversion, _requirements, _sampleLabel, _sample, _sampleSpin, _quote, _saveProfile, _loadProfile } )
+                hideUnused( item );
+
+            const int content = y + _scroll + 14;
             _scrollMaximum = std::max( 0, content - panelHeight );
             if ( _scroll > _scrollMaximum ) {
                 _scroll = _scrollMaximum;
-                layout();
+                layoutPanel();
                 return;
             }
-            SCROLLINFO scroll{ sizeof( SCROLLINFO ), SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL, 0, content - 1,
-                               static_cast<UINT>( panelHeight ), _scroll, 0 };
+            SCROLLINFO scroll{ sizeof( SCROLLINFO ), SIF_RANGE | SIF_PAGE | SIF_POS, 0, content - 1, static_cast<UINT>( panelHeight ), _scroll, 0 };
             SetScrollInfo( _panel, SB_VERT, &scroll, TRUE );
+            RECT after{};
+            GetClientRect( _panel, &after );
+            if ( panel.right != after.right ) {
+                layoutPanel();
+                return;
+            }
+            InvalidateRect( _panel, nullptr, TRUE );
+        }
 
-            place( _status, 12, h - 94, w - 24, 21 );
-            place( _defaults, 10, h - 67, 177, 25 );
-            place( _guide, 193, h - 67, 140, 25 );
-            place( _folder, 339, h - 67, 226, 25 );
-            place( _save, w - 273, h - 35, 87, 26 );
-            place( _play, w - 180, h - 35, 79, 26 );
-            place( _quit, w - 95, h - 35, 85, 26 );
+        void revealFocusedField()
+        {
+            const HWND field = GetFocus();
+            if ( !field || GetParent( field ) != _panel )
+                return;
+            RECT rect{}, client{};
+            GetWindowRect( field, &rect );
+            MapWindowPoints( nullptr, _panel, reinterpret_cast<POINT *>( &rect ), 2 );
+            GetClientRect( _panel, &client );
+            const auto delta = rect.top < 0 ? rect.top : std::max( 0L, rect.bottom - client.bottom );
+            const int position = std::clamp( _scroll + dip( delta ), 0, _scrollMaximum );
+            if ( position != _scroll ) {
+                _scroll = position;
+                layoutPanel();
+            }
+        }
+
+        static void text( HDC dc, const wchar_t * label, RECT rect, HFONT font, const COLORREF color, const UINT alignment )
+        {
+            const int saved = SaveDC( dc );
+            SelectObject( dc, font );
+            SetBkMode( dc, TRANSPARENT );
+            SetTextColor( dc, color );
+            DrawTextW( dc, label, -1, &rect, alignment | DT_VCENTER | DT_SINGLELINE | DT_NOPREFIX | DT_END_ELLIPSIS );
+            RestoreDC( dc, saved );
+        }
+
+        void paintMain()
+        {
+            PAINTSTRUCT paint{};
+            const HDC dc = BeginPaint( _window, &paint );
+            RECT rect{};
+            GetClientRect( _window, &rect );
+            const int w = dip( rect.right );
+            const int h = dip( rect.bottom );
+            fill( dc, rect, white );
+            fill( dc, bounds( 0, 0, w, headerHeight ), navy );
+            fill( dc, bounds( 0, headerHeight, w, tabsHeight ), RGB( 251, 252, 254 ) );
+            fill( dc, bounds( 0, headerHeight + tabsHeight - 1, w, 1 ), rule );
+            fill( dc, bounds( 0, h - footerHeight, w, footerHeight ), footer );
+            fill( dc, bounds( 0, h - footerHeight, w, 1 ), rule );
+            if ( _ui.icon )
+                DrawIconEx( dc, px( pageMargin ), px( 13 ), _ui.icon, px( 40 ), px( 40 ), 0, nullptr, DI_NORMAL );
+            text( dc, L"Knight Mod Launcher", bounds( pageMargin + 52, 0, w - 280, headerHeight ), _ui.title, white, DT_LEFT );
+            EndPaint( _window, &paint );
+        }
+
+        void paintPanel( HWND panel )
+        {
+            PAINTSTRUCT paint{};
+            const HDC dc = BeginPaint( panel, &paint );
+            fill( dc, paint.rcPaint, white );
+            if ( !IsRectEmpty( &_sectionRule ) )
+                fill( dc, _sectionRule, rule );
+            if ( !IsRectEmpty( &_sampleFrame ) )
+                surface( dc, _sampleFrame, wash, wash, px( 12 ) );
+            for ( const auto & frame : _fieldFrames )
+                surface( dc, frame, white, edge, px( 10 ) );
+            EndPaint( panel, &paint );
+        }
+
+        HBRUSH controlBrush( HDC dc, HWND control ) const
+        {
+            if ( control == _sampleLabel || control == _quote || control == _status ) {
+                const bool status = control == _status;
+                SetTextColor( dc, control == _quote ? blue : status ? muted : ink );
+                SetBkColor( dc, status ? footer : wash );
+                return status ? _ui.footerFill : _ui.callout;
+            }
+            SetTextColor( dc, control == _capHint || control == _incrementHint ? muted : ink );
+            SetBkColor( dc, white );
+            return _ui.paper;
+        }
+
+        bool drawItem( const DRAWITEMSTRUCT & item ) const
+        {
+            if ( item.CtlType == ODT_COMBOBOX ) {
+                const bool popup = ( item.itemState & ODS_COMBOBOXEDIT ) == 0;
+                const bool selected = popup && ( item.itemState & ODS_SELECTED ) != 0;
+                fill( item.hDC, item.rcItem, selected ? wash : white );
+                if ( item.itemID != static_cast<UINT>( -1 ) ) {
+                    const auto length = SendMessageW( item.hwndItem, CB_GETLBTEXTLEN, item.itemID, 0 );
+                    if ( length != CB_ERR ) {
+                        std::wstring label( static_cast<size_t>( length ) + 1, L'\0' );
+                        SendMessageW( item.hwndItem, CB_GETLBTEXT, item.itemID, reinterpret_cast<LPARAM>( label.data() ) );
+                        auto rect = item.rcItem;
+                        rect.left += px( 7 );
+                        text( item.hDC, label.c_str(), rect, _ui.body, selected ? blue : ink, DT_LEFT );
+                    }
+                }
+                if ( ( item.itemState & ( ODS_FOCUS | ODS_NOFOCUSRECT ) ) == ODS_FOCUS )
+                    DrawFocusRect( item.hDC, &item.rcItem );
+                return true;
+            }
+            if ( item.CtlType != ODT_BUTTON )
+                return false;
+
+            const auto id = item.CtlID;
+            const bool focused = ( item.itemState & ( ODS_FOCUS | ODS_NOFOCUSRECT ) ) == ODS_FOCUS;
+            const bool pressed = ( item.itemState & ODS_SELECTED ) != 0;
+            const bool hot = item.hwndItem == _hotButton || pressed;
+            auto rect = item.rcItem;
+            const auto tab = std::find( _tabs.begin(), _tabs.end(), item.hwndItem );
+            auto label = windowText( item.hwndItem );
+            if ( tab != _tabs.end() ) {
+                const bool active = static_cast<int>( tab - _tabs.begin() ) == _selectedTab;
+                fill( item.hDC, rect, RGB( 251, 252, 254 ) );
+                text( item.hDC, label.c_str(), rect, active ? _ui.strong : _ui.body, active || hot ? blue : muted, DT_LEFT );
+                if ( active )
+                    fill( item.hDC, { rect.left, rect.bottom - px( 2 ), rect.right, rect.bottom }, blue );
+            }
+            else {
+                const bool language = id == languageId;
+                const bool primary = id == playId;
+                const bool reset = id >= firstReset && id < firstReset + km::count;
+                const bool disclosure = id == conversionId || id == requirementsId;
+                const bool panelButton = GetParent( item.hwndItem ) == _panel;
+                fill( item.hDC, rect, language ? navy : panelButton ? white : footer );
+                const COLORREF background = language ? ( hot ? RGB( 48, 73, 98 ) : navy )
+                    : primary ? ( hot ? RGB( 27, 68, 122 ) : blue ) : hot ? wash : white;
+                const COLORREF border = language ? RGB( 142, 166, 195 ) : primary ? background : disclosure ? rule : edge;
+                surface( item.hDC, rect, background, focused ? blue : border, px( 10 ) );
+                if ( disclosure ) {
+                    label.insert( 0, ( id == conversionId ? _conversionOpen : _requirementsOpen ) ? L"▾  " : L"▸  " );
+                    rect.left += px( 11 );
+                }
+                text( item.hDC, label.c_str(), rect, primary || disclosure ? _ui.strong : reset ? _ui.small : _ui.body,
+                      language || primary ? white : reset ? blue : ink, disclosure ? DT_LEFT : DT_CENTER );
+            }
+            if ( focused ) {
+                rect = item.rcItem;
+                InflateRect( &rect, -px( 3 ), -px( 3 ) );
+                DrawFocusRect( item.hDC, &rect );
+            }
+            return true;
         }
 
         void status( const wchar_t * text )
@@ -650,6 +972,7 @@ namespace
 
         void refresh()
         {
+            SetWindowTextW( _capHint, _values[km::index( "cap" )] == 0 ? tr( L"Illimité", L"Unlimited" ) : L"" );
             const auto text = narrowNumber( windowText( _sample ) );
             uint32_t count = 0;
             const auto [end, ec] = std::from_chars( text.data(), text.data() + text.size(), count );
@@ -675,10 +998,13 @@ namespace
         void updateTooltip()
         {
             POINT cursor{};
+            HWND hot{};
             size_t rowIndex = km::count;
             if ( GetForegroundWindow() == _window && GetCursorPos( &cursor ) ) {
                 const HWND hovered = WindowFromPoint( cursor );
                 if ( hovered ) {
+                    if ( IsChild( _window, hovered ) && ( GetWindowLongPtrW( hovered, GWL_STYLE ) & BS_TYPEMASK ) == BS_OWNERDRAW )
+                        hot = hovered;
                     for ( size_t i = 0; i < km::count; ++i ) {
                         const auto & row = _rows[i];
                         if ( hovered == row.label || hovered == row.input || hovered == row.reset || hovered == row.spin ) {
@@ -687,6 +1013,13 @@ namespace
                         }
                     }
                 }
+            }
+            if ( hot != _hotButton ) {
+                if ( _hotButton )
+                    InvalidateRect( _hotButton, nullptr, FALSE );
+                _hotButton = hot;
+                if ( hot )
+                    InvalidateRect( hot, nullptr, FALSE );
             }
 
             auto tool = tooltipInfo();
@@ -703,7 +1036,7 @@ namespace
 
             auto & row = _rows[rowIndex];
             const auto & setting = km::settings[rowIndex];
-            const double initial = rowIndex == km::index( "base" ) && _values[km::index( "mode" )] == 1 ? 100 : setting.initial;
+            const double initial = km::defaultValue( rowIndex, _values );
             row.help = std::wstring( tr( setting.frenchHelp, setting.englishHelp ) ) + tr( L"\r\nPar défaut : ", L"\r\nDefault: " )
                        + number( initial, setting.kind == km::Kind::Decimal );
             tool.lpszText = row.help.data();
@@ -785,8 +1118,7 @@ namespace
                     return;
                 }
                 setControls();
-                status( tr( L"Profil chargé. Enregistre les réglages ou clique sur Jouer pour les appliquer.",
-                            L"Profile loaded. Save the settings or click Play to apply them." ) );
+                status( tr( L"Profil chargé. Enregistre ou lance le jeu.", L"Profile loaded. Save or play to apply." ) );
             }
         }
 
@@ -795,6 +1127,18 @@ namespace
             const auto result = reinterpret_cast<INT_PTR>( ShellExecuteW( _window, L"open", path.c_str(), nullptr, nullptr, SW_SHOWNORMAL ) );
             if ( result <= 32 )
                 error( L"Impossible d’ouvrir le fichier ou le dossier.", L"Could not open the file or folder." );
+        }
+
+        void openReadme()
+        {
+            const auto english = _installation / L"Readme.txt";
+            const auto french = _installation / L"Readme_FR.txt";
+            if ( _french && fileExists( french ) )
+                open( french );
+            else if ( fileExists( english ) )
+                open( english );
+            else
+                error( L"Le Readme est introuvable dans le dossier du jeu.", L"The Readme could not be found in the game folder." );
         }
 
         void changeLanguage()
@@ -817,20 +1161,35 @@ namespace
             writeFile( _localeFile, _french ? "fr\n" : "en\n" );
         }
 
+        void changeMode( const double mode )
+        {
+            if ( !km::selectMode( _values, mode ) )
+                return;
+            _updating = true;
+            setField( km::modeIndex );
+            if ( mode != 0 )
+                setField( km::baseIndex );
+            _updating = false;
+            _scroll = 0;
+            layout();
+            refresh();
+        }
+
         void command( const int id, const int notification )
         {
             if ( _updating )
                 return;
             if ( id >= firstReset && id < firstReset + static_cast<int>( km::count ) && notification == BN_CLICKED ) {
                 const size_t i = static_cast<size_t>( id - firstReset );
-                _values[i] = i == km::index( "base" ) && _values[km::index( "mode" )] == 1 ? 100 : km::settings[i].initial;
+                const double initial = km::defaultValue( i, _values );
+                if ( i == km::modeIndex ) {
+                    changeMode( initial );
+                    return;
+                }
+                _values[i] = initial;
                 _updating = true;
                 setField( i );
                 _updating = false;
-                if ( i == km::index( "mode" ) ) {
-                    _scroll = 0;
-                    layout();
-                }
                 refresh();
                 return;
             }
@@ -838,11 +1197,12 @@ namespace
                 if ( notification != EN_CHANGE && notification != BN_CLICKED && notification != CBN_SELCHANGE )
                     return;
                 const size_t i = static_cast<size_t>( id - firstInput );
-                if ( const auto value = fieldValue( i ) )
+                if ( const auto value = fieldValue( i ) ) {
+                    if ( i == km::modeIndex ) {
+                        changeMode( *value );
+                        return;
+                    }
                     _values[i] = *value;
-                if ( i == km::index( "mode" ) ) {
-                    _scroll = 0;
-                    layout();
                 }
                 refresh();
                 return;
@@ -871,6 +1231,28 @@ namespace
             case guideId:
                 open( _installation / tr( L"Guide_de_Test_et_Equilibrage.pdf", L"Testing_and_Balance_Guide.pdf" ) );
                 break;
+            case readmeId:
+                openReadme();
+                break;
+            case settingsTabId:
+            case advancedTabId:
+            case miscellaneousTabId:
+                _selectedTab = id == settingsTabId ? 0 : id == advancedTabId ? 1 : 2;
+                _scroll = 0;
+                layoutPanel();
+                for ( const auto tab : _tabs )
+                    InvalidateRect( tab, nullptr, FALSE );
+                break;
+            case conversionId:
+                _conversionOpen = !_conversionOpen;
+                layoutPanel();
+                InvalidateRect( _conversion, nullptr, FALSE );
+                break;
+            case requirementsId:
+                _requirementsOpen = !_requirementsOpen;
+                layoutPanel();
+                InvalidateRect( _requirements, nullptr, FALSE );
+                break;
             case folderId:
                 createDirectories( _config );
                 open( _config );
@@ -884,6 +1266,18 @@ namespace
         LRESULT process( const UINT message, const WPARAM wParam, const LPARAM lParam )
         {
             switch ( message ) {
+            case WM_ERASEBKGND:
+                return 1;
+            case WM_PAINT:
+                paintMain();
+                return 0;
+            case WM_DRAWITEM:
+                if ( const auto * item = reinterpret_cast<const DRAWITEMSTRUCT *>( lParam ); item && drawItem( *item ) )
+                    return TRUE;
+                break;
+            case WM_CTLCOLORSTATIC:
+            case WM_CTLCOLOREDIT:
+                return reinterpret_cast<LRESULT>( controlBrush( reinterpret_cast<HDC>( wParam ), reinterpret_cast<HWND>( lParam ) ) );
             case WM_CREATE:
                 create();
                 return 0;
@@ -893,26 +1287,22 @@ namespace
                 return 0;
             case WM_GETMINMAXINFO: {
                 auto * info = reinterpret_cast<MINMAXINFO *>( lParam );
-                info->ptMinTrackSize = { 600, 390 };
+                RECT work{}, minimum{ 0, 0, px( minWidth ), px( 330 ) };
+                SystemParametersInfoW( SPI_GETWORKAREA, 0, &work, 0 );
+                AdjustWindowRectEx( &minimum, WS_OVERLAPPEDWINDOW, FALSE, WS_EX_CONTROLPARENT );
+                info->ptMinTrackSize = { std::min( minimum.right - minimum.left, work.right - work.left ),
+                                         std::min( minimum.bottom - minimum.top, work.bottom - work.top ) };
                 return 0;
             }
             case WM_COMMAND:
                 command( LOWORD( wParam ), HIWORD( wParam ) );
                 return 0;
-            case WM_NOTIFY: {
-                const auto & info = *reinterpret_cast<NMHDR *>( lParam );
-                if ( info.hwndFrom == _tabs && info.code == TCN_SELCHANGE ) {
-                    _scroll = 0;
-                    layout();
-                }
-                return 0;
-            }
             case WM_TIMER:
                 updateTooltip();
                 return 0;
             case WM_MOUSEWHEEL:
                 _scroll = std::clamp( _scroll - GET_WHEEL_DELTA_WPARAM( wParam ) * rowHeight * 3 / WHEEL_DELTA, 0, _scrollMaximum );
-                layout();
+                layoutPanel();
                 return 0;
             case WM_VSCROLL:
                 if ( lParam )
@@ -926,7 +1316,7 @@ namespace
                 case SB_THUMBTRACK: _scroll = HIWORD( wParam ); break;
                 }
                 _scroll = std::clamp( _scroll, 0, _scrollMaximum );
-                layout();
+                layoutPanel();
                 return 0;
             case WM_CLOSE:
                 for ( size_t i = 0; i < km::count; ++i ) {
@@ -954,14 +1344,19 @@ namespace
         fs::path _localeFile;
         std::array<Row, km::count> _rows{};
         std::array<HWND, 8> _headings{};
+        std::array<HWND, 3> _tabs{};
         km::Values _values{};
         km::Values _saved{};
-        HWND _window{}, _panel{}, _tabs{}, _tooltip{}, _language{}, _sample{}, _sampleLabel{}, _sampleSpin{}, _quote{};
-        HWND _defaults{}, _save{}, _play{}, _quit{}, _guide{}, _folder{}, _saveProfile{}, _loadProfile{}, _status{};
-        int _scroll{}, _scrollMaximum{};
+        UiResources _ui;
+        std::vector<RECT> _fieldFrames;
+        RECT _sectionRule{}, _sampleFrame{};
+        HWND _window{}, _panel{}, _tooltip{}, _language{}, _sample{}, _sampleLabel{}, _sampleSpin{}, _quote{};
+        HWND _defaults{}, _save{}, _play{}, _quit{}, _guide{}, _readme{}, _folder{}, _saveProfile{}, _loadProfile{}, _status{};
+        HWND _capHint{}, _incrementHint{}, _conversion{}, _requirements{}, _hotButton{};
+        int _dpi{ 96 }, _selectedTab{}, _scroll{}, _scrollMaximum{};
         size_t _hoveredRow = km::count;
         ULONGLONG _hoverStarted{};
-        bool _french{}, _updating{}, _showingTooltip{};
+        bool _french{}, _updating{}, _showingTooltip{}, _conversionOpen{}, _requirementsOpen{};
     };
 }
 
