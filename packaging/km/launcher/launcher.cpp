@@ -29,7 +29,7 @@ namespace
     constexpr COLORREF muted = RGB( 77, 93, 113 );
     constexpr COLORREF white = RGB( 255, 255, 255 );
     constexpr COLORREF edge = RGB( 174, 190, 209 );
-    constexpr COLORREF rule = RGB( 217, 225, 233 );
+    constexpr COLORREF separator = RGB( 217, 225, 233 );
     constexpr COLORREF wash = RGB( 238, 244, 251 );
     constexpr COLORREF footer = RGB( 245, 248, 252 );
     constexpr int firstReset = 100;
@@ -87,7 +87,7 @@ namespace
 
     struct UiResources
     {
-        HFONT body{}, small{}, strong{}, title{};
+        HFONT body{}, compactFont{}, strong{}, title{};
         HICON icon{};
         HBRUSH paper{ CreateSolidBrush( white ) };
         HBRUSH callout{ CreateSolidBrush( wash ) };
@@ -95,7 +95,7 @@ namespace
 
         ~UiResources()
         {
-            for ( const auto font : { body, small, strong, title } )
+            for ( const auto font : { body, compactFont, strong, title } )
                 if ( font )
                     DeleteObject( font );
             for ( const auto brush : { paper, callout, footerFill } )
@@ -309,7 +309,7 @@ namespace
                 ReleaseDC( nullptr, dc );
             }
             _ui.body = makeFont( 14, FW_NORMAL );
-            _ui.small = makeFont( 12, FW_NORMAL );
+            _ui.compactFont = makeFont( 12, FW_NORMAL );
             _ui.strong = makeFont( 14, FW_BOLD );
             _ui.title = makeFont( 23, FW_BOLD );
             _ui.icon = static_cast<HICON>( LoadImageW( _instance, MAKEINTRESOURCEW( 1 ), IMAGE_ICON, px( 40 ), px( 40 ), 0 ) );
@@ -485,7 +485,7 @@ namespace
             _capHint = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
             _incrementHint = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
             for ( const auto hint : { _capHint, _incrementHint } )
-                SendMessageW( hint, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.small ), TRUE );
+                SendMessageW( hint, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.compactFont ), TRUE );
             _conversion = button( conversionId, _panel );
             _requirements = button( requirementsId, _panel );
             _sampleLabel = control( L"STATIC", L"", SS_CENTERIMAGE, 0, _panel );
@@ -866,9 +866,9 @@ namespace
             fill( dc, rect, white );
             fill( dc, bounds( 0, 0, w, headerHeight ), navy );
             fill( dc, bounds( 0, headerHeight, w, tabsHeight ), RGB( 251, 252, 254 ) );
-            fill( dc, bounds( 0, headerHeight + tabsHeight - 1, w, 1 ), rule );
+            fill( dc, bounds( 0, headerHeight + tabsHeight - 1, w, 1 ), separator );
             fill( dc, bounds( 0, h - footerHeight, w, footerHeight ), footer );
-            fill( dc, bounds( 0, h - footerHeight, w, 1 ), rule );
+            fill( dc, bounds( 0, h - footerHeight, w, 1 ), separator );
             if ( _ui.icon )
                 DrawIconEx( dc, px( pageMargin ), px( 13 ), _ui.icon, px( 40 ), px( 40 ), 0, nullptr, DI_NORMAL );
             text( dc, L"Knight Mod Launcher", bounds( pageMargin + 52, 0, w - 280, headerHeight ), _ui.title, white, DT_LEFT );
@@ -881,7 +881,7 @@ namespace
             const HDC dc = BeginPaint( panel, &paint );
             fill( dc, paint.rcPaint, white );
             if ( !IsRectEmpty( &_sectionRule ) )
-                fill( dc, _sectionRule, rule );
+                fill( dc, _sectionRule, separator );
             if ( !IsRectEmpty( &_sampleFrame ) )
                 surface( dc, _sampleFrame, wash, wash, px( 12 ) );
             for ( const auto & frame : _fieldFrames )
@@ -948,13 +948,13 @@ namespace
                 fill( item.hDC, rect, language ? navy : panelButton ? white : footer );
                 const COLORREF background = language ? ( hot ? RGB( 48, 73, 98 ) : navy )
                     : primary ? ( hot ? RGB( 27, 68, 122 ) : blue ) : hot ? wash : white;
-                const COLORREF border = language ? RGB( 142, 166, 195 ) : primary ? background : disclosure ? rule : edge;
+                const COLORREF border = language ? RGB( 142, 166, 195 ) : primary ? background : disclosure ? separator : edge;
                 surface( item.hDC, rect, background, focused ? blue : border, px( 10 ) );
                 if ( disclosure ) {
                     label.insert( 0, ( id == conversionId ? _conversionOpen : _requirementsOpen ) ? L"▾  " : L"▸  " );
                     rect.left += px( 11 );
                 }
-                text( item.hDC, label.c_str(), rect, primary || disclosure ? _ui.strong : reset ? _ui.small : _ui.body,
+                text( item.hDC, label.c_str(), rect, primary || disclosure ? _ui.strong : reset ? _ui.compactFont : _ui.body,
                       language || primary ? white : reset ? blue : ink, disclosure ? DT_LEFT : DT_CENTER );
             }
             if ( focused ) {
