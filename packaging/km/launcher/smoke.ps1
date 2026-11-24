@@ -62,8 +62,14 @@ Copy-Item $GameProbe (Join-Path $game.FullName 'fheroes2KM.exe')
 Set-Content -LiteralPath $ini -Encoding ASCII -Value @('# keep me', 'external.setting = 47', 'conscription.mode = 2', 'conscription.gold_per_peasant = 65')
 $process = Start-Process -FilePath $exe -ArgumentList "--language=en" -PassThru
 try {
-    Wait-Until { $process.Refresh(); $process.MainWindowHandle -ne [IntPtr]::Zero } 'The launcher did not create its main window.'
-    $window = $process.MainWindowHandle
+    Wait-Until {
+        $process.Refresh()
+        if ($process.HasExited) { throw "The launcher exited during startup with code $($process.ExitCode)." }
+        if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher displayed a startup error.' }
+        [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher') -ne [IntPtr]::Zero
+    } 'The launcher did not create its main window.'
+    $window = [Native]::FindWindow('KnightModLauncher', 'Knight Mod Launcher')
+    Write-Output 'The native launcher window opened.'
     $panel = [Native]::GetDlgItem($window, 318)
     $readme = [Native]::GetDlgItem($window, 315)
     $conversion = [Native]::GetDlgItem($panel, 316)
@@ -82,12 +88,14 @@ try {
     if ([Native]::IsWindowVisible($goldCost) -or -not [Native]::IsWindowVisible($captain)) { throw 'Advanced sections do not expand independently.' }
     [void][Native]::SendMessage($panel, 0x111, [IntPtr]317, $requirements)
     [void][Native]::SendMessage($window, 0x111, [IntPtr]310, [IntPtr]::Zero)
+    Write-Output 'The Readme control and Advanced panels passed.'
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]303, [IntPtr]::Zero)) { throw 'Cannot click Save.' }
     Wait-Until { (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1' } 'Saving did not update the actual INI.'
     $settings = Get-Content -LiteralPath $ini -Raw
     foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
         if (-not $settings.Contains($line)) { throw "Saving lost an existing value: $line" }
     }
+    Write-Output 'The existing INI and mode presets passed.'
     $mode = [Native]::GetDlgItem($panel, 202)
     foreach ($preset in @(@(1,100), @(2,50))) {
         [void][Native]::SendMessage($mode, 0x14E, [IntPtr]($preset[0]), [IntPtr]::Zero)
@@ -106,6 +114,7 @@ try {
             throw "Cannot close $title."
         }
         Wait-Until { [Native]::FindWindow('#32770', $title) -eq [IntPtr]::Zero } "The native dialog $title did not close."
+        Write-Output "The $title dialog passed."
     }
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]304, [IntPtr]::Zero)) { throw 'Cannot click Play.' }
     $marker = Join-Path $game.FullName 'launcher-probe.txt'
@@ -127,6 +136,9 @@ try {
         if (-not $process.WaitForExit(5000)) { throw 'The French launcher did not close.' }
     }
 } finally {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
-    Remove-Item -LiteralPath $temp -Recurse -Force
+    if (-not $process.HasExited) {
+        Stop-Process -Id $process.Id -Force
+        [void]$process.WaitForExit(5000)
+    }
+    Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction Continue
 }
