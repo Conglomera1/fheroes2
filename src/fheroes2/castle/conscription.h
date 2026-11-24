@@ -113,6 +113,7 @@ namespace Conscription
         double goldIncrementMultiplier = 1.0;
         uint32_t goldIncrementStep = 1;
         bool uniformBatchPrice = false;
+        bool showArtwork = true;
         Quotas quotas{ 8, 5, 4 };
         uint32_t weeklyLimit = 0; // Legacy save compatibility; no longer used.
         uint32_t dailyLimit = 3;

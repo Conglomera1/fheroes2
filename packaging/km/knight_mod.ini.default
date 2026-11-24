@@ -68,3 +68,6 @@ training_grounds.require_tavern = 0
 training_grounds.require_statue = 0
 training_grounds.require_thieves_guild = 0
 training_grounds.require_marketplace = 0
+
+# 0 = use the Farm sprite and thumbnail; 1 = use the Training Grounds artwork.
+training_grounds.show_artwork = 1

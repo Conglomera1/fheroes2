@@ -134,6 +134,8 @@ const Conscription::Settings & Conscription::settings()
         result.farmGold = read( "farm_reconversion.gold", 1250, 1000000 );
         result.farmWood = read( "farm_reconversion.wood", 0, 1000000 );
         result.farmOre = read( "farm_reconversion.ore", 0, 1000000 );
+        section( "Training Grounds artwork. 0 = use the Farm sprite and thumbnail; 1 = use the Training Grounds artwork." );
+        result.showArtwork = read( "training_grounds.show_artwork", 1, 1 ) != 0;
         section( "Training Grounds requirements" );
         comments += "# The Farm, Archery Range, Blacksmith and Armory are always required.\n";
         result.requiredBuildings = BUILD_WEL2 | DWELLING_MONSTER2 | DWELLING_MONSTER3 | DWELLING_MONSTER4;

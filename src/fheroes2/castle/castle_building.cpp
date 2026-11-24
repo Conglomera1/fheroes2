@@ -28,6 +28,7 @@
 
 #include "castle.h" // IWYU pragma: associated
 #include "castle_building_info.h"
+#include "conscription.h"
 #include "game_assets.h"
 #include "game_delays.h"
 #include "icn.h"
@@ -222,7 +223,7 @@ namespace
 
         const fheroes2::Rect roi = CastleGetMaxArea( castle, offset );
 
-        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS ) {
+        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS && Conscription::settings().showArtwork ) {
             static const fheroes2::Image training = [] {
                 fheroes2::Image original;
                 std::string path;

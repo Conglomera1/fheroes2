@@ -1,0 +1,52 @@
+name: Knight Mod Launcher
+on:
+  push:
+    branches: [knight-launcher-x86]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  launcher:
+    runs-on: windows-2025
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and test the x86 launcher
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x86
+          if errorlevel 1 exit /b 1
+          call packaging\km\launcher\build.cmd
+      - name: Build the x64 process probe
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
+          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
+          if errorlevel 1 exit /b 1
+          cd packaging\km\launcher\build
+          echo #include ^<cstdio^> > probe.cpp
+          echo int main^(^) { auto* output = std::fopen^("launcher-probe.txt", "wb"^); if ^(!output^) return 1; return std::fclose^(output^); } >> probe.cpp
+          cl /nologo /EHsc /MT probe.cpp /Fe:game-x64.exe /link /MACHINE:X64
+      - name: Verify the PE files and smoke test on Windows x64
+        shell: pwsh
+        run: |
+          $build = 'packaging/km/launcher/build'
+          function Check-PE($Path, $Machine, $Magic) {
+            $bytes = [IO.File]::ReadAllBytes((Resolve-Path $Path))
+            $offset = [BitConverter]::ToInt32($bytes,0x3c)
+            if ([BitConverter]::ToUInt32($bytes,$offset) -ne 0x4550 -or
+                [BitConverter]::ToUInt16($bytes,$offset+4) -ne $Machine -or
+                [BitConverter]::ToUInt16($bytes,$offset+24) -ne $Magic) {
+              throw "Wrong architecture: $Path"
+            }
+          }
+          Check-PE "$build/KnightModLauncher.exe" 0x14c 0x10b
+          Check-PE "$build/game-x64.exe" 0x8664 0x20b
+          & packaging/km/launcher/smoke.ps1 -Launcher "$build/KnightModLauncher.exe" -GameProbe "$build/game-x64.exe"
+          Get-FileHash "$build/KnightModLauncher.exe" -Algorithm SHA256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Knight-Mod-Launcher-Windows-x86
+          path: packaging/km/launcher/build/KnightModLauncher.exe
+          if-no-files-found: error
