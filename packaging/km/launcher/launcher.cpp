@@ -340,6 +340,7 @@ namespace
             if ( !_window )
                 throw std::runtime_error( "Window creation" );
             ShowWindow( _window, show );
+            fitToContent();
             UpdateWindow( _window );
         }
 
@@ -582,7 +583,7 @@ namespace
             else if ( setting.kind == km::Kind::Choice )
                 SendMessageW( row.input, CB_SETCURSEL, static_cast<WPARAM>( _values[i] ), 0 );
             else
-                SetWindowTextW( row.input, number( _values[i], setting.kind == km::Kind::Decimal ).c_str() );
+                SetWindowTextW( row.input, number( _values[i], setting.kind == km::Kind::Decimal && setting.id != std::string_view( "success" ) ).c_str() );
         }
 
         void setControls()
@@ -810,14 +811,14 @@ namespace
             for ( const auto item : { _capHint, _incrementHint, _conversion, _requirements, _sampleLabel, _sample, _sampleSpin, _quote, _saveProfile, _loadProfile } )
                 hideUnused( item );
 
-            const int content = y + _scroll + 14;
-            _scrollMaximum = std::max( 0, content - panelHeight );
+            _contentHeight = y + _scroll + 14;
+            _scrollMaximum = std::max( 0, _contentHeight - panelHeight );
             if ( _scroll > _scrollMaximum ) {
                 _scroll = _scrollMaximum;
                 layoutPanel();
                 return;
             }
-            SCROLLINFO scroll{ sizeof( SCROLLINFO ), SIF_RANGE | SIF_PAGE | SIF_POS, 0, content - 1, static_cast<UINT>( panelHeight ), _scroll, 0 };
+            SCROLLINFO scroll{ sizeof( SCROLLINFO ), SIF_RANGE | SIF_PAGE | SIF_POS, 0, _contentHeight - 1, static_cast<UINT>( panelHeight ), _scroll, 0 };
             SetScrollInfo( _panel, SB_VERT, &scroll, TRUE );
             RECT after{};
             GetClientRect( _panel, &after );
@@ -826,6 +827,25 @@ namespace
                 return;
             }
             InvalidateRect( _panel, nullptr, TRUE );
+        }
+
+        void fitToContent() const
+        {
+            if ( _userSized || IsZoomed( _window ) || IsIconic( _window ) )
+                return;
+            MONITORINFO monitor{};
+            monitor.cbSize = sizeof( monitor );
+            if ( !GetMonitorInfoW( MonitorFromWindow( _window, MONITOR_DEFAULTTONEAREST ), &monitor ) )
+                return;
+            RECT window{}, client{};
+            GetWindowRect( _window, &window );
+            GetClientRect( _window, &client );
+            const auto height = std::min( monitor.rcWork.bottom - monitor.rcWork.top,
+                                          window.bottom - window.top - client.bottom + px( headerHeight + tabsHeight + _contentHeight + footerHeight ) );
+            if ( height == window.bottom - window.top )
+                return;
+            const auto top = std::clamp( window.top, monitor.rcWork.top, monitor.rcWork.bottom - height );
+            SetWindowPos( _window, nullptr, window.left, top, window.right - window.left, height, SWP_NOZORDER | SWP_NOACTIVATE );
         }
 
         void revealFocusedField()
@@ -1118,6 +1138,7 @@ namespace
                     return;
                 }
                 setControls();
+                fitToContent();
                 status( tr( L"Profil chargé. Enregistre ou lance le jeu.", L"Profile loaded. Save or play to apply." ) );
             }
         }
@@ -1172,6 +1193,7 @@ namespace
             _updating = false;
             _scroll = 0;
             layout();
+            fitToContent();
             refresh();
         }
 
@@ -1219,6 +1241,7 @@ namespace
             case defaultsId:
                 _values = km::defaults();
                 setControls();
+                fitToContent();
                 break;
             case saveId:
             case playId:
@@ -1240,17 +1263,20 @@ namespace
                 _selectedTab = id == settingsTabId ? 0 : id == advancedTabId ? 1 : 2;
                 _scroll = 0;
                 layoutPanel();
+                fitToContent();
                 for ( const auto tab : _tabs )
                     InvalidateRect( tab, nullptr, FALSE );
                 break;
             case conversionId:
                 _conversionOpen = !_conversionOpen;
                 layoutPanel();
+                fitToContent();
                 InvalidateRect( _conversion, nullptr, FALSE );
                 break;
             case requirementsId:
                 _requirementsOpen = !_requirementsOpen;
                 layoutPanel();
+                fitToContent();
                 InvalidateRect( _requirements, nullptr, FALSE );
                 break;
             case folderId:
@@ -1285,6 +1311,9 @@ namespace
                 if ( wParam != SIZE_MINIMIZED )
                     layout();
                 return 0;
+            case WM_SIZING:
+                _userSized = true;
+                break;
             case WM_GETMINMAXINFO: {
                 auto * info = reinterpret_cast<MINMAXINFO *>( lParam );
                 RECT work{}, minimum{ 0, 0, px( minWidth ), px( 330 ) };
@@ -1353,10 +1382,10 @@ namespace
         HWND _window{}, _panel{}, _tooltip{}, _language{}, _sample{}, _sampleLabel{}, _sampleSpin{}, _quote{};
         HWND _defaults{}, _save{}, _play{}, _quit{}, _guide{}, _readme{}, _folder{}, _saveProfile{}, _loadProfile{}, _status{};
         HWND _capHint{}, _incrementHint{}, _conversion{}, _requirements{}, _hotButton{};
-        int _dpi{ 96 }, _selectedTab{}, _scroll{}, _scrollMaximum{};
+        int _dpi{ 96 }, _selectedTab{}, _scroll{}, _scrollMaximum{}, _contentHeight{};
         size_t _hoveredRow = km::count;
         ULONGLONG _hoverStarted{};
-        bool _french{}, _updating{}, _showingTooltip{}, _conversionOpen{}, _requirementsOpen{};
+        bool _french{}, _updating{}, _showingTooltip{}, _conversionOpen{}, _requirementsOpen{}, _userSized{};
     };
 }
 

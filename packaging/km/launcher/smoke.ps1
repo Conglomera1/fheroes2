@@ -27,6 +27,8 @@ public static class Native {
     public static extern bool GetWindowRect(IntPtr window, out Rect rect);
     [DllImport("user32.dll")]
     public static extern bool SetWindowPos(IntPtr window, IntPtr after, int x, int y, int width, int height, uint flags);
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr window, int attribute, out Rect value, int size);
 }
 '@
 function Wait-Until([scriptblock]$Condition, [string]$Failure) {
@@ -40,7 +42,8 @@ function Wait-Until([scriptblock]$Condition, [string]$Failure) {
 function Save-LauncherCapture([IntPtr]$Window, [string]$Path) {
     Add-Type -AssemblyName System.Drawing
     $rect = [Native+Rect]::new()
-    if (-not [Native]::GetWindowRect($Window, [ref]$rect)) { throw 'Cannot locate the launcher window.' }
+    if ([Native]::DwmGetWindowAttribute($Window, 9, [ref]$rect, 16) -ne 0 -and
+        -not [Native]::GetWindowRect($Window, [ref]$rect)) { throw 'Cannot locate the launcher window.' }
     [void][Native]::SetWindowPos($Window, [IntPtr](-1), 0, 0, 0, 0, 0x43)
     Start-Sleep -Milliseconds 250
     $bitmap = [System.Drawing.Bitmap]::new(($rect.Right - $rect.Left), ($rect.Bottom - $rect.Top))
@@ -93,7 +96,14 @@ try {
         throw "The launcher controls are incomplete. Panel=$panel Readme=$readme Conversion=$conversion Requirements=$requirements Gold=$goldCost Captain=$captain"
     }
     if (-not [Native]::IsWindowVisible($readme)) { throw 'The Readme button is hidden.' }
+    $settingsRect = [Native+Rect]::new()
+    $advancedRect = [Native+Rect]::new()
+    [void][Native]::GetWindowRect($window, [ref]$settingsRect)
     [void][Native]::SendMessage($window, 0x111, [IntPtr]313, [IntPtr]::Zero)
+    [void][Native]::GetWindowRect($window, [ref]$advancedRect)
+    if (($advancedRect.Bottom - $advancedRect.Top) -ge ($settingsRect.Bottom - $settingsRect.Top)) {
+        throw 'The window did not fit its smaller Advanced view.'
+    }
     if (-not ([Native]::IsWindowVisible($conversion) -and [Native]::IsWindowVisible($requirements))) { throw 'Advanced sections are missing.' }
     if ([Native]::IsWindowVisible($goldCost) -or [Native]::IsWindowVisible($captain)) { throw 'Advanced sections should start collapsed.' }
     [void][Native]::SendMessage($panel, 0x111, [IntPtr]316, $conversion)
