@@ -1,0 +1,78 @@
+name: Knight Mod installer validation
+on:
+  push:
+    branches: [knight-mod-1.1b-installer-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  installer:
+    runs-on: windows-2025
+    timeout-minutes: 16
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GAME_RUN: '45586745977'
+      LAUNCHER_RUN: '45496462581'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download the validated game and launcher
+        shell: pwsh
+        run: |
+          gh run download $env:GAME_RUN --repo $env:GITHUB_REPOSITORY --pattern 'Knight-Mod-1.1b-Game-Windows-*' --dir input/game
+          if ($LASTEXITCODE) { throw 'Game archives unavailable' }
+          gh run download $env:LAUNCHER_RUN --repo $env:GITHUB_REPOSITORY --name Knight-Mod-Launcher-Windows-x86 --dir input/launcher
+          if ($LASTEXITCODE) { throw 'Launcher archive unavailable' }
+
+      - name: Stage the two architectures and common files
+        shell: pwsh
+        run: |
+          $platforms = @{
+            x86 = 'f42f1832127b6e73c594b8949e2d94ff40cce845d2f03d6cfa2034133c4ff51c'
+            x64 = 'cb12611d55d0281f5e319566c85b4f17f8ab2128d682cd3aa81e4bf359002bc1'
+          }
+          foreach ($arch in $platforms.Keys) {
+            $name = "Knight-Mod-1.1b-Game-Windows-$arch"
+            Expand-Archive "input/game/$name/$name.zip" "input/$arch"
+            if ((Get-FileHash "input/$arch/fheroes2KM.exe").Hash -ne $platforms[$arch]) { throw "Unexpected $arch game build" }
+            New-Item -ItemType Directory "payload/$arch" -Force | Out-Null
+            Copy-Item "input/$arch/fheroes2KM.exe" "payload/$arch"
+          }
+
+          $launcher = @(Get-ChildItem input/launcher -Recurse -Filter KnightModLauncher.exe)
+          if ($launcher.Count -ne 1 -or (Get-FileHash $launcher[0]).Hash -ne '5e29e3118ab00404881d5193f942a25acefda7caa370969145db08efab7f35b7') {
+            throw 'Unexpected launcher build'
+          }
+
+          New-Item -ItemType Directory -Force 'payload/common/docs/Knight Mod' | Out-Null
+          Copy-Item 'packaging/km/installer/docs/*' 'payload/common/docs/Knight Mod/'
+          Copy-Item 'input/x86/LICENCE' 'payload/common/docs/Knight Mod/LICENCE.txt'
+          Copy-Item 'input/x86/files' 'payload/common/files' -Recurse
+          Copy-Item 'input/x86/knight_mod.ini.default' 'payload/common/'
+          Copy-Item $launcher[0] 'payload/common/KnightModLauncher.exe'
+          Copy-Item 'packaging/km/installer/launcher.ico' 'payload/'
+          [IO.File]::WriteAllText("$pwd/payload/en.language", "en`n")
+          [IO.File]::WriteAllText("$pwd/payload/fr.language", "fr`n")
+
+      - name: Compile the x86 setup with Inno Setup 7.1.1
+        shell: pwsh
+        run: |
+          $compilerSetup = "$env:RUNNER_TEMP/innosetup-7.1.1-x64.exe"
+          $compilerFolder = "$env:RUNNER_TEMP/Inno Setup 7"
+          Invoke-WebRequest 'https://github.com/jrsoftware/issrc/releases/download/is-7_1_1/innosetup-7.1.1-x64.exe' -OutFile $compilerSetup
+          if ((Get-FileHash $compilerSetup).Hash -ne '8a5a6711c3766a6e5fb74f280ba0e3551e719ce94538d901fdbd1f8f9920b3f0') { throw 'Unexpected Inno Setup download' }
+          $install = Start-Process $compilerSetup -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$compilerFolder`"" -Wait -PassThru
+          if ($install.ExitCode) { throw "Inno Setup installation failed: $($install.ExitCode)" }
+          & "$compilerFolder/ISCC.exe" "/DPayloadDir=$pwd/payload" "/O$pwd/out" packaging/km/installer/knight-mod.iss
+          if ($LASTEXITCODE) { throw 'Knight Mod setup compilation failed' }
+
+      - name: Test installation and uninstallation on Windows
+        shell: pwsh
+        run: ./packaging/km/installer/smoke.ps1 -Installer out/Knight-Mod-Setup.exe -Payload payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Knight-Mod-Setup-Validation
+          path: out/Knight-Mod-Setup.exe
+          if-no-files-found: error
