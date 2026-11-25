@@ -46,7 +46,7 @@ jobs:
           }
 
           New-Item -ItemType Directory -Force 'payload/common/docs/Knight Mod' | Out-Null
-          Copy-Item 'packaging/km/installer/docs/*' 'payload/common/docs/Knight Mod/'
+          Copy-Item 'packaging/km/installer/docs/*.txt','packaging/km/installer/docs/*.pdf' 'payload/common/docs/Knight Mod/'
           Copy-Item 'input/x86/LICENCE' 'payload/common/docs/Knight Mod/LICENCE.txt'
           Copy-Item 'input/x86/files' 'payload/common/files' -Recurse
           Copy-Item 'input/x86/knight_mod.ini.default' 'payload/common/'

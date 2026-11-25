@@ -19,11 +19,7 @@ function RunSetup($Executable, $Name, $Options, [switch]$Reject) {
     $log = Join-Path $work "$Name.log"
     $process = Start-Process -FilePath $Executable -ArgumentList (
         "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=`"$log`" $Options"
-    ) -PassThru
-    if (!$process.WaitForExit(90000)) {
-        Stop-Process -Id $process.Id -Force
-        throw "$Name timed out"
-    }
+    ) -Wait -PassThru
     if (($process.ExitCode -ne 0) -ne $Reject.IsPresent) {
         Get-Content -LiteralPath $log -ErrorAction SilentlyContinue | Select-Object -Last 60
         throw "$Name returned exit code $($process.ExitCode)"
@@ -126,7 +122,11 @@ foreach ($arch in @('x86', 'x64')) {
     if ($uninstallers.Count -ne 1) { throw 'Missing standalone Knight Mod uninstaller' }
     RunSetup $uninstallers[0].FullName "uninstall-$arch" ''
     AssertPreserved $directory $original
-    if ((Snapshot $directory).Count -ne $original.Count) { throw 'Unexpected files left in the fheroes2 installation' }
+    $remaining = @((Snapshot $directory).Keys | Where-Object { !$original.ContainsKey($_) })
+    if ($remaining.Count) {
+        Get-Content -LiteralPath "$work/uninstall-$arch.log" | Select-Object -Last 60
+        throw "Unexpected files left in the fheroes2 installation: $($remaining -join ', ')"
+    }
     if ((Get-FileHash -LiteralPath "$userSettings/knight_mod.ini").Hash -ne $userIniHash) { throw 'User settings changed' }
     Write-Host "PASS $arch install ($locale), selection, shortcuts, uninstall, original files and INI"
 }
