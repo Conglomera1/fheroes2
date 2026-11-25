@@ -1,7 +1,6 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 title Knight Mod uninstaller
-set "KM_SELF=%~f0"
 
 pushd "%~dp0" >nul 2>&1
 if errorlevel 1 goto :unavailable
@@ -57,7 +56,8 @@ popd
 echo.
 echo Knight Mod removed. Your saved games were preserved.
 pause
-endlocal & del /f /q "%KM_SELF%" & exit /b 0
+rem Return from this batch before deleting the script file.
+(goto) 2>nul & del /f /q "%~f0"
 
 :files_failed
 echo.
