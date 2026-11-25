@@ -47,35 +47,5 @@
     <Import Project="VisualStudio\SDL2.props" />
     <Import Project="VisualStudio\fheroes2\Release.props" />
   </ImportGroup>
-  <ItemDefinitionGroup Condition="'$(KnightPublicBuild)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_KNIGHT_PUBLIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(TaxpayerTestBuild)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_TAXPAYER_TEST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(TaxpayerDiagnostics)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(KnightReleaseBuild)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_KNIGHT_RELEASE;FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(KnightMode2TestBuild)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_KNIGHT_MODE2_TEST;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(KnightObserverBuild)'=='true'">
-    <ClCompile>
-      <PreprocessorDefinitions>FHEROES2_KNIGHT_OBSERVER;FHEROES2_TAXPAYER_DIAGNOSTICS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-    </ClCompile>
-  </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

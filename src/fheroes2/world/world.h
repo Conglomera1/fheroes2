@@ -506,6 +506,17 @@ public:
         return _seed;
     }
 
+    // Invalidates transient AI plans when a new map or saved game is loaded.
+    uint64_t sessionId() const
+    {
+        return _sessionId;
+    }
+
+    void startSession()
+    {
+        ++_sessionId;
+    }
+
     uint32_t GetWeekSeed() const;
 
     bool isAnyKingdomVisited( const MP2::MapObjectType objectType, const int32_t dstIndex ) const;
@@ -573,6 +584,7 @@ private:
     MapObjects map_objects;
 
     uint32_t _seed{ 0 }; // Map seed
+    uint64_t _sessionId{ 1 };
 
     // The following fields are not serialized
 

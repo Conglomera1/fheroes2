@@ -38,16 +38,6 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 #
 option(ENABLE_IMAGE "Enable the use of SDL_image (requires libpng)" OFF)
 option(ENABLE_TOOLS "Enable the build of additional tools" OFF)
-option(ENABLE_TAXPAYER_DIAGNOSTICS "Enable Taxpayer telemetry without privileged observer UI" OFF)
-if(ENABLE_TAXPAYER_DIAGNOSTICS)
-    add_compile_definitions(FHEROES2_TAXPAYER_DIAGNOSTICS)
-endif()
-
-option(ENABLE_TAXPAYER_TEST "Enable private Taxpayer test diagnostics and privileged observer UI" OFF)
-if(ENABLE_TAXPAYER_TEST)
-    add_compile_definitions(FHEROES2_TAXPAYER_TEST)
-endif()
-
 # Available only on macOS
 cmake_dependent_option(MACOS_APP_BUNDLE "Create a Mac app bundle" OFF "APPLE" OFF)
 

@@ -18,8 +18,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "taxpayer_test.h"
 
+#include "ai_simulation.h"
 #include "ai_common.h"
 
 #include <algorithm>
@@ -35,7 +35,6 @@
 #include <vector>
 
 #include "army.h"
-#include "economy_trace.h"
 #include "army_troop.h"
 #include "artifact_ultimate.h"
 #include "castle.h"
@@ -45,7 +44,6 @@
 #include "game_static.h"
 #include "heroes.h"
 #include "kingdom.h"
-#include "knight_observer.h"
 #include "knight_construction.h"
 #include "logging.h"
 #include "maps.h"
@@ -276,25 +274,17 @@ bool AI::KnightConstruction::canLoadPopulation( const Heroes & hero, const Castl
 
 void AI::KnightConstruction::settleCancelledCargo( Heroes & hero, Castle & castle )
 {
-    if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || hero.inCastle() != &castle || hero.GetColor() != castle.GetColor() ) return;
+    if ( AI::isSimulating() || !hero.isControlAI() || hero.inCastle() != &castle || hero.GetColor() != castle.GetColor() ) return;
     const auto quantity = cancelledCargo( hero ); if ( !quantity ) return;
     Troops source( hero.GetArmy().getTroops() ), target( castle.GetArmy().getTroops() );
-    const auto beforeSource = KnightObserver::armyJson( hero.GetArmy() ), beforeTarget = KnightObserver::armyJson( castle.GetArmy() );
     if ( !populationTransfer( source, target, quantity ) ) return;
     hero.GetArmy().Assign( source ); castle.GetArmy().Assign( target );
     protectPopulationDeposit( castle ); resolveCancelledCargo( hero );
-    ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"knight_population\",\"player\":" << static_cast<int>( hero.GetColor() )
-        << ",\"hero\":" << hero.GetID() << ",\"town\":" << castle.GetIndex() << ",\"quantity\":" << quantity
-        << ",\"reason\":\"cancelled_cargo_deposit\",\"source_player\":" << static_cast<int>( hero.GetColor() )
-        << ",\"destination_player\":" << static_cast<int>( hero.GetColor() ) << ",\"source_hero\":true,\"destination_hero\":false"
-        << ",\"source_tile\":" << castle.GetIndex() << ",\"destination_tile\":" << castle.GetIndex()
-        << ",\"source_before\":" << beforeSource << ",\"source_after\":" << KnightObserver::armyJson( hero.GetArmy() )
-        << ",\"destination_before\":" << beforeTarget << ",\"destination_after\":" << KnightObserver::armyJson( castle.GetArmy() ) );
 }
 
 void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, int destination, const bool embarking )
 {
-    if ( fheroes2::taxpayerSimulationDepth || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
+    if ( AI::isSimulating() || !hero.isControlAI() || !populationSafe( castle ) || hero.inCastle() != &castle
          || hero.GetColor() != castle.GetColor()
          || !Kingdom::TaxpayerRequiresFarms() || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 ) return;
     if ( !castle.isBuild( BUILD_WEL2 ) && !castle.hasTrainingGrounds() ) return;
@@ -302,21 +292,12 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
     if ( const int pickup = populationPickupDestination( hero, castle ); pickup >= 0 ) destination = pickup;
     auto & garrison = castle.GetArmy(); auto & army = hero.GetArmy();
     const Monster peasant( Monster::PEASANT );
-    const auto transfer = [&]( Army & source, Army & target, uint32_t quantity, const bool fromHero, const char * reason ) {
+    const auto transfer = [&]( Army & source, Army & target, uint32_t quantity ) {
         quantity = std::min( quantity, UINT32_MAX - target.GetCountMonsters( peasant ) );
         if ( !quantity ) return;
-        const std::string beforeSource = KnightObserver::armyJson( source ), beforeTarget = KnightObserver::armyJson( target );
         Troops stagedSource( source.getTroops() ), stagedTarget( target.getTroops() );
         if ( !populationTransfer( stagedSource, stagedTarget, quantity ) ) return;
         source.Assign( stagedSource ); target.Assign( stagedTarget );
-        ECONOMY_TRACE( 1, "OBSERVER_ARMY_TRANSFER", ",\"operation\":\"knight_population\",\"player\":" << static_cast<int>( hero.GetColor() )
-            << ",\"hero\":" << hero.GetID() << ",\"town\":" << castle.GetIndex() << ",\"quantity\":" << quantity
-            << ",\"reason\":" << Economy::jsonQuote( reason ) << ",\"source_player\":" << static_cast<int>( hero.GetColor() )
-            << ",\"destination_player\":" << static_cast<int>( hero.GetColor() )
-            << ",\"source_hero\":" << ( fromHero ? "true" : "false" ) << ",\"destination_hero\":" << ( fromHero ? "false" : "true" )
-            << ",\"source_tile\":" << castle.GetIndex() << ",\"destination_tile\":" << castle.GetIndex()
-            << ",\"source_before\":" << beforeSource << ",\"source_after\":" << KnightObserver::armyJson( source )
-            << ",\"destination_before\":" << beforeTarget << ",\"destination_after\":" << KnightObserver::armyJson( target ) );
     };
     const bool delivered = populationOrder( hero ) == castle.GetIndex();
     const uint32_t reserve = delivered ? UINT32_MAX : populationReserve( castle );
@@ -324,7 +305,7 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
     const uint32_t held = garrison.GetCountMonsters( peasant );
     const uint32_t carried = army.GetCountMonsters( peasant );
     const uint32_t movable = army.GetOccupiedSlotCount() == 1 && carried ? carried - 1 : carried;
-    if ( wanted > held ) transfer( army, garrison, std::min( movable, wanted - held ), true, embarking ? "before_embarkation" : "population_deposit" );
+    if ( wanted > held ) transfer( army, garrison, std::min( movable, wanted - held ) );
     if ( delivered ) {
         if ( army.GetCountMonsters( peasant ) <= ( army.GetOccupiedSlotCount() == 1 ? 1U : 0U ) ) cancelPopulationRoute( hero, "delivered" );
         return;
@@ -341,15 +322,11 @@ void AI::KnightConstruction::arrangePopulation( Heroes & hero, Castle & castle, 
                 quantity = std::min( populationAvailableStock( castle, hero.GetID() ), populationSupplyNeed( target, hero.GetID() ) );
             }
             if ( quantity && canReceivePopulation( hero, target ) ) {
-                transfer( garrison, army, quantity, false, target.hasTrainingGrounds() ? "supply_conscription" : "export_taxpayer_surplus" );
+                transfer( garrison, army, quantity );
                 notePopulationRoute( hero, destination );
             }
         }
     }
-    ECONOMY_TRACE( 1, "KNIGHT_POPULATION", ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"hero\":" << hero.GetID()
-        << ",\"town\":" << castle.GetIndex() << ",\"destination\":" << destination << ",\"reserve_days\":14,\"reserve\":" << reserve
-        << ",\"garrison\":" << garrison.GetCountMonsters( peasant ) << ",\"carried\":" << army.GetCountMonsters( peasant )
-        << ",\"embarking\":" << ( embarking ? "true" : "false" ) );
 }
 
 void AI::depositTaxpayerPeasants( Heroes * hero, Castle * castle )
@@ -532,16 +509,13 @@ bool AI::tradeAtMarketplace( Kingdom & kingdom, const Funds & fundsToObtain )
     }
 
     assert( kingdom.AllowPayment( *transaction ) );
-    if ( !AI::KnightConstruction::allowsPayment( kingdom, *transaction, "market_trade" ) ) return false;
+    if ( !AI::KnightConstruction::allowsPayment( kingdom, *transaction ) ) return false;
 
     DEBUG_LOG( DBG_AI, DBG_INFO,
                Color::String( kingdom.GetColor() ) << " having funds " << kingdom.GetFunds().String() << " obtains funds " << fundsToObtain.String()
                                                    << " through a transaction " << transaction->String() )
 
-    const Economy::CauseScope cause( "market_trade", static_cast<int>( kingdom.GetColor() ) );
-    kingdom.OddFundsResource( *transaction );
-    ECONOMY_TRACE( 1, "MARKET_TRADE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
-                   << ",\"goal\":" << Economy::fundsJson( fundsToObtain ) << ",\"transaction\":" << Economy::fundsJson( *transaction ) );
+    kingdom.OddFundsResource( *transaction, Kingdom::Expense::Planned );
 
     return true;
 }

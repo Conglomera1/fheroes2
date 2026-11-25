@@ -150,7 +150,13 @@ public:
     double GetArmiesStrength() const;
 
     void AddFundsResource( const Funds & );
-    void OddFundsResource( const Funds & );
+    enum class Expense : uint8_t
+    {
+        Discretionary,
+        Planned
+    };
+
+    void OddFundsResource( const Funds &, Expense expense = Expense::Discretionary );
 
     bool isLosingGame() const
     {

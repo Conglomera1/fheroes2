@@ -65,7 +65,9 @@ namespace
         const bool training = castle.GetRace() == Race::KNGT && building == BUILD_TRAINING_GROUNDS;
         const auto & base = Assets::getImage( ICN::getBuildingIcnId( castle.GetRace() ),
             fheroes2::getIndexBuildingSprite( static_cast<BuildingType>( training ? BUILD_WEL2 : building ) ) );
-        if ( !training ) return base;
+        if ( !training || !Conscription::settings().showArtwork ) {
+            return base;
+        }
         static const fheroes2::Sprite preview = [&base] {
             fheroes2::Sprite result( base );
             fheroes2::Image thumbnail;

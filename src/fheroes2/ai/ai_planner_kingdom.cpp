@@ -32,17 +32,12 @@
 #include <utility>
 #include <vector>
 
-#include "taxpayer_test.h"
 
 #include "ai_common.h"
 #include "ai_planner.h"
 #include "knight_construction.h"
 #include "knight_economy.h"
 #include "ai_planner_internals.h"
-#include "economy_inputs.h"
-#include "economy_pipeline.h"
-#include "economy_trace.h"
-#include "knight_observer.h"
 #include "payment.h"
 #include "army.h"
 #include "artifact_ultimate.h"
@@ -362,16 +357,12 @@ bool AI::Planner::openingPeasantsNeeded( Heroes & hero )
 bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
 {
     namespace KC = KnightConstruction;
-    const auto reject = [&]( const char * reason ) {
-        if ( world.CountDay() == 1 ) ECONOMY_TRACE( 1, "NAVAL_OPENING_REFUSAL", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"reason\":" << Economy::jsonQuote( reason ) );
-        return false;
-    };
-    if ( world.CountDay() != 1 || !kingdom.isControlAI() || kingdom.GetHeroes().size() != 1 || kingdom.GetCastles().size() != 1 ) return reject( "starting_state" );
+    if ( world.CountDay() != 1 || !kingdom.isControlAI() || kingdom.GetHeroes().size() != 1 || kingdom.GetCastles().size() != 1 ) return false;
     Heroes & land = *kingdom.GetHeroes().front(); Castle * port = land.inCastleMutable();
-    if ( !port || !port->isBuild( BUILD_SHIPYARD ) || land.isShipMaster() || land.Modes( Heroes::PATROL ) || isCriticalTask( port->GetIndex() ) ) return reject( "port_or_military_task" );
+    if ( !port || !port->isBuild( BUILD_SHIPYARD ) || land.isShipMaster() || land.Modes( Heroes::PATROL ) || isCriticalTask( port->GetIndex() ) ) return false;
     const auto & recruits = kingdom.GetRecruits();
     Heroes * sailor = KC::openingRecruit( *port, recruits.GetHero1(), recruits.GetHero2() );
-    if ( !sailor ) return reject( "recruit_or_known_sea_objective" );
+    if ( !sailor ) return false;
     // Vacate only one empty, visible, native-reachable adjacent land tile.
     _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
     int meeting = -1; uint32_t best = UINT32_MAX;
@@ -382,7 +373,7 @@ bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
         if ( !cost || cost > land.GetMovePoints() || cost >= best || route.size() != 1 ) continue;
         meeting = tile; best = cost;
     }
-    if ( meeting < 0 ) return reject( "no_adjacent_meeting" );
+    if ( meeting < 0 ) return false;
     // Require room to clear the single entrance before committing any purchases.
     AIWorldPathfinder escapePath; escapePath.reset();
     escapePath.reEvaluateIfNeeded( meeting, kingdom.GetColor(), land.GetArmy().GetStrength(),
@@ -395,16 +386,15 @@ bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
         const auto cost = escapePath.getDistance( tile );
         if ( cost && uint64_t{ best } + cost <= land.GetMovePoints() && escapePath.buildPath( tile, false ).size() == 1 ) { escape = tile; break; }
     }
-    if ( escape < 0 ) return reject( "cannot_clear_entrance" );
+    if ( escape < 0 ) return false;
     Funds mandatory = PaymentConditions::RecruitHero();
     if ( port->getTileIndexToPlaceBoat() >= 0 ) mandatory += PaymentConditions::BuyBoat();
     const bool statue = !port->isBuild( BUILD_STATUE );
     if ( statue ) {
-        if ( port->CheckBuyBuilding( BUILD_STATUE ) != BuildingStatus::ALLOW_BUILD ) return reject( "statue_unavailable" );
+        if ( port->CheckBuyBuilding( BUILD_STATUE ) != BuildingStatus::ALLOW_BUILD ) return false;
         mandatory += port->getBuildingCost( BUILD_STATUE );
     }
-    if ( !kingdom.AllowPayment( mandatory ) ) return reject( "portfolio_unfunded" );
-    const auto beforeFunds = kingdom.GetFunds();
+    if ( !kingdom.AllowPayment( mandatory ) ) return false;
     // Bounded J1 portfolio: all remaining mandatory payments are checked before
     // each optional purchase. No standing reserve is relaxed outside this scope.
     const KC::Emergency openingBudget( true );
@@ -435,20 +425,15 @@ bool AI::Planner::prepareOpeningTurn( Kingdom & kingdom )
         _pathfinder.reset(); _pathfinder.reEvaluateIfNeeded( land );
         const auto clearPath = _pathfinder.buildPath( escape, false );
         if ( clearPath.size() != 1 || !_pathfinder.getDistance( escape ) || _pathfinder.getDistance( escape ) > land.GetMovePoints() ) {
-            KC::cancelOpeningPreparation( *port ); return reject( "entrance_clearance_changed" );
+            KC::cancelOpeningPreparation( *port ); return false;
         }
         land.GetPath().setPath( clearPath ); land.SetMove( true ); (void)land.Move( true ); land.SetMove( false );
         updateMapActionObjectCache( kingdom, meeting ); updateMapActionObjectCache( kingdom, land.GetIndex() ); _pathfinder.reset();
-        if ( land.GetIndex() != escape ) { KC::cancelOpeningPreparation( *port ); return reject( "entrance_clearance_failed" ); }
-        ECONOMY_TRACE( 1, "NAVAL_OPENING_CLEARANCE", ",\"land_hero\":" << land.GetID() << ",\"meeting\":" << meeting << ",\"cleared_to\":" << escape );
+        if ( land.GetIndex() != escape ) { KC::cancelOpeningPreparation( *port ); return false; }
         const auto changed = KC::prepareNaval( kingdom );
         for ( const int tile : changed ) updateMapActionObjectCache( kingdom, tile );
     }
     if ( !prepared ) KC::cancelOpeningPreparation( *port );
-    ECONOMY_TRACE( 1, "NAVAL_OPENING_J1", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << origin
-        << ",\"land_hero\":" << land.GetID() << ",\"sea_hero\":" << sailor->GetID() << ",\"meeting\":" << meeting
-        << ",\"prepared\":" << ( prepared ? "true" : "false" ) << ",\"funds_before\":" << Economy::fundsJson( beforeFunds )
-        << ",\"funds_after\":" << Economy::fundsJson( kingdom.GetFunds() ) );
     _pathfinder.reset(); return true;
 }
 
@@ -752,48 +737,8 @@ void AI::Planner::updatePriorityAttackTarget( const Kingdom & kingdom, const Map
     updatePriorityForEnemyArmy( kingdom, *enemyArmy );
 }
 
-void AI::Planner::observeEconomyInputs( const Kingdom & kingdom, const std::vector<AICastle> & priorities )
-{
-    const uint64_t horizon = uint64_t{ world.CountDay() } + 14;
-    if ( horizon > std::numeric_limits<uint32_t>::max() ) return;
-    std::vector<EnemyArmy> known;
-    for ( const auto & entry : _enemyArmies ) known.push_back( entry.second );
-    std::vector<int32_t> order;
-    for ( const auto & entry : priorities ) if ( entry.castle ) order.push_back( entry.castle->GetIndex() );
-    std::vector<EconomyMissions::Target> targets;
-    for ( const auto & entry : _priorityTargets ) {
-        EconomyMissions::Intent intent = EconomyMissions::Intent::Unknown;
-        switch ( entry.second.type ) {
-        case PriorityTaskType::ATTACK: intent = EconomyMissions::Intent::Attack; break;
-        case PriorityTaskType::DEFEND: intent = EconomyMissions::Intent::Defend; break;
-        case PriorityTaskType::REINFORCE: intent = EconomyMissions::Intent::Reinforce; break;
-        default: break;
-        }
-        targets.push_back( { entry.first, intent, entry.second.secondaryTaskTileId } );
-    }
-    std::vector<EconomyMissions::Need> needs;
-    const int resourceOrder[] = { Resource::GOLD, Resource::WOOD, Resource::ORE, Resource::MERCURY, Resource::SULFUR, Resource::CRYSTAL, Resource::GEMS };
-    for ( size_t i = 0; i < 7; ++i ) for ( const auto & need : _budget ) if ( need.resource == resourceOrder[i] )
-        needs.push_back( { i, need.missing, need.priority, need.recurringCost } );
-    EconomyPipeline::Work work;
-    auto frame = EconomyInputs::capture( kingdom, static_cast<uint32_t>( horizon ), known, order, true,
-        [&]( const EconomyInputs::Enemy & enemy, const int32_t town ) {
-            // Capture the real visitor before this temporary path-only erasure.
-            const TemporaryHeroEraser heroEraser( kingdom.GetHeroes() );
-            const AIWorldPathfinderStateRestorer restorer( _pathfinder );
-            _pathfinder.setMinimalArmyStrengthAdvantage( ARMY_ADVANTAGE_DESPERATE );
-            _pathfinder.setSpellPointsReserveRatio( 0.0 );
-            return _pathfinder.getDistance( enemy.observation.enemyTile, town, kingdom.GetColor(), enemy.observation.enemyStrength );
-        }, work.paths, targets, needs );
-    EconomyInputs::log( frame, static_cast<int>( kingdom.GetColor() ), work.paths );
-    const auto observation = EconomyPipeline::observe( std::move( frame ), kingdom, work );
-    (void)observation; // No decision, purchase or cancellation is applied to the world.
-}
-
 fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 {
-    KnightObserver::kingdomState( kingdom, "ai_turn_begin" );
-    const fheroes2::TaxpayerTraceScope observerTurn( [&kingdom]() { KnightObserver::kingdomState( kingdom, "ai_turn_end" ); } );
     class AIAutoControlModeCommitter
     {
     public:
@@ -1012,7 +957,6 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
 
     std::set<int> castlesInDanger;
     std::vector<AICastle> sortedCastleList;
-    [[maybe_unused]] bool economyInputsObserved = false;
 
     while ( true ) {
         // If a hero is standing in a castle most likely he has nothing to do so let's try to give him more army.
@@ -1025,13 +969,6 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         setHeroRoles( heroes, Game::getDifficulty() );
 
         castlesInDanger = findCastlesInDanger( kingdom );
-#if defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
-        if ( !economyInputsObserved && Settings::Get().taxpayerTestDiagnostics() >= 2 ) {
-            // The initial visible-map scan is still current: no hero planning/movement yet.
-            observeEconomyInputs( kingdom, getSortedCastleList( castles, castlesInDanger ) );
-            economyInputsObserved = true;
-        }
-#endif
         for ( Heroes * hero : heroes ) {
             assert( hero != nullptr );
 
@@ -1132,87 +1069,9 @@ fheroes2::GameMode AI::Planner::KingdomTurn( Kingdom & kingdom )
         if ( shouldKeepTaxpayersInGarrison( *castle ) ) {
             depositTaxpayerPeasants( hero, castle );
         }
-        else if ( hero->GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
-            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero->GetColor() ) << ", hero id " << hero->GetID()
-                               << ", town " << castle->GetIndex() << ": end-turn deposit policy disabled, immediate danger "
-                               << ( castlesInDanger.count( castle->GetIndex() ) > 0 ) << ", safety "
-                               << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
-                               << ", critical task " << isCriticalTask( castle->GetIndex() ) );
-        }
     }
 
     AI::KnightEconomy::planDailyOrders( kingdom );
-
-    // A projection from the end-of-turn garrisons. The actual next-day tax may be lower if a town is captured.
-    if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
-        const Monster peasant( Monster::PEASANT );
-        [[maybe_unused]] const uint64_t taxRate = static_cast<uint64_t>( std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) );
-        uint64_t totalPeasants = 0;
-        uint64_t allGarrisonPeasants = 0;
-        uint64_t allHeroPeasants = 0;
-        for ( const Castle * ownedTown : kingdom.GetCastles() ) {
-            if ( ownedTown != nullptr ) {
-                allGarrisonPeasants += ownedTown->GetArmy().GetCountMonsters( peasant );
-                const Heroes * guest = ownedTown->GetHero();
-                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() ) << ", town census " << ownedTown->GetIndex()
-                                   << ": race " << ownedTown->GetRace() << ", Farm " << ownedTown->isBuild( BUILD_WEL2 )
-                                   << ", garrison Peasants " << ownedTown->GetArmy().GetCountMonsters( peasant )
-                                   << ", guest id " << ( guest ? guest->GetID() : -1 )
-                                   << ", guest Peasants " << ( guest ? guest->GetArmy().GetCountMonsters( peasant ) : 0 ) );
-            }
-        }
-        for ( const Heroes * ownedHero : kingdom.GetHeroes() ) {
-            if ( ownedHero == nullptr ) {
-                continue;
-            }
-            const uint32_t count = ownedHero->GetArmy().GetCountMonsters( peasant );
-            allHeroPeasants += count;
-            TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
-                               << ", hero " << ownedHero->GetName() << " id " << ownedHero->GetID() << ", tile " << ownedHero->GetIndex()
-                               << ": army Peasants " << count << ", moves " << ownedHero->GetMovePoints()
-                               << ", target " << ownedHero->GetPath().GetDestinationIndex() << ", sleeper " << ownedHero->Modes( Heroes::SLEEPER )
-                               << ", role " << static_cast<int>( ownedHero->getAIRole() ) );
-        }
-
-        for ( const Castle * castle : kingdom.GetCastles() ) {
-            if ( castle == nullptr || castle->GetRace() != Race::KNGT || !castle->isBuild( BUILD_WEL2 ) ) {
-                continue;
-            }
-
-            uint64_t peasantCount = castle->GetArmy().GetCountMonsters( peasant );
-            if ( const Heroes * guestHero = castle->GetHero(); guestHero != nullptr ) {
-                peasantCount += guestHero->GetArmy().GetCountMonsters( peasant );
-            }
-
-            totalPeasants += peasantCount;
-            const Heroes * guest = castle->GetHero();
-            TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
-                               << ", town " << castle->GetIndex() << ": garrison Peasants " << castle->GetArmy().GetCountMonsters( peasant )
-                               << ", guest Peasants " << ( guest ? guest->GetArmy().GetCountMonsters( peasant ) : 0 )
-                               << ", guest id " << ( guest ? guest->GetID() : -1 ) << ", safety "
-                               << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
-                               << ", critical " << isCriticalTask( castle->GetIndex() ) );
-            if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
-#ifndef FHEROES2_KNIGHT_PUBLIC
-                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", Knight town tile " << castle->GetIndex()
-                                            << ": " << peasantCount << " taxable Peasants, projected next-day income " << peasantCount * taxRate );
-#endif
-            }
-        }
-
-        if ( !Kingdom::TaxpayerRequiresFarms() ) {
-            totalPeasants = allGarrisonPeasants + allHeroPeasants;
-        }
-        TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
-                           << ": owned Peasants " << allGarrisonPeasants + allHeroPeasants << ", garrisons " << allGarrisonPeasants
-                           << ", hero armies " << allHeroPeasants << ", taxable " << totalPeasants << ", treasury " << kingdom.GetFunds().gold );
-        if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
-#ifndef FHEROES2_KNIGHT_PUBLIC
-            COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( kingdom.GetColor() )
-                                        << ": total " << totalPeasants << " taxable Peasants, projected next-day income " << totalPeasants * taxRate );
-#endif
-        }
-    }
 
     status.resetAITurnProgress();
 

@@ -21,9 +21,7 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "taxpayer_test.h"
 #include "economy_forecast.h"
-#include "economy_trace.h"
 #include "knight_economy.h"
 
 #include "kingdom.h"
@@ -347,16 +345,8 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
 
     // Skip daily income for the first day.
     if ( world.CountDay() > 1 ) {
-        const Economy::CauseScope cause( "daily_income", static_cast<int>( GetColor() ) );
         const Funds dailyIncome = GetIncome( INCOME_ALL );
-        const int32_t goldBefore = GetFunds().gold;
         AddFundsResource( dailyIncome );
-        ECONOMY_TRACE( 1, "DAILY_INCOME", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
-                       << ",\"tax\":" << getKingdomTaxpayerIncome( *this, getTaxpayerSettings() ) << ",\"income\":" << Economy::fundsJson( dailyIncome ) );
-        TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() )
-                           << ": daily credit, taxpayer gold " << getKingdomTaxpayerIncome( *this, getTaxpayerSettings() )
-                           << ", total income gold " << dailyIncome.gold << ", treasury " << goldBefore << " -> " << GetFunds().gold
-                           << ", rate " << Kingdom::GetTaxpayerGoldPerPeasantPerDay() << ", requires Farms " << Kingdom::TaxpayerRequiresFarms() );
     }
 
     const bool isAIPlayer = ( GetControl() == CONTROL_AI );
@@ -369,34 +359,11 @@ void Kingdom::ActionNewDayResourceUpdate( const std::function<void( const EventD
         }
 
         const Funds fundsUpdate = Resource::CalculateEventResourceUpdate( GetFunds(), event.resource );
-        const Economy::CauseScope cause( "calendar_event", static_cast<int>( GetColor() ) );
         AddFundsResource( fundsUpdate );
         if ( displayEventDialog )
             displayEventDialog( event, fundsUpdate );
     }
     Castle::processDailyConscription( *this );
-    ECONOMY_TRACE( 1, "DAILY_CLOSE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
-                   << ",\"funds\":" << Economy::fundsJson( GetFunds() ) );
-    if ( Settings::Get().taxpayerTestDiagnostics() >= 2 && fheroes2::taxpayerSimulationDepth == 0 ) {
-        const auto projection = Economy::forecast( economySnapshot(), Conscription::settings(), 14 );
-        ECONOMY_TRACE( 2, "FORECAST", ",\"kind\":\"forecast\",\"phase\":\"after_daily_update\",\"player\":" << static_cast<int>( GetColor() )
-                       << ",\"requested_days\":14,\"projected_days\":" << projection.days.size() << ",\"complete\":" << ( projection.complete ? "true" : "false" )
-                       << ",\"scope\":\"passive_income_and_conscripting_only\",\"assumptions\":\"" << projection.reason << "\",\"closing_gold\":" << projection.end.gold
-                       << ",\"closing_materials\":[" << projection.end.materials[0] << ',' << projection.end.materials[1] << ',' << projection.end.materials[2]
-                       << ',' << projection.end.materials[3] << ',' << projection.end.materials[4] << ',' << projection.end.materials[5] << ']' );
-        for ( const auto & day : projection.days ) {
-            ECONOMY_TRACE( 2, "FORECAST_DAY", ",\"kind\":\"forecast\",\"player\":" << static_cast<int>( GetColor() )
-                           << ",\"forecast_origin_day\":" << world.CountDay() << ",\"projected_day\":" << day.day
-                           << ",\"opening_gold\":" << day.openingGold << ",\"income\":" << day.income << ",\"tax\":" << day.tax
-                           << ",\"event_gold\":" << day.eventGold << ",\"fees\":" << day.fees << ",\"closing_gold\":" << day.closingGold
-                           << ",\"opening_materials\":" << Economy::arrayJson( day.openingMaterials )
-                           << ",\"income_materials\":" << Economy::arrayJson( day.incomeMaterials )
-                           << ",\"event_materials\":" << Economy::arrayJson( day.eventMaterials )
-                           << ",\"closing_materials\":" << Economy::arrayJson( day.closingMaterials )
-                           << ",\"garrison_used\":" << day.fromGarrison << ",\"hut_used\":" << day.fromHut << ",\"failed\":" << day.failed
-                           << ",\"recruits\":" << Economy::arrayJson( day.recruits ) );
-        }
-    }
 }
 
 void Kingdom::ActionNewWeek()
@@ -596,25 +563,16 @@ bool Kingdom::HeroesMayStillMove() const
 
 void Kingdom::AddFundsResource( const Funds & funds )
 {
-    const Funds before = resource;
-    const Funds credited = funds; // The argument may alias resource.
-    Economy::observeOpeningFunds( static_cast<int>( GetColor() ), before );
     resource = resource + funds;
     resource.Trim();
-    ECONOMY_TRACE( 1, "FUNDS_CREDIT", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() ) << ",\"before\":" << Economy::fundsJson( before )
-                   << ",\"delta\":" << Economy::fundsJson( credited ) << ",\"after\":" << Economy::fundsJson( resource ) );
 }
 
-void Kingdom::OddFundsResource( const Funds & funds )
+void Kingdom::OddFundsResource( const Funds & funds, const Expense expense )
 {
     const Funds before = resource;
-    const Funds requested = funds; // Preserve the requested debit before mutation.
-    Economy::observeOpeningFunds( static_cast<int>( GetColor() ), before );
     resource = resource - funds;
     resource.Trim();
-    AI::KnightEconomy::recordDebit( *this, before, resource, Economy::traceState().cause );
-    ECONOMY_TRACE( 1, "FUNDS_DEBIT", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() ) << ",\"before\":" << Economy::fundsJson( before )
-                   << ",\"requested\":" << Economy::fundsJson( requested ) << ",\"after\":" << Economy::fundsJson( resource ) );
+    AI::KnightEconomy::recordDebit( *this, before, resource, expense );
 }
 
 Economy::Snapshot Kingdom::economySnapshot() const

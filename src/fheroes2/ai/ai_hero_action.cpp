@@ -21,7 +21,6 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "taxpayer_test.h"
 
 #include "ai_hero_action.h"
 
@@ -60,8 +59,6 @@
 #include "interface_gamearea.h"
 #include "kingdom.h"
 #include "knight_construction.h"
-#include "knight_observer.h"
-#include "economy_trace.h"
 #include "localevent.h"
 #include "logging.h"
 #include "m82.h"
@@ -134,7 +131,6 @@ namespace
             return false;
         }
 
-        if ( Settings::Get().isTaxpayerTestMapRevealEnabled() ) return true;
 
         // Show AI hero animation if he is visible (or barely visible) for human player.
         if ( world.getTile( indexFrom ).getFogDirection() != DIRECTION_ALL ) {
@@ -161,7 +157,7 @@ namespace
         }
 
         // Show animation on this tile if it is visible (or barely visible) to the human player.
-        return Settings::Get().isTaxpayerTestMapRevealEnabled() || ( tile.getFogDirection() != DIRECTION_ALL );
+        return ( tile.getFogDirection() != DIRECTION_ALL );
     }
 
     int AISelectSkillFromArena( const Heroes & hero )
@@ -439,17 +435,12 @@ namespace
         }
 
         const auto captureCastle = [&hero, dstIndex, castle]() {
-            const int oldOwner = static_cast<int>( castle->GetColor() );
-            const auto before = KnightObserver::armyJson( castle->GetArmy() );
             castle->GetKingdom().RemoveCastle( castle );
             hero.GetKingdom().AddCastle( castle );
             world.CaptureObject( dstIndex, hero.GetColor() );
 
             castle->Scout();
             AI::KnightConstruction::refresh();
-            ECONOMY_TRACE( 1, "TOWN_CAPTURE", ",\"town\":" << dstIndex << ",\"old_player\":" << oldOwner
-                << ",\"player\":" << static_cast<int>( hero.GetColor() ) << ",\"garrison_before\":" << before
-                << ",\"garrison_after\":" << KnightObserver::armyJson( castle->GetArmy() ) );
         };
 
         Army & army = castle->GetActualArmy();
@@ -616,16 +607,6 @@ namespace
         const Troop troop = getTroopFromTile( tile );
 
         const NeutralMonsterJoiningCondition join = Army::GetJoinSolution( hero, tile, troop );
-        const uint32_t peasantsBefore = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
-        const PlayerColor ownerBefore = hero.GetColor();
-        const fheroes2::TaxpayerTraceScope encounterTrace( [&]() {
-            if ( troop.GetID() == Monster::PEASANT ) {
-                TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( ownerBefore ) << ", hero id " << hero.GetID()
-                                   << ", neutral encounter tile " << dst_index << ": joining reason " << static_cast<int>( join.reason )
-                                   << ", neutral Peasants " << troop.GetCount() << ", hero Peasants " << peasantsBefore << " -> "
-                                   << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) << ", hero still active " << hero.isActive() );
-            }
-        } );
 
         if ( join.reason == NeutralMonsterJoiningCondition::Reason::Alliance ) {
             if ( hero.GetArmy().CanJoinTroop( troop ) ) {
@@ -661,7 +642,7 @@ namespace
             // These conditions must already be met if a group of monsters wants to join
             assert( hero.GetArmy().CanJoinTroop( troop ) && hero.GetKingdom().AllowPayment( Funds( Resource::GOLD, joiningCost ) ) );
 
-            if ( !AI::KnightConstruction::allowsPayment( hero.GetKingdom(), Funds( Resource::GOLD, joiningCost ), "diplomacy_purchase" ) ) return;
+            if ( !AI::KnightConstruction::allowsPayment( hero.GetKingdom(), Funds( Resource::GOLD, joiningCost ) ) ) return;
             hero.GetArmy().JoinTroop( troop.GetMonster(), join.monsterCount, false );
             hero.GetKingdom().OddFundsResource( Funds( Resource::GOLD, joiningCost ) );
             destroy = true;
@@ -1001,7 +982,7 @@ namespace
         const Funds payment = PaymentConditions::getMagellansMapsPurchasePrice();
         Kingdom & kingdom = hero.GetKingdom();
 
-        if ( !hero.isObjectTypeVisited( MP2::OBJ_MAGELLANS_MAPS, Visit::GLOBAL ) && kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment, "adventure_purchase" ) ) {
+        if ( !hero.isObjectTypeVisited( MP2::OBJ_MAGELLANS_MAPS, Visit::GLOBAL ) && kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment ) ) {
             hero.SetVisited( dst_index, Visit::GLOBAL );
             hero.setVisitedForAllies( dst_index );
             world.ActionForMagellanMaps( hero.GetColor() );
@@ -1525,7 +1506,7 @@ namespace
         if ( !hero.isVisited( tile ) ) {
             const Funds & payment = getTreeOfKnowledgeRequirement( tile );
 
-            if ( 0 == payment.GetValidItemsCount() || ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "tree_knowledge" ) ) ) {
+            if ( 0 == payment.GetValidItemsCount() || ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment ) ) ) {
                 const int level = hero.GetLevel();
                 assert( level > 0 );
                 const uint32_t experience = Heroes::GetExperienceFromLevel( level ) - Heroes::GetExperienceFromLevel( level - 1 );
@@ -1593,15 +1574,6 @@ namespace
             return;
         }
 
-        if ( tile.getMainObjectType( false ) == MP2::OBJ_PEASANT_HUT && Kingdom::TaxpayerRequiresFarms()
-             && Kingdom::GetTaxpayerGoldPerPeasantPerDay() > 0 ) {
-            if ( Settings::Get().taxpayerTestDiagnostics() >= 1 ) {
-#ifndef FHEROES2_KNIGHT_PUBLIC
-                COUT( Logging::GetTimeString() << ": [TAXPAYER AI ECONOMY] Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
-                                            << " collected " << troop.GetCount() << " Peasants from external hut at tile " << dst_index );
-#endif
-            }
-        }
 
         setMonsterCountOnTile( tile, 0 );
 
@@ -1633,8 +1605,7 @@ namespace
         }
 
         const Troop troopToHire{ troop.GetID(), recruitTroopCount };
-        if ( !AI::KnightConstruction::allowsPayment( kingdom, troopToHire.GetTotalCost(), "adventure_recruitment" ) ) return;
-        const Economy::CauseScope purchaseCause( "adventure_recruitment", dst_index );
+        if ( !AI::KnightConstruction::allowsPayment( kingdom, troopToHire.GetTotalCost() ) ) return;
 
         if ( !canMonsterJoinHero( troopToHire, hero ) ) {
             return;
@@ -1809,7 +1780,7 @@ namespace
              || condition == Maps::ArtifactCaptureCondition::PAY_3000_GOLD_AND_5_RESOURCES ) {
             const Funds payment = getArtifactResourceRequirement( tile );
 
-            if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "adventure_purchase" ) ) {
+            if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment ) ) {
                 result = true;
                 hero.GetKingdom().OddFundsResource( payment );
             }
@@ -1962,7 +1933,7 @@ namespace
 
         const Funds payment = PaymentConditions::ForAlchemist();
 
-        if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment, "adventure_purchase" ) ) {
+        if ( hero.GetKingdom().AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( hero.GetKingdom(), payment ) ) {
             hero.GetKingdom().OddFundsResource( payment );
 
             for ( Artifact & artifact : bag ) {
@@ -2532,8 +2503,6 @@ int32_t AI::HeroesCastSummonBoat( Heroes & hero, const int32_t boatDestinationIn
 
     tileDest.setBoat( Direction::RIGHT, heroColor );
     tileSource.resetBoatOwnerColor();
-    ECONOMY_TRACE( 1, "BOAT_SUMMON", ",\"player\":" << static_cast<int>( heroColor ) << ",\"hero\":" << hero.GetID()
-        << ",\"source\":" << boatSource << ",\"destination\":" << boatDestinationIndex << ",\"mana_after\":" << hero.GetSpellPoints() );
 
     if ( AIIsShowAnimationForTile( tileDest, allianceColors ) ) {
         gameArea.SetCenter( Maps::GetPoint( boatDestinationIndex ) );

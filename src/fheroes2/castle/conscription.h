@@ -108,7 +108,7 @@ namespace Conscription
     struct Settings
     {
         uint32_t goldPerPeasant = 50;
-        uint32_t mode = 1;
+        uint32_t mode = 2;
         double goldIncrement = 1.0;
         double goldIncrementMultiplier = 1.0;
         uint32_t goldIncrementStep = 1;
@@ -123,6 +123,7 @@ namespace Conscription
         uint32_t requiredBuildings = 0;
         int32_t trainingGold = 1750, trainingWood = 10, trainingOre = 5;
         int32_t farmGold = 1250, farmWood = 0, farmOre = 0;
+        bool showArtwork = true;
     };
     const Settings & settings();
 

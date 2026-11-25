@@ -21,10 +21,9 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "taxpayer_test.h"
 
+#include "ai_simulation.h"
 #include "castle.h"
-#include "economy_trace.h"
 
 #include <algorithm>
 #include <array>
@@ -857,16 +856,6 @@ void Castle::ActionNewWeek()
         = { DWELLING_MONSTER1, DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4, DWELLING_MONSTER5, DWELLING_MONSTER6,
             DWELLING_UPGRADE2, DWELLING_UPGRADE3, DWELLING_UPGRADE4, DWELLING_UPGRADE5, DWELLING_UPGRADE6, DWELLING_UPGRADE7 };
 
-    const auto beforeGrowth = _dwelling;
-    const fheroes2::TaxpayerTraceScope growthTrace( [&]() {
-        std::ostringstream before, after; before << '['; after << '[';
-        for ( size_t i = 0; i < _dwelling.size(); ++i ) { if ( i ) { before << ','; after << ','; } before << beforeGrowth[i]; after << _dwelling[i]; }
-        before << ']'; after << ']';
-        ECONOMY_TRACE( 1, "TOWN_GROWTH", ",\"town\":" << GetIndex() << ",\"player\":" << static_cast<int>( GetColor() )
-            << ",\"week_type\":" << static_cast<int>( world.GetWeekType().GetType() ) << ",\"week_monster\":" << static_cast<int>( world.GetWeekType().GetMonster() )
-            << ",\"plague\":" << ( world.GetWeekType().GetType() == WeekName::PLAGUE ? "true" : "false" )
-            << ",\"stocks_before\":" << before.str() << ",\"stocks_after\":" << after.str() );
-    } );
     const bool isNeutral = ( GetColor() == PlayerColor::NONE );
     const WeekName weekType = world.GetWeekType().GetType();
     const bool isPlagueWeek = ( weekType == WeekName::PLAGUE );
@@ -969,8 +958,6 @@ void Castle::ActionNewWeek()
 
 void Castle::ChangeColor( const PlayerColor newColor )
 {
-    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", town " << GetIndex() << ": ownership " << Color::String( GetColor() ) << " -> "
-                       << Color::String( newColor ) << ", surviving garrison Peasants " << _army.GetCountMonsters( Monster::PEASANT ) );
     if ( newColor != GetColor() ) _conscriptionOrder = 0;
     SetColor( newColor );
     _army.SetColor( newColor );
@@ -1035,12 +1022,11 @@ Heroes * Castle::RecruitHero( Heroes * hero )
         return nullptr;
     }
 
-    if ( !GetKingdom().GetHeroes().empty() && !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::RecruitHero(), "hero_purchase" ) ) return nullptr;
+    if ( !GetKingdom().GetHeroes().empty() && !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::RecruitHero() ) ) return nullptr;
     if ( !hero->Recruit( *this ) ) {
         return nullptr;
     }
 
-    const Economy::CauseScope cause( "hero_purchase", GetIndex() );
     GetKingdom().OddFundsResource( PaymentConditions::RecruitHero() );
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, _name << ", recruit: " << hero->GetName() )
@@ -1050,7 +1036,6 @@ Heroes * Castle::RecruitHero( Heroes * hero )
 
 bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
 {
-    const Economy::CauseScope cause( "troop_purchase", GetIndex() );
     if ( !troop.isValid() )
         return false;
 
@@ -1094,7 +1079,7 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
     const Funds paymentCosts = troop.GetTotalCost();
     Kingdom & kingdom = GetKingdom();
 
-    if ( !kingdom.AllowPayment( paymentCosts ) || !AI::KnightConstruction::allowsPayment( kingdom, paymentCosts, "troop_purchase" ) ) {
+    if ( !kingdom.AllowPayment( paymentCosts ) || !AI::KnightConstruction::allowsPayment( kingdom, paymentCosts ) ) {
         return false;
     }
 
@@ -1111,13 +1096,8 @@ bool Castle::RecruitMonster( const Troop & troop, bool showDialog )
         recruitedBy = hero->GetID();
     }
 
-    kingdom.OddFundsResource( paymentCosts );
+    kingdom.OddFundsResource( paymentCosts, Kingdom::Expense::Planned );
     _dwelling[dwellingIndex] -= count;
-    ECONOMY_TRACE( 1, "TROOP_PURCHASE", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
-                   << ",\"town\":" << GetIndex() << ",\"monster\":" << troop.GetID() << ",\"requested_count\":" << troop.GetCount()
-                   << ",\"stock_removed\":" << count << ",\"pool_before\":" << _dwelling[dwellingIndex] + count
-                   << ",\"pool_after\":" << _dwelling[dwellingIndex] << ",\"visitor_id\":" << recruitedBy
-                   << ",\"cost\":" << Economy::fundsJson( paymentCosts ) );
 
     DEBUG_LOG( DBG_GAME, DBG_TRACE, _name << " recruit: " << troop.GetMultiName() << "(" << count << ")" )
 
@@ -1306,9 +1286,8 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
 
     const bool conversion = _race == Race::KNGT && ( buildingType == BUILD_TRAINING_GROUNDS || ( buildingType == BUILD_WEL2 && hasTrainingGrounds() ) );
     if ( conversion ) _conscriptionOrder = 0;
-    const Economy::CauseScope cause( conversion ? "role_conversion" : "building_purchase", GetIndex() );
     const Funds payment = getBuildingCost( buildingType );
-    GetKingdom().OddFundsResource( payment );
+    GetKingdom().OddFundsResource( payment, Kingdom::Expense::Planned );
     if ( _race == Race::KNGT ) {
         if ( buildingType == BUILD_TRAINING_GROUNDS )
             _constructedBuildings &= ~BUILD_WEL2;
@@ -1369,8 +1348,6 @@ bool Castle::BuyBuilding( const uint32_t buildingType )
     }
 
     ResetModes( ALLOW_TO_BUILD_TODAY );
-    ECONOMY_TRACE( 1, "BUILD_ACTION", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( GetColor() )
-                   << ",\"town\":" << GetIndex() << ",\"building\":" << buildingType << ",\"cost\":" << Economy::fundsJson( payment ) );
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, _name << " build " << GetStringBuilding( buildingType, _race ) )
     return true;
@@ -2131,7 +2108,7 @@ Army & Castle::GetActualArmy()
 
 double Castle::GetGarrisonStrength( const Heroes * attackingHero, const Troop * troopToReplace, const Troop * replacement ) const
 {
-    const fheroes2::TaxpayerSimulationScope simulationScope;
+    const AI::SimulationScope simulationScope;
     const auto replaceStack = [troopToReplace, replacement]( Army & copy, const Army & original ) {
         if ( troopToReplace == nullptr ) {
             return;
@@ -2219,8 +2196,7 @@ bool Castle::AllowBuyBoat( const bool checkPayment ) const
 
 bool Castle::BuyBoat() const
 {
-    const Economy::CauseScope cause( "boat_purchase", GetIndex() );
-    if ( !AllowBuyBoat( true ) || !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::BuyBoat(), "boat_purchase" ) ) {
+    if ( !AllowBuyBoat( true ) || !AI::KnightConstruction::allowsPayment( GetKingdom(), PaymentConditions::BuyBoat() ) ) {
         return false;
     }
 
@@ -2239,8 +2215,6 @@ bool Castle::BuyBoat() const
     Kingdom & kingdom = GetKingdom();
     kingdom.OddFundsResource( PaymentConditions::BuyBoat() );
     world.getTile( index ).setBoat( Direction::RIGHT, kingdom.GetColor() );
-    ECONOMY_TRACE( 1, "BOAT_PURCHASE", ",\"player\":" << static_cast<int>( GetColor() ) << ",\"town\":" << GetIndex() << ",\"tile\":" << index
-        << ",\"cost\":" << Economy::fundsJson( PaymentConditions::BuyBoat() ) );
 
     return true;
 }
@@ -2345,8 +2319,6 @@ void Castle::ActionPreBattle()
 
 void Castle::ActionAfterBattle( const bool attackerWins )
 {
-    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() ) << ", town " << GetIndex()
-                       << ": after battle, attacker won " << attackerWins << ", garrison Peasants before cleanup " << _army.GetCountMonsters( Monster::PEASANT ) );
     if ( attackerWins ) {
         _army.Clean();
         ResetModes( CUSTOM_ARMY );

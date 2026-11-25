@@ -38,7 +38,6 @@
 #include "translations.h"
 #include "tools.h"
 #include "world.h"
-#include "economy_trace.h"
 
 const Conscription::Settings & Conscription::settings()
 {
@@ -70,7 +69,8 @@ const Conscription::Settings & Conscription::settings()
                    "# Conscription\n"
                    "# --------------------------------------------------\n";
         section( "Conscription mode: 0 = disabled, 1 = fixed daily quotas, 2 = orders per town." );
-        const int32_t legacyMode = config.Exists( "conscription.enabled" ) ? std::clamp( config.IntParams( "conscription.enabled" ), 0, 1 ) : 1;
+        const int32_t legacyMode
+            = config.Exists( "conscription.enabled" ) ? std::clamp( config.IntParams( "conscription.enabled" ), 0, 1 ) : static_cast<int32_t>( result.mode );
         result.mode = read( "conscription.mode", legacyMode, 2 );
         result.enabled = result.mode != 0;
         section( "Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price." );
@@ -166,6 +166,9 @@ const Conscription::Settings & Conscription::settings()
         require( "training_grounds.require_statue", BUILD_STATUE );
         require( "training_grounds.require_thieves_guild", BUILD_THIEVESGUILD );
         require( "training_grounds.require_marketplace", BUILD_MARKETPLACE );
+
+        section( "Miscellaneous" );
+        result.showArtwork = read( "training_grounds.show_artwork", 1, 1 ) != 0;
         return result;
     }();
     return value;
@@ -183,76 +186,9 @@ Funds Castle::getBuildingCost( const uint32_t buildingType ) const
     return PaymentConditions::BuyBuilding( _race, buildingType );
 }
 
-std::array<uint64_t, 3> Castle::previewConscription( const uint32_t count ) const
-{
-    auto state = _conscription;
-    return Conscription::advance( state, count, Conscription::settings().quotas );
-}
-
-std::string Castle::conscriptionPreviewText( const uint32_t count ) const
-{
-    const auto recruits = previewConscription( count );
-    const uint32_t dwellings[] = { DWELLING_MONSTER2, DWELLING_MONSTER3, DWELLING_MONSTER4 };
-    std::vector<std::string> parts;
-    for ( size_t i = 0; i < 3; ++i ) {
-        if ( recruits[i] ) {
-            const Monster monster( _race, GetActualDwelling( dwellings[i] ) );
-            parts.push_back( std::to_string( recruits[i] ) + " " + monster.GetPluralName( static_cast<uint32_t>( recruits[i] ) ) );
-        }
-    }
-    std::string text = "This will train ";
-    for ( size_t i = 0; i < parts.size(); ++i ) {
-        if ( i ) text += i + 1 == parts.size() ? " and " : ", ";
-        text += parts[i];
-    }
-    return text + ".";
-}
-
-std::string Castle::conscriptionError( const ArmyTroop & troop ) const
-{
-    const auto * army = troop.GetArmy();
-    const Heroes * guest = world.GetHero( *this );
-    if ( !hasTrainingGrounds() || !army || troop.GetID() != Monster::PEASANT || !troop.GetCount()
-         || ( army != &_army && ( !guest || army != &guest->GetArmy() ) ) || army->GetColor() != GetColor() )
-        return "These Peasants cannot be conscripted here.";
-    // Confirm this is an actual stack in the army, not a detached preview troop.
-    bool present = false;
-    for ( size_t i = 0; i < army->Size(); ++i )
-        present = present || army->GetTroop( i ) == &troop;
-    if ( !present ) return "These Peasants cannot be conscripted here.";
-    if ( army != &_army && army->SaveLastTroop() )
-        return "A hero must keep at least one creature. Split this stack or move it to the garrison first.";
-    const auto & config = Conscription::settings();
-    const uint64_t cost = uint64_t{ troop.GetCount() } * config.goldPerPeasant;
-    if ( cost > static_cast<uint64_t>( std::numeric_limits<int32_t>::max() ) )
-        return "This stack is too large to conscript. Split it first.";
-    if ( !GetKingdom().AllowPayment( Funds( Resource::GOLD, static_cast<uint32_t>( cost ) ) ) )
-        return "You can't afford to conscript this stack. Split it to conscript fewer Peasants.";
-    const uint32_t already = _conscriptionWeek == world.CountWeek() ? _conscriptionThisWeek : 0;
-    if ( config.weeklyLimit && uint64_t{ already } + troop.GetCount() > config.weeklyLimit )
-        return "This stack exceeds the town's remaining weekly conscription limit. Split it or wait until next week.";
-    if ( uint64_t{ already } + troop.GetCount() > std::numeric_limits<uint32_t>::max()
-         || _conscription.total > std::numeric_limits<uint64_t>::max() - troop.GetCount() )
-        return "The conscription counter cannot accept this stack.";
-    const auto recruits = previewConscription( troop.GetCount() );
-    for ( size_t i = 0; i < 3; ++i ) {
-        if ( recruits[i] + _dwelling[i + 1] > std::numeric_limits<uint32_t>::max() )
-            return "There is no room for these recruits in the town's recruitment pools.";
-    }
-    return {};
-}
-
-bool Castle::conscript( ArmyTroop & troop )
-{
-    // The old manual action must never bypass the daily formation schedule.
-    static_cast<void>( troop );
-    return false;
-}
-
 void Castle::processDailyConscription( Kingdom & kingdom )
 {
     if ( world.CountDay() <= 1 ) return;
-    const Economy::CauseScope cause( "conscription", static_cast<int>( kingdom.GetColor() ) );
     const auto & config = Conscription::settings();
     std::vector<Castle *> towns;
     std::vector<Conscription::TownDay> snapshots;
@@ -262,10 +198,9 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         snapshots.push_back( town->conscriptionDaySnapshot() );
     }
     int64_t gold = kingdom.GetFunds().gold;
-    const auto before = snapshots;
     const uint32_t peasantCost = Monster( Monster::PEASANT ).GetCost().gold;
     Conscription::scheduleDay( snapshots, gold, config, peasantCost, world.CountDay() );
-    kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ) );
+    kingdom.OddFundsResource( Funds( Resource::GOLD, static_cast<uint32_t>( kingdom.GetFunds().gold - gold ) ), Kingdom::Expense::Planned );
     for ( size_t n = 0; n < towns.size(); ++n ) {
         Castle & town = *towns[n];
         const auto & snapshot = snapshots[n];
@@ -281,33 +216,6 @@ void Castle::processDailyConscription( Kingdom & kingdom )
         town._dwelling[0] -= snapshot.fromHut;
         town._conscription = snapshot.state;
         for ( size_t i = 0; i < 3; ++i ) town._dwelling[i + 1] = static_cast<uint32_t>( snapshot.pools[i] );
-        if ( config.mode == 2 ) {
-            const uint32_t stockLimited = static_cast<uint32_t>( std::min<uint64_t>( snapshot.order, before[n].garrison + before[n].hut ) );
-            const uint32_t attempts = snapshot.fromGarrison + snapshot.fromHut;
-            [[maybe_unused]] const bool goldLimited = Conscription::batchCost( config, stockLimited, before[n].garrison, peasantCost )
-                                                    > static_cast<uint64_t>( std::max<int64_t>( 0, snapshot.goldBefore ) );
-            ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_EXECUTION", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
-                << ",\"town\":" << town.GetIndex() << ",\"requested\":" << snapshot.order << ",\"attempted\":" << attempts
-                << ",\"gold_before\":" << snapshot.goldBefore << ",\"stock_limited\":" << ( stockLimited < snapshot.order ? "true" : "false" )
-                << ",\"gold_limited\":" << ( goldLimited ? "true" : "false" )
-                << ",\"pool_or_counter_limited\":" << ( !goldLimited && attempts < stockLimited ? "true" : "false" )
-                << ",\"training_fees\":" << snapshot.trainingFees << ",\"hut_purchase\":" << uint64_t{ snapshot.fromHut } * peasantCost
-                << ",\"quoted_training_fees\":" << Conscription::trainingCost( config, snapshot.order )
-                << ",\"uniform_batch_price\":" << ( config.uniformBatchPrice ? "true" : "false" )
-                << ",\"price_increment\":" << config.goldIncrement << ",\"increment_multiplier\":" << config.goldIncrementMultiplier
-                << ",\"increment_step\":" << config.goldIncrementStep );
-        }
-        ECONOMY_TRACE( 1, "CONSCRIPTION_DAY", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( kingdom.GetColor() )
-                       << ",\"town\":" << town.GetIndex() << ",\"order\":" << n << ",\"limit\":" << ( config.mode == 2 ? snapshot.order : Conscription::dailyLimitForDay( config, world.CountDay() ) )
-                       << ",\"garrison_used\":" << snapshot.fromGarrison << ",\"hut_used\":" << snapshot.fromHut << ",\"failed\":" << snapshot.failed
-                       << ",\"garrison_before\":" << before[n].garrison << ",\"garrison_after\":" << snapshot.garrison
-                       << ",\"hut_before\":" << before[n].hut << ",\"hut_after\":" << snapshot.hut
-                       << ",\"enabled\":" << ( config.enabled ? "true" : "false" ) << ",\"odd_limit\":" << config.oddDayLimit << ",\"even_limit\":" << config.evenDayLimit
-                       << ",\"success_rate_scaled\":" << config.successRate << ",\"fee_per_attempt\":" << config.goldPerPeasant
-                       << ",\"fees\":" << snapshot.trainingFees + uint64_t{ snapshot.fromHut } * peasantCost
-                       << ",\"recruits\":[" << snapshot.pools[0] - before[n].pools[0] << ',' << snapshot.pools[1] - before[n].pools[1] << ',' << snapshot.pools[2] - before[n].pools[2]
-                       << "],\"success_total_before\":" << before[n].state.total << ",\"success_total_after\":" << snapshot.state.total
-                       << ",\"loss_remainder_before\":" << before[n].state.lossRemainder << ",\"loss_remainder_after\":" << snapshot.state.lossRemainder );
     }
 }
 

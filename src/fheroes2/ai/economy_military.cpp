@@ -1,9 +1,8 @@
+#include "ai_simulation.h"
 #include "economy_military.h"
-#include "economy_trace.h"
 #include "army_troop.h"
 #include "heroes.h"
 #include "kingdom.h"
-#include "taxpayer_test.h"
 
 namespace
 {
@@ -28,7 +27,7 @@ namespace
 
 AI::EconomyMilitary::Value AI::EconomyMilitary::localArmyValue( const Kingdom & kingdom, const P::Town & town, const Slot slot, const bool includeVisitor )
 {
-    const fheroes2::TaxpayerSimulationScope simulation;
+    const AI::SimulationScope simulation;
     const auto found = std::find_if( kingdom.GetCastles().begin(), kingdom.GetCastles().end(), [&]( const Castle * c ) { return c && c->GetIndex() == town.tile; } );
     if ( found == kingdom.GetCastles().end() || ( *found )->GetColor() != kingdom.GetColor() ) return { false, 0, "town_context_changed" };
     const Castle & castle = **found;
@@ -90,62 +89,4 @@ AI::EconomyMilitary::Value AI::EconomyMilitary::localArmyValue( const Kingdom & 
     const double force = hypothetical.strengthWithContext( context );
     if ( !std::isfinite( force ) || force < 0 ) return { false, 0, "invalid_army_strength" };
     return { true, force, "local_force_current_mana_no_battle_or_fortification_forecast" };
-}
-
-AI::EconomyMilitary::Result AI::EconomyMilitary::evaluateObserved( Session & session, const G::Candidate & candidate, const int player, const Budget & budget )
-{
-    auto result = session.evaluate( candidate );
-    if ( Settings::Get().taxpayerTestDiagnostics() >= 2 && fheroes2::taxpayerSimulationDepth == 0 ) {
-        std::ostringstream gaps, utility;
-        gaps << '[';
-        bool first = true;
-        for ( const auto & gap : result.gaps ) { if ( !first ) gaps << ','; first = false; gaps << Economy::jsonQuote( gap ); }
-        gaps << ']';
-        if ( result.utility ) utility << *result.utility; else utility << "null";
-        const char * statuses[] = { "scored", "unfunded", "incomplete", "limit", "invalid" };
-        ECONOMY_TRACE( 2, "MILITARY_EVALUATION", ",\"kind\":\"evaluation\",\"player\":" << player
-                       << ",\"candidate\":" << candidate.id << ",\"status\":" << Economy::jsonQuote( statuses[static_cast<size_t>( result.status )] )
-                       << ",\"funded\":" << ( result.financial.covered() ? "true" : "false" ) << ",\"utility\":" << utility.str()
-                       << ",\"projection_budget_left\":" << budget.projections << ",\"force_budget_left\":" << budget.forces
-                       << ",\"gaps\":" << gaps.str() << ",\"model\":\"dated_local_army_current_mana\"" );
-        const auto evaluation = Economy::traceState().sequence;
-        for ( const auto & day : result.days )
-            ECONOMY_TRACE( 2, "MILITARY_DAY", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"evaluation_seq\":" << evaluation
-                           << ",\"candidate\":" << candidate.id << ",\"projected_day\":" << day.day << ",\"baseline\":" << day.baseline
-                           << ",\"proposed\":" << day.proposed << ",\"difference\":" << day.difference );
-    }
-    if ( result.defense.status != EconomyDefense::Status::NotRequested && Settings::Get().taxpayerTestDiagnostics() >= 2
-         && fheroes2::taxpayerSimulationDepth == 0 ) {
-        const auto optionalNumber = []( const auto & value ) { std::ostringstream out; out << std::setprecision( 17 ); if ( value ) out << *value; else out << "null"; return out.str(); };
-        const auto optionalBool = []( const std::optional<bool> value ) { return value ? ( *value ? "true" : "false" ) : "null"; };
-        const auto bits = [&]( const EconomyDefense::Evaluation & evaluation ) {
-            std::ostringstream out; out << '[';
-            for ( size_t i = 0; i < evaluation.cities.size(); ++i ) { if ( i ) out << ','; out << optionalBool( evaluation.cities[i].viable ); }
-            out << ']'; return out.str();
-        };
-        std::ostringstream gaps; gaps << '['; bool first = true;
-        for ( const auto & gap : result.defense.gaps ) { if ( !first ) gaps << ','; first = false; gaps << Economy::jsonQuote( gap ); }
-        gaps << ']';
-        const char * statuses[] = { "not_requested", "pending", "complete", "incomplete", "limit", "invalid" };
-        ECONOMY_TRACE( 2, "DEFENSE_EVALUATION", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
-                       << ",\"status\":" << Economy::jsonQuote( statuses[static_cast<size_t>( result.defense.status )] )
-                       << ",\"funded\":" << ( result.financial.covered() ? "true" : "false" ) << ",\"D\":" << bits( result.defense )
-                       << ",\"baseline_D\":" << bits( result.baselineDefense ) << ",\"gaps\":" << gaps.str()
-                       << ",\"model\":\"conditional_local_defense_at_last_safe_own_phase\"" );
-        const auto evaluation = Economy::traceState().sequence;
-        for ( const auto & city : result.defense.cities )
-            ECONOMY_TRACE( 2, "DEFENSE_CITY", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
-                           << ",\"evaluation_seq\":" << evaluation << ",\"town\":" << city.town << ",\"last_safe_day\":" << ( city.deadline ? std::to_string( city.deadline ) : "null" )
-                           << ",\"priority\":" << city.priority << ",\"viable\":" << optionalBool( city.viable ) );
-        for ( const auto & check : result.defense.checks )
-            ECONOMY_TRACE( 2, "DEFENSE_CHECK", ",\"kind\":\"evaluation\",\"player\":" << player << ",\"candidate\":" << candidate.id
-                           << ",\"evaluation_seq\":" << evaluation << ",\"threat\":" << check.threat.id << ",\"town\":" << check.threat.town
-                           << ",\"enemy_tile\":" << check.threat.enemyTile << ",\"enemy_hero\":" << check.threat.enemyHero
-                           << ",\"last_safe_day\":" << optionalNumber( check.threat.lastSafeDay )
-                           << ",\"enemy_strength\":" << optionalNumber( std::optional<double>{ check.threat.enemyStrength } ) << ",\"melee_without_ballistics\":" << ( check.threat.meleeWithoutBallistics ? "true" : "false" )
-                           << ",\"defense_force\":" << optionalNumber( check.force ) << ",\"ratio\":" << optionalNumber( check.ratio )
-                           << ",\"viable\":" << optionalBool( check.viable ) << ",\"threshold\":" << EconomyDefense::viableRatio
-                           << ",\"reason\":" << Economy::jsonQuote( check.reason ) );
-    }
-    return result;
 }

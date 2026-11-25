@@ -71,7 +71,7 @@ namespace AI::KnightConstruction
     bool canSpend( const Castle & castle, uint32_t building );
     // Shared live budget, used before routine recruitment, upgrades and exchanges.
     Funds spendable( const Kingdom & kingdom );
-    bool allowsPayment( const Kingdom & kingdom, const Funds & cost, const char * purpose );
+    bool allowsPayment( const Kingdom & kingdom, const Funds & cost );
     bool canTradeForBuilding( const Castle & castle, uint32_t building, const Funds & transaction );
     Resources reservedDevelopment( const Kingdom & kingdom );
     int64_t operatingReserve( const Kingdom & kingdom );

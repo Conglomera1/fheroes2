@@ -299,8 +299,7 @@ public:
     // Draw image castle to position.
     void DrawImageCastle( const fheroes2::Point & pt ) const;
 
-    CastleDialogReturnValue OpenDialog( const bool openConstructionWindow, const bool openMageGuildWindow, const bool fade, const bool renderBackgroundDialog,
-                                       const bool readOnly = false );
+    CastleDialogReturnValue OpenDialog( const bool openConstructionWindow, const bool openMageGuildWindow, const bool fade, const bool renderBackgroundDialog );
 
     int GetAttackModificator( const std::string * /* unused */ ) const
     {
@@ -335,10 +334,6 @@ public:
     bool BuyBuilding( const uint32_t buildingType );
     bool hasTrainingGrounds() const { return _race == Race::KNGT && isBuild( BUILD_TRAINING_GROUNDS ); }
     Funds getBuildingCost( uint32_t buildingType ) const;
-    std::array<uint64_t, 3> previewConscription( uint32_t count ) const;
-    std::string conscriptionPreviewText( uint32_t count ) const;
-    std::string conscriptionError( const ArmyTroop & troop ) const;
-    bool conscript( ArmyTroop & troop );
     static void processDailyConscription( Kingdom & kingdom );
     std::string dailyConscriptionDescription() const;
     std::string conscriptionOrderPreview( uint32_t count ) const;

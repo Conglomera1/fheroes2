@@ -222,7 +222,7 @@ namespace
 
         const fheroes2::Rect roi = CastleGetMaxArea( castle, offset );
 
-        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS ) {
+        if ( race == Race::KNGT && building == BUILD_TRAINING_GROUNDS && Conscription::settings().showArtwork ) {
             static const fheroes2::Image training = [] {
                 fheroes2::Image original;
                 std::string path;

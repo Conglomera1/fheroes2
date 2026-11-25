@@ -35,8 +35,6 @@
 #include <vector>
 
 #include "ai_planner.h"
-#include "knight_observer.h"
-#include "economy_trace.h"
 #include "army.h"
 #include "audio.h"
 #include "audio_manager.h"
@@ -710,9 +708,6 @@ int Interface::AdventureMap::GetCursorTileIndex( int32_t dstIndex )
 
     const Maps::Tile & tile = world.getTile( dstIndex );
 
-    if ( Settings::Get().isTaxpayerTestMapRevealEnabled()
-         && ( LocalEvent::getCurrentKeyModifiers() & fheroes2::KEY_MODIFIER_CTRL )
-         && world.getCastle( tile.GetCenter() ) != nullptr ) return Cursor::CASTLE;
 
     if ( tile.isFog( Settings::Get().CurrentColor() ) ) {
         return Cursor::POINTER;
@@ -1036,7 +1031,6 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
     validateFadeInAndRender();
 
     Kingdom & myKingdom = world.GetKingdom( conf.CurrentColor() );
-    const fheroes2::TaxpayerTraceScope observerTurn( [&myKingdom]() { KnightObserver::kingdomState( myKingdom, "human_turn_end" ); } );
 
     if ( !isLoadedFromSave ) {
         if ( 1 < world.CountWeek() && world.BeginWeek() ) {
@@ -1071,7 +1065,6 @@ fheroes2::GameMode Interface::AdventureMap::HumanTurn( const bool isLoadedFromSa
     // Check if the game is over at the beginning of each human-controlled player's turn
     fheroes2::GameMode res = gameResult.checkGameOver();
 
-    KnightObserver::kingdomState( myKingdom, "human_turn_begin" );
     const VecCastles & myCastles = myKingdom.GetCastles();
     if ( res == fheroes2::GameMode::CANCEL && myCastles.empty() ) {
         ShowWarningLostTownsDialog();
@@ -1627,17 +1620,6 @@ void Interface::AdventureMap::mouseCursorAreaClickLeft( const int32_t tileIndex 
 
     const Maps::Tile & tile = world.getTile( tileIndex );
 
-    if ( Settings::Get().isTaxpayerTestMapRevealEnabled()
-         && ( LocalEvent::getCurrentKeyModifiers() & fheroes2::KEY_MODIFIER_CTRL ) ) {
-        if ( Castle * observed = world.getCastle( tile.GetCenter() ) ) {
-            ECONOMY_TRACE( 1, "OBSERVER_TOWN_OPEN", ",\"kind\":\"observation\",\"town\":" << observed->GetIndex()
-                << ",\"owner\":" << static_cast<int>( observed->GetColor() ) << ",\"viewer\":" << static_cast<int>( Settings::Get().CurrentColor() )
-                << ",\"read_only\":true" );
-            observed->OpenDialog( false, false, false, true, true );
-            redraw( REDRAW_GAMEAREA | REDRAW_RADAR | REDRAW_STATUS );
-            return;
-        }
-    }
 
     switch ( Cursor::WithoutDistanceThemes( Cursor::Get().Themes() ) ) {
     case Cursor::HEROES: {
@@ -1713,7 +1695,7 @@ void Interface::AdventureMap::mouseCursorAreaPressRight( const int32_t tileIndex
 
     DEBUG_LOG( DBG_DEVEL, DBG_INFO, '\n' << tile.String() )
 
-    if ( !IS_DEVEL() && !conf.isTaxpayerTestMapRevealEnabled() && tile.isFog( conf.CurrentColor() ) ) {
+    if ( !IS_DEVEL() && tile.isFog( conf.CurrentColor() ) ) {
         Dialog::QuickInfo( tile );
     }
     else {

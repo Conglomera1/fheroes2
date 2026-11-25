@@ -4,7 +4,7 @@
 #include <string>
 #include <array>
 #include <vector>
-class Kingdom;
+#include "kingdom.h"
 struct Funds;
 class Castle;
 namespace AI::KnightEconomy
@@ -38,6 +38,6 @@ namespace AI::KnightEconomy
     uint32_t commitmentUntil( const Castle & castle );
     // Evaluate before optional reinforcement spends the common treasury.
     void prepare( Kingdom & kingdom, const std::vector<int> & safeTowns );
-    void recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const char * cause );
+    void recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, Kingdom::Expense expense );
     std::array<int64_t, 7> overhead( const Kingdom & kingdom );
 }

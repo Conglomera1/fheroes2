@@ -33,9 +33,6 @@
 #include <utility>
 #include <vector>
 
-#include "taxpayer_test.h"
-#include "economy_trace.h"
-#include "knight_observer.h"
 
 #include "ai_common.h"
 #include "ai_hero_action.h"
@@ -284,20 +281,8 @@ namespace
     // have an immediate, low-detour Taxpayer use in an existing Knight Farm.
     uint32_t getTaxpayerPeasantHutBonus( const Heroes & hero, const int32_t hutIndex, const Troop & hutTroop )
     {
-        const char * bonusReason = "ineligible: invalid troop, mode, sea travel or hut farther than 6 tiles";
-        uint32_t tracedBonus = 0;
-        int32_t tracedFarm = -1;
-        const fheroes2::TaxpayerTraceScope hutTrace( [&]() {
-            if ( Settings::Get().taxpayerTestDiagnostics() < 2
-                 || !fheroes2::taxpayerTraceOncePerDay( world.CountDay(), "hut:" + std::to_string( hero.GetID() ) + ":" + std::to_string( hutIndex ) ) ) {
-                return;
-            }
-            TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
-                               << ", hut " << hutIndex << ": fiscal bonus " << tracedBonus << ", reason " << bonusReason << ", available " << hutTroop.GetCount()
-                               << ", hero distance " << Maps::GetApproximateDistance( hero.GetIndex(), hutIndex ) << ", Farm " << tracedFarm
-                               << ", can join " << hero.GetArmy().CanJoinTroop( Monster::PEASANT ) << ", slowest speed "
-                               << ( hero.GetArmy().GetSlowestTroop() ? hero.GetArmy().GetSlowestTroop()->GetSpeed() : 0 ) );
-        } );
+
+
         if ( !hutTroop.isValid() || hutTroop.GetID() != Monster::PEASANT || !Kingdom::TaxpayerRequiresFarms()
              || Kingdom::GetTaxpayerGoldPerPeasantPerDay() <= 0 || hero.isShipMaster()
              || Maps::GetApproximateDistance( hero.GetIndex(), hutIndex ) > 6 ) {
@@ -306,12 +291,10 @@ namespace
 
         const Army & army = hero.GetArmy();
         const Monster peasant( Monster::PEASANT );
-        bonusReason = "no army slot";
         if ( !army.CanJoinTroop( peasant ) ) {
             return 0;
         }
 
-        bonusReason = "would slow the hero";
         // Recruiting a slow Peasant must not reduce the hero's movement speed just for taxes.
         const Troop * slowestTroop = army.GetSlowestTroop();
         if ( slowestTroop == nullptr || slowestTroop->GetSpeed() > peasant.GetSpeed() ) {
@@ -320,12 +303,10 @@ namespace
 
         const uint64_t weeklyTax = static_cast<uint64_t>( hutTroop.GetCount() )
                                    * static_cast<uint64_t>( Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7;
-        bonusReason = "weekly tax below 200";
         if ( weeklyTax < 200 ) {
             return 0;
         }
 
-        bonusReason = "no eligible free Farm with space within 8 tiles of hut";
         for ( const Castle * castle : hero.GetKingdom().GetCastles() ) {
             if ( castle == nullptr || castle->GetColor() != hero.GetColor() || castle->GetRace() != Race::KNGT
                  || !castle->isBuild( BUILD_WEL2 ) || ( castle->GetHero() != nullptr && castle->GetHero() != &hero )
@@ -335,10 +316,7 @@ namespace
             }
 
             // A modest positive value, capped even for large huts. Military opportunities still dominate.
-            tracedFarm = castle->GetIndex();
-            bonusReason = "accepted (normal military valuation still applies)";
-            tracedBonus = static_cast<uint32_t>( std::min<uint64_t>( 650, weeklyTax / 3 ) );
-            return tracedBonus;
+            return static_cast<uint32_t>( std::min<uint64_t>( 650, weeklyTax / 3 ) );
         }
 
         return 0;
@@ -420,7 +398,7 @@ namespace
             return !hero.isObjectTypeVisited( objectType ) && hero.GetMorale() < Morale::BLOOD && !army.AllTroopsAreUndead();
 
         case MP2::OBJ_MAGELLANS_MAPS:
-            return !kingdom.isVisited( objectType ) && kingdom.AllowPayment( PaymentConditions::getMagellansMapsPurchasePrice() ) && AI::KnightConstruction::allowsPayment( kingdom, PaymentConditions::getMagellansMapsPurchasePrice(), "map_purchase" );
+            return !kingdom.isVisited( objectType ) && kingdom.AllowPayment( PaymentConditions::getMagellansMapsPurchasePrice() ) && AI::KnightConstruction::allowsPayment( kingdom, PaymentConditions::getMagellansMapsPurchasePrice() );
 
         case MP2::OBJ_ALCHEMIST_LAB:
         case MP2::OBJ_LIGHTHOUSE:
@@ -462,7 +440,7 @@ namespace
             const Maps::ArtifactCaptureCondition condition = getArtifactCaptureCondition( tile );
 
             if ( condition >= Maps::ArtifactCaptureCondition::PAY_2000_GOLD && condition <= Maps::ArtifactCaptureCondition::PAY_3000_GOLD_AND_5_RESOURCES ) {
-                return kingdom.AllowPayment( getArtifactResourceRequirement( tile ) ) && AI::KnightConstruction::allowsPayment( kingdom, getArtifactResourceRequirement( tile ), "artifact_purchase" );
+                return kingdom.AllowPayment( getArtifactResourceRequirement( tile ) ) && AI::KnightConstruction::allowsPayment( kingdom, getArtifactResourceRequirement( tile ) );
             }
 
             if ( condition == Maps::ArtifactCaptureCondition::HAVE_WISDOM_SKILL || condition == Maps::ArtifactCaptureCondition::HAVE_LEADERSHIP_SKILL ) {
@@ -597,7 +575,7 @@ namespace
             if ( !hero.isVisited( tile ) ) {
                 const Funds & rc = getTreeOfKnowledgeRequirement( tile );
                 // If the payment is required, do not waste all resources from the kingdom. Use them wisely.
-                if ( rc.GetValidItemsCount() == 0 || ( kingdom.AllowPayment( rc * 5 ) && AI::KnightConstruction::allowsPayment( kingdom, rc, "tree_knowledge" ) ) ) {
+                if ( rc.GetValidItemsCount() == 0 || ( kingdom.AllowPayment( rc * 5 ) && AI::KnightConstruction::allowsPayment( kingdom, rc ) ) ) {
                     return true;
                 }
             }
@@ -698,11 +676,6 @@ namespace
             }
 
             const bool valuable = isArmyValuableToObtain( troop, armyStrengthThreshold, armyHasMonster );
-            if ( tile.getMainObjectType() == MP2::OBJ_PEASANT_HUT ) {
-                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
-                                   << ", hut " << index << ": normal military eligibility " << valuable << ", threshold " << armyStrengthThreshold
-                                   << ", troop strength " << troop.GetStrength() << ", already has troop " << armyHasMonster );
-            }
             return valuable;
         }
 
@@ -831,7 +804,7 @@ namespace
             }
 
             const Funds payment = PaymentConditions::ForAlchemist();
-            return kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment, "alchemist_purchase" );
+            return kingdom.AllowPayment( payment ) && AI::KnightConstruction::allowsPayment( kingdom, payment );
         }
 
         // TODO: AI has no brains to handle Sirens object.
@@ -2351,26 +2324,13 @@ double AI::Planner::getObjectValue( const Heroes & hero, const int32_t index, co
         return 0;
     }
 
-    const char * visitReason = "no fiscal bonus: distance, mode or critical task";
-    double tracedVisitBonus = 0;
-    const fheroes2::TaxpayerTraceScope visitTrace( [&]() {
-        if ( objectType != MP2::OBJ_CASTLE || hero.GetArmy().GetCountMonsters( Monster::PEASANT ) == 0
-             || Settings::Get().taxpayerTestDiagnostics() < 2
-             || !fheroes2::taxpayerTraceOncePerDay( world.CountDay(), "visit:" + std::to_string( hero.GetID() ) + ":" + std::to_string( index ) ) ) {
-            return;
-        }
-        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
-                           << ", town candidate " << index << ": " << visitReason << ", distance cost " << distanceToObject
-                           << ", moves " << hero.GetMovePoints() << ", base value " << value << ", fiscal visit value " << tracedVisitBonus );
-    } );
-    if ( objectType != MP2::OBJ_CASTLE || isCriticalTask( index ) || distanceToObject == 0
+        if ( objectType != MP2::OBJ_CASTLE || isCriticalTask( index ) || distanceToObject == 0
          || KnightConstruction::populationDestination( hero ) != index ) return value;
     const Castle * castle = world.getCastleEntrance( Maps::GetPoint( index ) );
     if ( !castle || castle->GetColor() != hero.GetColor() ) return value;
     const uint64_t peasants = hero.GetArmy().GetCountMonsters( Monster::PEASANT );
-    tracedVisitBonus = std::min( 1250.0, double( peasants * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 ) / 4.0 + 200 );
-    visitReason = castle->hasTrainingGrounds() ? "conscription supply" : "taxpayer concentration";
-    return std::max( value, tracedVisitBonus );
+    const double visitBonus = std::min( 1250.0, double( peasants * std::max( 0, Kingdom::GetTaxpayerGoldPerPeasantPerDay() ) * 7 ) / 4.0 + 200 );
+    return std::max( value, visitBonus );
 }
 
 double AI::Planner::getFutureObjectValue( const Heroes & hero, const int32_t index, const MP2::MapObjectType objectType, const double valueToIgnore,
@@ -2889,14 +2849,6 @@ int AI::Planner::getPriorityTarget( Heroes & hero, double & maxPriority )
                    hero.GetName() << ": target tile at " << priorityTarget << " value is " << maxPriority << " (" << MP2::StringObject( objectType ) << ")" )
     }
 
-    TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
-                       << ", tile " << hero.GetIndex() << ": selected target " << priorityTarget << ", score " << maxPriority
-                       << ", moves " << hero.GetMovePoints() << ", carried Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
-    if ( Settings::Get().isKnightObserverBuild() ) {
-        ECONOMY_TRACE( 1, "AI_TARGET_EVALUATION", ",\"kind\":\"decision\",\"player\":" << static_cast<int>( hero.GetColor() )
-            << ",\"hero\":" << hero.GetID() << ",\"tile\":" << hero.GetIndex() << ",\"target\":" << priorityTarget
-            << ",\"score\":" << maxPriority << ",\"moves\":" << hero.GetMovePoints() );
-    }
     KnightConstruction::noteLandObjective( hero, priorityTarget );
     return priorityTarget;
 }
@@ -3003,11 +2955,6 @@ void AI::Planner::updatePriorityTargets( Heroes & hero, int32_t tileIndex, const
             _priorityTargets.erase( tileIndex ); return;
         }
         hero.SetModes( Heroes::SLEEPER );
-        ECONOMY_TRACE( 1, "AI_HERO_WAIT", ",\"hero\":" << hero.GetID() << ",\"town\":" << tileIndex
-            << ",\"reason\":\"" << ( taskType == PriorityTaskType::DEFEND ? "defense" : "reinforcement" ) << "\",\"moves\":" << hero.GetMovePoints() );
-        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
-                           << ", town " << tileIndex << ": waiting for " << ( taskType == PriorityTaskType::DEFEND ? "defense" : "reinforcement" )
-                           << ", Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) );
 
 #ifdef WITH_DEBUG
         {
@@ -3097,11 +3044,6 @@ void AI::Planner::HeroesBeginMovement( Heroes & hero )
 
 void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, const MP2::MapObjectType objectType )
 {
-    if ( Settings::Get().isKnightObserverBuild() ) {
-        ECONOMY_TRACE( 1, "AI_ACTION_COMPLETE", ",\"kind\":\"actual\",\"hero\":" << hero.GetID() << ",\"tile\":" << tileIndex
-            << ",\"object\":" << static_cast<int>( objectType ) << ",\"active\":" << ( hero.isActive() ? "true" : "false" )
-            << ",\"army\":" << KnightObserver::armyJson( hero.GetArmy() ) );
-    }
     // This method is called upon action completion and the hero could no longer be available.
     // So it is to check if the hero is still present.
     if ( hero.isActive() ) {
@@ -3115,13 +3057,6 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
             reinforceCastle( *castle );
             if ( KnightConstruction::populationSafe( *castle ) ) {
                 KnightConstruction::arrangePopulation( hero, *castle );
-            }
-            else if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
-                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
-                                   << ", town " << castle->GetIndex() << ": deposit policy disabled, safety "
-                                   << _regions.at( world.getTile( castle->GetIndex() ).GetRegion() ).safetyFactor
-                                   << ", critical task " << isCriticalTask( castle->GetIndex() ) << ", Farm " << castle->isBuild( BUILD_WEL2 )
-                                   << ", rate " << Kingdom::GetTaxpayerGoldPerPeasantPerDay() << ", requires Farms " << Kingdom::TaxpayerRequiresFarms() );
             }
 
             // If the hero has very little movement points, we can check whether it is worth keeping him in the castle for the next turn.
@@ -3152,9 +3087,6 @@ void AI::Planner::HeroesActionComplete( Heroes & hero, const int32_t tileIndex, 
                 speedDifference = slowestTroop->GetSpeed() - slowestSpeed;
                 if ( speedDifference * 100U >= hero.GetMovePoints() ) {
                     hero.SetModes( Heroes::SLEEPER );
-                    TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero id " << hero.GetID()
-                                       << ", town " << castle->GetIndex() << ": waits for next-day movement bonus, moves left " << hero.GetMovePoints()
-                                       << ", speed gain " << speedDifference );
                     DEBUG_LOG( DBG_AI, DBG_TRACE, hero.GetName() << " stays in " << castle->GetName() << " castle till the next turn to get movement boost." )
                 }
                 else {
@@ -3184,16 +3116,6 @@ void AI::Planner::HeroesActionNewPosition( Heroes & hero )
 
     Route::Path & path = hero.GetPath();
     const int32_t heroIdx = hero.GetIndex();
-    if ( Settings::Get().isKnightObserverBuild() ) {
-        ECONOMY_TRACE( 1, "AI_HERO_STEP", ",\"kind\":\"actual\",\"player\":" << static_cast<int>( hero.GetColor() )
-            << ",\"hero\":" << hero.GetID() << ",\"tile\":" << heroIdx << ",\"moves\":" << hero.GetMovePoints()
-            << ",\"mana\":" << hero.GetSpellPoints() << ",\"target\":" << path.GetDestinationIndex() );
-    }
-    if ( hero.GetArmy().GetCountMonsters( Monster::PEASANT ) > 0 ) {
-        TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( hero.GetColor() ) << ", hero " << hero.GetName() << " id " << hero.GetID()
-                           << ": position " << heroIdx << ", previous step " << path.GetFrontFrom() << ", target " << path.GetDestinationIndex()
-                           << ", carried Peasants " << hero.GetArmy().GetCountMonsters( Monster::PEASANT ) << ", moves " << hero.GetMovePoints() );
-    }
 
     // Hero has stopped at the tile with the Ultimate Artifact and is ready to dig it up
     if ( [&hero = std::as_const( hero ), &path = std::as_const( path ), heroIdx]() {
@@ -3389,15 +3311,6 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
         }
 
         if ( bestTargetIndex == -1 ) {
-            for ( const Heroes * waitingHero : availableHeroes ) {
-                TAXPAYER_TRACE( 2, "Day " << world.CountDay() << ", player " << Color::String( waitingHero->GetColor() ) << ", hero id " << waitingHero->GetID()
-                                   << ", tile " << waitingHero->GetIndex() << ": no reachable target selected, moves " << waitingHero->GetMovePoints()
-                                   << ", army strength " << waitingHero->GetArmy().GetStrength() );
-            }
-            for ( const auto * waitingHero : availableHeroes ) {
-                ECONOMY_TRACE( 1, "AI_HERO_WAIT", ",\"hero\":" << waitingHero->GetID() << ",\"tile\":" << waitingHero->GetIndex()
-                    << ",\"reason\":\"no_reachable_target\",\"moves\":" << waitingHero->GetMovePoints() );
-            }
             // Nothing to do. Stop everything.
             break;
         }
@@ -3413,11 +3326,6 @@ fheroes2::GameMode AI::Planner::HeroesTurn( VecHeroes & heroes, uint32_t & curre
             _pathfinder.reset();
         }
         const size_t heroesBefore = heroes.size();
-        if ( Settings::Get().isKnightObserverBuild() ) {
-            ECONOMY_TRACE( 1, "AI_HERO_ORDER", ",\"kind\":\"decision\",\"player\":" << static_cast<int>( bestHero->GetColor() )
-                << ",\"hero\":" << bestHero->GetID() << ",\"tile\":" << bestHero->GetIndex() << ",\"target\":" << bestTargetIndex
-                << ",\"moves\":" << bestHero->GetMovePoints() << ",\"army\":" << KnightObserver::armyJson( bestHero->GetArmy() ) );
-        }
         _pathfinder.reEvaluateIfNeeded( *bestHero );
 
         int prevHeroPosition = bestHero->GetIndex();

@@ -199,13 +199,9 @@ namespace AI
         static Skill::Secondary pickSecondarySkill( const Heroes & hero, const Skill::Secondary & left, const Skill::Secondary & right );
 
     private:
-#if defined( FHEROES2_TAXPAYER_DIAGNOSTICS )
-        friend struct KnightPolicyTestAccess;
-#endif
         Planner() = default;
 
         void CastleTurn( Castle & castle, const bool defensiveStrategy );
-        void observeEconomyInputs( const Kingdom & kingdom, const std::vector<AICastle> & priorities );
 
         // Upgrades & hires the maximum possible number of troops in the given castle, and also purposefully reinforces the castle's guest hero
         // (if there is one) by giving him the best available troops.

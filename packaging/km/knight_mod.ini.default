@@ -1,4 +1,4 @@
-# Knight Mod Mode 2 — reference configuration.
+# Knight Mod 1.1b — reference configuration.
 # The active file is knight_mod.ini in the fheroes2 configuration directory.
 # Existing settings are never overwritten. Restart after editing.
 # 0 disables the tax rate; 0 means unlimited for the per-Farm taxpayer cap.
@@ -12,7 +12,7 @@ taxpayer.max_taxable_peasants_per_farm = 0
 
 # Trained units must still be purchased normally.
 # 0 = disabled; 1 = fixed quotas; 2 = adjustable daily order per town.
-conscription.mode = 1
+conscription.mode = 2
 
 # Gold per garrison Peasant, including failures. Hut conscripts also pay the normal Peasant price.
 conscription.gold_per_peasant = 50
@@ -68,3 +68,6 @@ training_grounds.require_tavern = 0
 training_grounds.require_statue = 0
 training_grounds.require_thieves_guild = 0
 training_grounds.require_marketplace = 0
+
+# Miscellaneous
+training_grounds.show_artwork = 1

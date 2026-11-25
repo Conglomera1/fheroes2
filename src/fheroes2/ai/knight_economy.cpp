@@ -1,8 +1,7 @@
+#include "ai_simulation.h"
 #include "knight_economy.h"
 #include "knight_construction.h"
-#include "economy_candidates.h"
 #include "economy_military.h"
-#include "economy_trace.h"
 #include "difficulty.h"
 #include "game.h"
 #include "heroes.h"
@@ -12,14 +11,39 @@
 #include <algorithm>
 #include <cmath>
 #include <numeric>
-#include <cstring>
 #include <map>
 
 namespace
 {
     namespace P = AI::EconomyProject;
-    namespace G = AI::EconomyCandidates;
     namespace M = AI::EconomyMilitary;
+
+    P::Action recruitment( const int32_t town, const size_t pool, const uint32_t count, const uint32_t day )
+    {
+        P::Action action;
+        action.kind = P::Kind::Recruit;
+        action.town = town;
+        action.pool = pool;
+        action.count = count;
+        action.day = day;
+        return action;
+    }
+
+    uint64_t recruitCapacity( const P::Army & army, const int monster )
+    {
+        for ( const auto & slot : army ) {
+            if ( slot.count && slot.monster == monster ) {
+                return std::numeric_limits<uint32_t>::max() - slot.count;
+            }
+        }
+        for ( const auto & slot : army ) {
+            if ( !slot.count ) {
+                return std::numeric_limits<uint32_t>::max();
+            }
+        }
+        return 0;
+    }
+
     namespace KC = AI::KnightConstruction;
     constexpr int64_t reserveGold = 2000; // Existing taxpayer investment reserve.
     constexpr uint32_t horizon = 14;
@@ -131,8 +155,8 @@ namespace
                 for ( size_t r = 0; r < funds.size(); ++r ) {
                     if ( unit.price[r] > 0 ) count = std::min<uint64_t>( count, funds[r] / unit.price[r] );
                 }
-                auto & army = G::capacity( garrison, unit.id ) > 0 || town.hero < 0 ? garrison : visitor;
-                count = std::min( count, G::capacity( army, unit.id ) );
+                auto & army = recruitCapacity( garrison, unit.id ) > 0 || town.hero < 0 ? garrison : visitor;
+                count = std::min( count, recruitCapacity( army, unit.id ) );
                 if ( count == 0 || !P::join( army, unit.id, static_cast<uint32_t>( count ) ) ) continue;
                 for ( size_t r = 0; r < funds.size(); ++r ) {
                     funds[r] -= unit.price[r] * static_cast<int64_t>( count );
@@ -158,7 +182,7 @@ namespace
         const auto it = mobilizationPlans.find( castle.GetIndex() );
         if ( it == mobilizationPlans.end() ) return nullptr;
         const auto & p = it->second;
-        if ( p.seed != world.GetMapSeed() || p.segment != Economy::traceState().segment || p.owner != static_cast<int>( castle.GetColor() )
+        if ( p.seed != world.GetMapSeed() || p.segment != world.sessionId() || p.owner != static_cast<int>( castle.GetColor() )
              || world.CountDay() >= p.until || world.CountDay() + horizon < p.until ) {
             mobilizationPlans.erase( it ); return nullptr;
         }
@@ -197,8 +221,6 @@ namespace
         P::Input input; input.start = state; input.config = config; input.throughDay = day; input.actions = std::move( actions );
         const auto result = P::project( input, work.mechanics );
         if ( !result.covered() ) {
-            ECONOMY_TRACE( 1, "KNIGHT_FORECAST_REJECT", ",\"reason\":" << Economy::jsonQuote( result.reason )
-                << ",\"projected_day\":" << day << ",\"failed_action\":" << result.failedAction );
             return false;
         }
         state = result.end; return true;
@@ -254,17 +276,17 @@ namespace
                     for ( size_t r = 0; r < funds.size(); ++r ) if ( creature.price[r] > 0 ) count = std::min<uint64_t>( count, funds[r] / creature.price[r] );
                     count = std::min<uint64_t>( count, UINT32_MAX );
                     auto * destination = &t.garrison;
-                    if ( !G::capacity( *destination, creature.id ) ) {
+                    if ( !recruitCapacity( *destination, creature.id ) ) {
                         if ( ( city == townIndex && !includeVisitor ) || t.hero < 0 ) continue;
                         destination = &t.visitor;
                     }
-                    count = std::min<uint64_t>( count, G::capacity( *destination, creature.id ) );
+                    count = std::min<uint64_t>( count, recruitCapacity( *destination, creature.id ) );
                     if ( !count || !P::join( *destination, creature.id, static_cast<uint32_t>( count ) ) ) continue;
                     auto balance = P::funds( planned.economy );
                     for ( size_t r = 0; r < balance.size(); ++r ) balance[r] -= creature.price[r] * static_cast<int64_t>( count );
                     P::setFunds( planned.economy, balance );
                     P::stock( planned, city, pool ) -= count;
-                    auto action = G::recruit( t.tile, pool, static_cast<uint32_t>( count ), day );
+                    auto action = recruitment( t.tile, pool, static_cast<uint32_t>( count ), day );
                     action.id = purchases.size() + 1; action.project = 1; purchases.push_back( action );
                 }
             }
@@ -298,7 +320,7 @@ namespace
 void AI::KnightEconomy::planDailyOrders( Kingdom & kingdom )
 {
     const auto & config = Conscription::settings();
-    if ( config.mode != 2 || !kingdom.isControlAI() || fheroes2::taxpayerSimulationDepth ) return;
+    if ( config.mode != 2 || !kingdom.isControlAI() || AI::isSimulating() ) return;
     const auto & castles = kingdom.GetCastles();
     if ( std::none_of( castles.begin(), castles.end(), []( const Castle * castle ) { return castle->hasTrainingGrounds(); } ) ) return;
 
@@ -319,20 +341,12 @@ void AI::KnightEconomy::planDailyOrders( Kingdom & kingdom )
     const auto priorities = priorityRecruitment( kingdom );
     const int64_t recruitment = plannedRecruitmentGold( state, funds, newWeek, priorities );
     int64_t budget = funds[0] - recruitment;
-    ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_BUDGET", ",\"player\":" << static_cast<int>( kingdom.GetColor() )
-        << ",\"opening_gold\":" << opening[0] << ",\"development\":" << development[0] << ",\"recruitment\":" << recruitment
-        << ",\"recruitment_towns\":" << priorities.size()
-        << ",\"operating_reserve\":" << operating << ",\"budget\":" << budget );
     size_t city = 0;
     for ( Castle * town : kingdom.GetCastles() ) {
         const auto & economic = state.economy.towns[city++];
         if ( !town->hasTrainingGrounds() ) continue;
         const auto morning = morningStock( economic, newWeek );
         const auto order = pickOrder( morning, config, infantry( *town ), budget );
-        ECONOMY_TRACE( 1, "CONSCRIPTION_ORDER_AI", ",\"player\":" << static_cast<int>( kingdom.GetColor() ) << ",\"town\":" << town->GetIndex()
-            << ",\"previous\":" << town->getConscriptionOrder() << ",\"requested\":" << order.count << ",\"budget\":" << budget
-            << ",\"garrison\":" << morning.garrison << ",\"hut_forecast\":" << morning.hut << ",\"training_and_hut_fee\":" << order.fees
-            << ",\"recruitment_cost\":" << order.recruitCost << ",\"reason\":" << Economy::jsonQuote( order.reason ) );
         town->setConscriptionOrder( order.count );
         budget -= static_cast<int64_t>( order.fees + order.recruitCost );
     }
@@ -387,9 +401,6 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
         const auto tomorrow = Economy::forecast( castle.GetKingdom().economySnapshot(), Conscription::settings(), 1 );
         const auto required = KnightConstruction::operatingReserve( castle.GetKingdom() );
         const bool fundedTomorrow = tomorrow.complete && tomorrow.end.gold >= required;
-        ECONOMY_TRACE( 1, "MOBILIZATION_CASH_REVIEW", ",\"town\":" << castle.GetIndex() << ",\"gold\":" << castle.GetKingdom().GetFunds().gold
-            << ",\"tomorrow_gold\":" << ( tomorrow.complete ? tomorrow.end.gold : -1 ) << ",\"required\":" << required
-            << ",\"funded_tomorrow\":" << ( fundedTomorrow ? "true" : "false" ) );
         lowCashRecovery = !fundedTomorrow;
     }
     if ( !day || ( ( day - 1 ) % 7 && !training ) || day > UINT32_MAX - horizon ) { out.reason = "weekly_review"; return out; }
@@ -484,37 +495,17 @@ AI::KnightEconomy::Decision AI::KnightEconomy::choose( const Castle & castle, co
 bool AI::KnightEconomy::develop( Castle & castle, const bool safe )
 {
     const auto decision = choose( castle, safe );
-    ECONOMY_TRACE( 1, "KNIGHT_ROLE_REVIEW", ",\"kind\":\"evaluation\",\"town\":" << castle.GetIndex()
-        << ",\"reason\":" << Economy::jsonQuote( decision.reason ) << ",\"building\":" << decision.building
-        << ",\"farm_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_WEL2 ) )
-        << ",\"tg_status\":" << static_cast<int>( castle.CheckBuyBuilding( BUILD_TRAINING_GROUNDS ) )
-        << ",\"funds\":" << Economy::fundsJson( castle.GetKingdom().GetFunds() )
-        << ",\"keep_valid\":" << ( decision.keepValid ? "true" : "false" ) << ",\"switch_valid\":" << ( decision.switchValid ? "true" : "false" )
-        << ",\"cycle_valid\":" << ( decision.cycleValid ? "true" : "false" )
-        << ",\"cycle_force\":" << decision.cycleForce << ",\"cycle_gold\":" << decision.cycleGold
-        << ",\"temporary_training\":" << ( decision.temporaryTraining ? "true" : "false" )
-        << ",\"keep_force\":" << decision.keepForce << ",\"switch_force\":" << decision.switchForce
-        << ",\"keep_gold\":" << decision.keepGold << ",\"switch_gold\":" << decision.switchGold << ",\"projections\":" << decision.projections
-        << ",\"forecast_towns\":" << decision.towns << ",\"daily_overhead\":" << Economy::arrayJson( decision.dailyOverhead )
-        << ",\"entry_funding\":" << Economy::arrayJson( decision.entryFunding ) << ",\"plan_until\":" << decision.planUntil
-        << ",\"conscription_mode\":" << Conscription::settings().mode << ",\"comparison_mode\":" << decision.comparisonMode
-        << ",\"comparison_week_trained\":" << decision.comparisonWeekTrained
-        << ",\"farm_tax_at_risk_daily\":" << decision.farmTax );
     if ( !decision.building || !castle.AllowBuyBuilding( decision.building ) || !KnightConstruction::canSpend( castle, decision.building ) ) return false;
     // One immediate, synchronous purchase. Comparisons above issue no future
     // recruitment/transfer orders and do not create persistent commitments.
     if ( !castle.BuyBuilding( decision.building ) ) return false;
     if ( decision.building == BUILD_TRAINING_GROUNDS ) {
-        mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), world.CountDay() + ( decision.temporaryTraining ? 7 : horizon ), Economy::traceState().segment, static_cast<int>( castle.GetColor() ), false };
+        mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), world.CountDay() + ( decision.temporaryTraining ? 7 : horizon ), world.sessionId(), static_cast<int>( castle.GetColor() ), false };
     }
     else {
         const auto * old = activePlan( castle );
         const auto until = std::max( old ? old->until : 0U, world.CountDay() + 7 );
-        mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), until, Economy::traceState().segment, static_cast<int>( castle.GetColor() ), true };
-    }
-    if ( const auto * plan = activePlan( castle ) ) {
-        ECONOMY_TRACE( 1, "MOBILIZATION_PLAN", ",\"town\":" << castle.GetIndex() << ",\"until\":" << plan->until
-            << ",\"recovering\":" << ( plan->recovering ? "true" : "false" ) );
+        mobilizationPlans[castle.GetIndex()] = { world.GetMapSeed(), until, world.sessionId(), static_cast<int>( castle.GetColor() ), true };
     }
     return true;
 }
@@ -527,15 +518,13 @@ uint32_t AI::KnightEconomy::commitmentUntil( const Castle & castle )
 
 void AI::KnightEconomy::prepare( Kingdom & kingdom, const std::vector<int> & safeTowns )
 {
-    if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() ) return;
+    if ( AI::isSimulating() || !kingdom.isControlAI() ) return;
     for ( Castle * castle : kingdom.GetCastles() ) {
         if ( !castle || castle->GetRace() != Race::KNGT || castle->hasTrainingGrounds()
              || std::find( safeTowns.begin(), safeTowns.end(), castle->GetIndex() ) == safeTowns.end() ) continue;
         // Primary development remains ahead of mobilisation. This call executes
         // only a plan chosen by the ordinary comparator; it never books a guess.
         if ( !castle->isBuild( BUILD_WEL2 ) || !castle->Modes( Castle::ALLOW_TO_BUILD_TODAY ) || KnightConstruction::hasPrimaryChoice( *castle ) ) continue;
-        ECONOMY_TRACE( 1, "MOBILIZATION_EARLY_REVIEW", ",\"player\":" << static_cast<int>( kingdom.GetColor() )
-            << ",\"town\":" << castle->GetIndex() << ",\"gold\":" << kingdom.GetFunds().gold );
         (void)develop( *castle, true );
     }
 }
@@ -548,19 +537,18 @@ namespace
     {
         auto & h = spendingHistory[static_cast<int>( kingdom.GetColor() )];
         const uint32_t day = world.CountDay();
-        if ( h.segment != Economy::traceState().segment || h.seed != world.GetMapSeed() || day < h.last )
-            h = { Economy::traceState().segment, world.GetMapSeed(), day, day, {} };
+        if ( h.segment != world.sessionId() || h.seed != world.GetMapSeed() || day < h.last )
+            h = { world.sessionId(), world.GetMapSeed(), day, day, {} };
         h.last = day;
         while ( !h.days.empty() && h.days.begin()->first + 7 < day ) h.days.erase( h.days.begin() );
         return h;
     }
 }
-void AI::KnightEconomy::recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const char * cause )
+void AI::KnightEconomy::recordDebit( const Kingdom & kingdom, const Funds & before, const Funds & after, const Kingdom::Expense expense )
 {
-    if ( fheroes2::taxpayerSimulationDepth || !kingdom.isControlAI() || !KnightConstruction::active( kingdom ) ) return;
+    if ( AI::isSimulating() || !kingdom.isControlAI() || !KnightConstruction::active( kingdom ) ) return;
     auto & h = history( kingdom );
-    if ( !std::strcmp( cause, "troop_purchase" ) || !std::strcmp( cause, "conscription" ) || !std::strcmp( cause, "role_conversion" )
-         || !std::strcmp( cause, "building_purchase" ) || !std::strcmp( cause, "market_trade" ) ) return;
+    if ( expense == Kingdom::Expense::Planned ) return;
     // Other gold outlays (heroes, upgrades, boats, unclassified actions) only
     // inform the bounded discretionary allowance. No material is extrapolated.
     h.days[world.CountDay()][0] += std::max<int64_t>( 0, int64_t{ before.gold } - after.gold );

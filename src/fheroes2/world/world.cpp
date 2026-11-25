@@ -22,7 +22,6 @@
  ***************************************************************************/
 
 #include "world.h"
-#include "economy_trace.h"
 
 #include <algorithm>
 #include <array>
@@ -284,8 +283,7 @@ World & World::Get()
 
 void World::Defaults()
 {
-    // Reset() is also called from the World destructor, after thread-local traces may be destroyed.
-    Economy::beginTraceSegment( "world_initialized" );
+    startSession();
     // playing kingdom
     vec_kingdoms.Init();
 

@@ -3,6 +3,18 @@ import ast, gettext, json, pathlib, re, struct, sys, unicodedata
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 KEYS=["Training Grounds", "Convert the Farm into Training Grounds to enable Peasant conscription. The Farm's growth bonus will be lost.", " Peasants stationed here will no longer pay taxes.", "Restore the Farm and disable conscription.\n\n", "Automatically trains up to %{count} Peasants per day into infantry.", "Conscripts are taken from the garrison first: %{fee} gold each. Peasants taken from the Thatched Hut also cost %{price} gold to recruit.", "Trained troops enter this town's recruitment pools and must be purchased normally.", "Taxable Peasants per Farm: %{count}."]
 EXTRA=["Conscription is disabled in knight_mod.ini.","Training success: %{percent}%. Failed conscripts are lost and still paid for.","Expected Tomorrow:","No troops"]
+MODE2 = [
+    "Set how many Peasants to train as infantry each day.",
+    "Conscripts are taken from the garrison first. Those taken from the Thatched Hut cost an extra %{price} gold each.",
+    "Trained troops are added to this town's recruitment pools and must still be purchased at the usual price.",
+    "Training order for tomorrow",
+    "Peasants to train per day:",
+    "Training cost: %{gold} gold",
+    "Training cost: over %{gold} gold",
+    "Conscription",
+    "CHANGE",
+]
+
 def load_po(path):
     catalog={}; entry={}; field=None; fuzzy=False
     def flush():
@@ -43,22 +55,15 @@ def mo(catalog,cp):
     for k,v in pairs:vt.append((len(v),start+len(ids)+len(values)));values+=v+b'\0'
     return struct.pack('<7I',0x950412de,0,n,28,28+8*n,0,0)+b''.join(struct.pack('<2I',*x) for x in it+vt)+ids+values
 base=rows('core.tsv');extra=rows('extra.tsv');out=pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else ROOT/'files/lang';out.mkdir(parents=True,exist_ok=True)
+mode2 = rows('mode2.tsv')
+assert set(base) == set(extra) == set(mode2)
+assert {p.stem for p in (ROOT/'files/lang').glob('*.po')} == set(base)
 for lang,translations in base.items():
+    assert len(extra[lang]) == len(EXTRA), lang
     assert len(translations)==len(KEYS),(lang,len(translations))
     translations[3]+='\n\n'
     updates=dict(zip(KEYS+EXTRA,translations+extra[lang]))
-    if lang == 'fr':
-        updates.update({
-            "Set how many Peasants to train as infantry each day.": "Fixez le nombre de Paysans à former dans l'infanterie chaque jour.",
-            "Conscripts are taken from the garrison first. Those taken from the Thatched Hut cost an extra %{price} gold each.": "La garnison fournit les Paysans en priorité. Chaque Paysan pris dans la Hutte coûte %{price} pièces d'or de plus.",
-            "Trained troops are added to this town's recruitment pools and must still be purchased at the usual price.": "Les troupes formées sont à recruter au tarif habituel dans les demeures.",
-            "Training order for tomorrow": "Formation prévue pour demain",
-            "Peasants to train per day:": "Paysans à former par jour :",
-            "Training cost: %{gold} gold": "Coût de la formation : %{gold} or",
-            "Training cost: over %{gold} gold": "Coût de la formation : plus de %{gold} or",
-            "Conscription": "Conscription",
-            "CHANGE": "MODIFIER",
-        })
+    updates.update(zip(MODE2, mode2[lang], strict=True))
     catalog=load_po(ROOT/'files/lang'/f'{lang}.po');catalog.update(updates);cp=CP[lang]
     for k,v in updates.items():assert unicodedata.normalize('NFC',encode(v,cp).decode(cp))==unicodedata.normalize('NFC',v),(lang,'unrepresentable translation',v)
     for k,v in updates.items():assert sorted(re.findall(r'%\{[^}]+\}',k))==sorted(re.findall(r'%\{[^}]+\}',v)),(lang,k)

@@ -21,8 +21,8 @@
  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
  ***************************************************************************/
 
-#include "taxpayer_test.h"
 
+#include "ai_simulation.h"
 #include "heroes.h"
 #include "knight_construction.h"
 
@@ -1967,13 +1967,11 @@ void Heroes::Dismiss( const int reason )
         return;
     }
 
-    if ( !fheroes2::taxpayerSimulationDepth ) {
+    if ( !AI::isSimulating() ) {
         AI::KnightConstruction::cancelPopulationRoute( *this, "hero_dismissed" );
         AI::KnightConstruction::resolveCancelledCargo( *this );
     }
 
-    TAXPAYER_TRACE( 1, "Day " << world.CountDay() << ", player " << Color::String( GetColor() ) << ", hero " << GetName() << " id " << GetID()
-                       << ", tile " << GetIndex() << ": dismissed reason " << reason << ", remaining Peasants " << GetArmy().GetCountMonsters( Monster::PEASANT ) );
     // Reset army to default state for hero's race if hero did not surrender in battle.
     if ( ( reason & Battle::RESULT_SURRENDER ) == 0 ) {
         _army.Reset( true );
