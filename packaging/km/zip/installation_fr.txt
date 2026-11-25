@@ -1,0 +1,79 @@
+KNIGHT MOD 1.1b
+Installation manuelle sous Windows
+
+INSTALLATION
+
+Il faut une installation fonctionnelle de fheroes2 1.1.17 ou d’une
+version ultérieure, avec les données de Heroes II. Knight Mod utilise
+les bibliothèques déjà présentes dans ce dossier.
+
+1. Ferme fheroes2 et Knight Mod. Si le mod a été installé avec
+   Knight-Mod-Setup.exe, désinstalle-le depuis le menu Démarrer
+   avant de passer au ZIP.
+2. Choisis l’archive qui correspond à ton installation de fheroes2.
+
+   Knight-Mod-1.1b-Windows-x86.zip pour fheroes2 32 bits
+   Knight-Mod-1.1b-Windows-x64.zip pour fheroes2 64 bits
+
+   Pour fheroes2 32 bits sur Windows 64 bits, prends l’archive x86.
+3. Extrais le contenu de cette archive dans le dossier qui contient
+   fheroes2.exe, en conservant les sous-dossiers. Après extraction,
+   KnightModLauncher.exe et fheroes2KM.exe doivent se trouver à côté
+   de fheroes2.exe. Si le dossier est protégé, Windows peut demander
+   une autorisation administrateur.
+
+POUR JOUER
+
+Avant ta première partie, enregistre sous un autre nom les
+sauvegardes automatiques et rapides de fheroes2 que tu veux
+retrouver. Le mod utilise le même dossier de sauvegarde.
+
+Ouvre KnightModLauncher.exe. Tu peux modifier les réglages, puis
+cliquer sur Jouer pour les enregistrer et lancer le mod. Si le jeu
+est déjà ouvert, redémarre-le pour appliquer les changements. Tu
+peux aussi créer un raccourci du lanceur sur le Bureau.
+
+Les boutons Readme et Guide d’équilibrage du lanceur ouvrent la
+documentation. Les deux langues sont aussi disponibles dans
+docs\Knight Mod.
+
+  Readme_FR.txt                      Readme en français
+  Readme.txt                         Readme en anglais
+  Guide_de_Test_et_Equilibrage.pdf    Guide en français
+  Testing_and_Balance_Guide.pdf       Guide en anglais
+
+DÉSINSTALLATION PAR BATCH
+
+Ferme le jeu et le lanceur. Exécute Uninstall_KM.bat depuis le
+dossier qui contient fheroes2.exe. Si le dossier est protégé, fais
+un clic droit sur le batch et choisis Exécuter en tant
+qu’administrateur.
+
+Appuie sur Y pour confirmer ou sur N pour annuler. Si le batch
+trouve tes réglages Knight Mod, il propose de les supprimer.
+Appuie sur N pour les garder pour une prochaine installation.
+Le batch se supprime après avoir retiré les fichiers du mod.
+
+DÉSINSTALLATION MANUELLE
+
+Ferme le jeu et le lanceur. Dans le dossier qui contient
+fheroes2.exe, supprime les éléments suivants.
+
+  fheroes2KM.exe
+  KnightModLauncher.exe
+  knight_mod.ini.default
+  Uninstall_KM.bat
+  files\data\resurrectionKM.h2d
+  files\data\training_grounds.png
+  files\data\build_training_grounds.png
+  Les fichiers files\lang\km_*.mo fournis dans cette archive
+  Les quatre documents ci-dessus et LICENCE.txt dans docs\Knight Mod
+
+Garde les autres fichiers de ces dossiers. Tu peux supprimer le
+dossier docs\Knight Mod s’il est vide, ainsi que ton raccourci
+du Bureau si tu en as créé un.
+
+Pour effacer aussi tes réglages, tu peux supprimer knight_mod.ini
+et knight_mod_launcher.language dans %APPDATA%\fheroes2, ou dans
+%HOME%\.fheroes2 si la variable HOME est définie. Garde tes
+sauvegardes et les profils de configuration que tu as exportés.

@@ -1,0 +1,100 @@
+name: Knight Mod ZIP uninstall validation
+on:
+  push:
+    branches: [knight-mod-1.1b-zip-validation]
+permissions:
+  contents: read
+jobs:
+  uninstall:
+    runs-on: windows-2025
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run the batch in a disposable fheroes2 folder
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $batch = Get-Content packaging/km/zip/Uninstall_KM.bat -Raw
+          $batch = $batch -replace '\r?\n', "`r`n"
+          $root = Join-Path $env:RUNNER_TEMP 'Knight Mod ! et &'
+          $game = Join-Path $root 'fheroes2'
+          $env:APPDATA = Join-Path $root 'AppData'
+          $env:HOME = Join-Path $root 'Home'
+          $settings = Join-Path $env:HOME '.fheroes2'
+          $otherSettings = Join-Path $env:APPDATA 'fheroes2'
+          $script = Join-Path $game 'Uninstall_KM.bat'
+          $mod = @(
+            'fheroes2KM.exe','KnightModLauncher.exe','knight_mod.ini.default',
+            'files/data/resurrectionKM.h2d','files/data/training_grounds.png',
+            'files/data/build_training_grounds.png','files/lang/km_en.mo',
+            'files/lang/km_fr.mo','files/lang/km_vi.mo',
+            'docs/Knight Mod/Readme.txt','docs/Knight Mod/Readme_FR.txt',
+            'docs/Knight Mod/LICENCE.txt','docs/Knight Mod/Testing_and_Balance_Guide.pdf',
+            'docs/Knight Mod/Guide_de_Test_et_Equilibrage.pdf'
+          )
+          # km_en.mo is not distributed. Keep it as a sentinel.
+          $kept = @(
+            'fheroes2.exe','Readme.txt','files/data/resurrection.h2d',
+            'files/lang/fr.mo','files/lang/km_en.mo','docs/Knight Mod/Personal note.txt'
+          )
+          function Write-Fixture($folder,$name) {
+            $file = Join-Path $folder $name
+            New-Item -ItemType Directory (Split-Path $file) -Force | Out-Null
+            Set-Content -LiteralPath $file -Value $name
+          }
+          function Install-Fixture {
+            foreach ($name in $mod + $kept) { Write-Fixture $game $name }
+            foreach ($name in @('knight_mod.ini','knight_mod_launcher.language','kept-profile.ini','save/autosave.sav')) {
+              Write-Fixture $settings $name
+            }
+            Write-Fixture $otherSettings 'knight_mod.ini'
+            [IO.File]::WriteAllText($script,$batch,[Text.Encoding]::ASCII)
+          }
+          function Invoke-Batch($answers,$expected) {
+            $inputFile = Join-Path $root 'answers.txt'
+            $outputFile = Join-Path $root 'output.txt'
+            $errorFile = Join-Path $root 'stderr.txt'
+            [IO.File]::WriteAllText($inputFile,$answers,[Text.Encoding]::ASCII)
+            $proc = Start-Process $env:ComSpec -ArgumentList '/d /c Uninstall_KM.bat' -WorkingDirectory $game               -RedirectStandardInput $inputFile -RedirectStandardOutput $outputFile -RedirectStandardError $errorFile -PassThru
+            if (!$proc.WaitForExit(20000)) { Stop-Process -Id $proc.Id -Force; throw 'Uninstaller stalled' }
+            Get-Content -LiteralPath $outputFile,$errorFile
+            if ($proc.ExitCode -ne $expected) { throw "Uninstaller exit code $($proc.ExitCode), expected $expected" }
+          }
+          function Assert-Kept($folder,$items) {
+            foreach ($name in $items) {
+              if ((Get-Content -LiteralPath (Join-Path $folder $name) -Raw).Trim() -ne $name) {
+                throw "Modified or removed a preserved file: $name"
+              }
+            }
+          }
+          function Assert-Uninstalled {
+            foreach ($name in $mod | Where-Object { $_ -notin $kept }) {
+              if (Test-Path -LiteralPath (Join-Path $game $name)) { throw "Mod file left behind: $name" }
+            }
+            if (Test-Path -LiteralPath $script) { throw 'Batch did not remove itself' }
+            Assert-Kept $game $kept
+            Assert-Kept $settings @('kept-profile.ini','save/autosave.sav')
+            Assert-Kept $otherSettings @('knight_mod.ini')
+          }
+
+          Install-Fixture
+          Invoke-Batch "N`r`n" 0
+          Assert-Kept $game $mod
+          if (!(Test-Path -LiteralPath $script)) { throw 'Cancel removed the batch' }
+
+          Invoke-Batch "Y`r`nN`r`n`r`n" 0
+          Assert-Uninstalled
+          Assert-Kept $settings @('knight_mod.ini','knight_mod_launcher.language')
+
+          Install-Fixture
+          Invoke-Batch "Y`r`nY`r`n`r`n" 0
+          Assert-Uninstalled
+          foreach ($name in @('knight_mod.ini','knight_mod_launcher.language')) {
+            if (Test-Path -LiteralPath (Join-Path $settings $name)) { throw "Settings were not removed: $name" }
+          }
+
+          Install-Fixture
+          Write-Fixture $game 'docs/Knight Mod/uninstall/unins000.exe'
+          Invoke-Batch "`r`n" 1
+          Assert-Kept $game $mod
+          Assert-Kept $game @('docs/Knight Mod/uninstall/unins000.exe')
