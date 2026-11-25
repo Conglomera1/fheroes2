@@ -1808,7 +1808,9 @@ int AI::KnightConstruction::navalTarget( const Heroes & hero, const bool renew )
         AIWorldPathfinder path; path.reset(); path.reEvaluateIfNeeded( hero );
         const auto targets = seaOptions( hero, hero.GetIndex(), path );
         if ( !targets.empty() ) {
-                        m.target = targets.front(); m.object = world.getTile( m.target ).getMainObjectType( false ); m.day = world.CountDay();
+            m.target = targets.front();
+            m.object = world.getTile( m.target ).getMainObjectType( false );
+            m.day = world.CountDay();
             return m.target;
         }
     }

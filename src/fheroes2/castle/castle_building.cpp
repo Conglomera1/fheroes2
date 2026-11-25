@@ -316,7 +316,8 @@ namespace
                 fheroes2::drawCastleDialogBuilding( ICN::TWNSEXT1, 0, castle, offset, roi, alpha );
             }
         }
-        else if ( building == BUILD_WEL2 ) {
+        else if ( building == BUILD_WEL2
+                  || ( castleRace == Race::KNGT && building == BUILD_TRAINING_GROUNDS && !Conscription::settings().showArtwork ) ) {
             if ( castleRace == Race::SORC ) {
                 if ( buildingCurrentlyUnderConstruction != BUILD_STATUE && isBuildingFullyBuilt( castle, BUILD_STATUE, buildingCurrentlyUnderConstruction ) ) {
                     // This is an extra case for the Sorceress castle when Statue and Crystal Garden are built.
