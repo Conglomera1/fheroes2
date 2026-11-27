@@ -19,8 +19,8 @@ DisableProgramGroupPage=yes
 OutputBaseFilename=Knight-Mod-Setup
 SetupIconFile={#PayloadDir}\launcher.ico
 UninstallDisplayIcon={app}\KnightModLauncher.exe
-UninstallFilesDir={app}\docs\Knight Mod\uninstall
-LicenseFile={#PayloadDir}\common\docs\Knight Mod\LICENCE.txt
+UninstallFilesDir={app}\Knight Mod\uninstall
+LicenseFile={#PayloadDir}\common\Knight Mod\docs\LICENCE.txt
 WizardStyle=modern
 SolidCompression=yes
 RestartApplications=no
@@ -34,8 +34,8 @@ Name: "french"; MessagesFile: "compiler:Languages\French.isl"
 [Messages]
 english.SelectDirDesc=Choose an existing fheroes2 installation.
 french.SelectDirDesc=Choisissez une installation existante de fheroes2.
-english.SelectDirLabel3=Knight Mod will be added to the fheroes2 folder shown below. Click Browse to select another installation.
-french.SelectDirLabel3=Knight Mod sera ajouté au dossier fheroes2 ci-dessous. Cliquez sur Parcourir pour choisir une autre installation.
+english.SelectDirLabel3=Select the fheroes2 folder in which to create the Knight Mod subfolder. Click Browse to select another installation.
+french.SelectDirLabel3=Le sous-dossier Knight Mod sera créé dans le dossier fheroes2 sélectionné. Cliquez sur Parcourir pour choisir une autre installation.
 
 [CustomMessages]
 english.InvalidGame=This folder must contain a Windows x86 or x64 installation of fheroes2 1.1.17 or later. Select the folder that contains fheroes2.exe and files\data\resurrection.h2d.
@@ -50,6 +50,8 @@ english.Guide=Testing and Balance Guide
 french.Guide=Guide de test et d'équilibrage
 english.Uninstall=Uninstall Knight Mod
 french.Uninstall=Désinstaller Knight Mod
+english.RemovePrevious=Uninstall the previous Knight Mod installation before continuing. Its uninstaller can keep your settings and saved games.
+french.RemovePrevious=Désinstallez d’abord la version précédente de Knight Mod. Son désinstalleur peut conserver les réglages et les sauvegardes.
 english.RemoveSettings=Also delete Knight Mod settings for this Windows user? Choose No to keep them for a future installation.
 french.RemoveSettings=Supprimer également les réglages de Knight Mod pour cet utilisateur Windows ? Choisissez Non pour les conserver en vue d'une future installation.
 english.RemoveSettingsError=Some Knight Mod settings could not be deleted.
@@ -62,21 +64,21 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
 Source: "{#PayloadDir}\x86\fheroes2KM.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: InstallGameX86
 Source: "{#PayloadDir}\x64\fheroes2KM.exe"; DestDir: "{app}"; Flags: ignoreversion; Check: InstallGameX64
 Source: "{#PayloadDir}\common\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "{#PayloadDir}\en.language"; DestDir: "{app}"; DestName: "KnightModLauncher.language"; Flags: ignoreversion; Languages: english
-Source: "{#PayloadDir}\fr.language"; DestDir: "{app}"; DestName: "KnightModLauncher.language"; Flags: ignoreversion; Languages: french
+Source: "{#PayloadDir}\en.language"; DestDir: "{app}\Knight Mod"; DestName: "KnightModLauncher.language"; Flags: ignoreversion; Languages: english
+Source: "{#PayloadDir}\fr.language"; DestDir: "{app}\Knight Mod"; DestName: "KnightModLauncher.language"; Flags: ignoreversion; Languages: french
 
 [Icons]
 Name: "{group}\Knight Mod Launcher"; Filename: "{app}\KnightModLauncher.exe"; WorkingDir: "{app}"
-Name: "{group}\Readme"; Filename: "{app}\docs\Knight Mod\Readme.txt"; Languages: english
-Name: "{group}\Readme"; Filename: "{app}\docs\Knight Mod\Readme_FR.txt"; Languages: french
-Name: "{group}\{cm:Guide}"; Filename: "{app}\docs\Knight Mod\Testing_and_Balance_Guide.pdf"; Languages: english
-Name: "{group}\{cm:Guide}"; Filename: "{app}\docs\Knight Mod\Guide_de_Test_et_Equilibrage.pdf"; Languages: french
+Name: "{group}\Readme"; Filename: "{app}\Knight Mod\docs\Readme.txt"; Languages: english
+Name: "{group}\Readme"; Filename: "{app}\Knight Mod\docs\Readme_FR.txt"; Languages: french
+Name: "{group}\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Testing_and_Balance_Guide.pdf"; Languages: english
+Name: "{group}\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Guide_de_Test_et_Equilibrage.pdf"; Languages: french
 Name: "{group}\{cm:Uninstall}"; Filename: "{uninstallexe}"
 Name: "{autodesktop}\Knight Mod Launcher"; Filename: "{app}\KnightModLauncher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\docs\Knight Mod\Readme.txt"; Description: "{cm:Readme}"; Flags: postinstall shellexec skipifsilent unchecked runasoriginaluser; Languages: english
-Filename: "{app}\docs\Knight Mod\Readme_FR.txt"; Description: "{cm:Readme}"; Flags: postinstall shellexec skipifsilent unchecked runasoriginaluser; Languages: french
+Filename: "{app}\Knight Mod\docs\Readme.txt"; Description: "{cm:Readme}"; Flags: postinstall shellexec skipifsilent unchecked runasoriginaluser; Languages: english
+Filename: "{app}\Knight Mod\docs\Readme_FR.txt"; Description: "{cm:Readme}"; Flags: postinstall shellexec skipifsilent unchecked runasoriginaluser; Languages: french
 
 [Code]
 const
@@ -233,8 +235,22 @@ begin
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  PreviousUninstaller: TFindRec;
+  Root: String;
 begin
   Result := DestinationError(WizardDirValue, GameMachine);
+  if Result <> '' then
+    Exit;
+
+  Root := AddBackslash(WizardDirValue);
+  if FindFirst(Root + 'docs\Knight Mod\uninstall\unins*.exe', PreviousUninstaller) then
+  begin
+    FindClose(PreviousUninstaller);
+    Result := CustomMessage('RemovePrevious');
+  end
+  else if FileExists(Root + 'Uninstall_KM.bat') then
+    Result := CustomMessage('RemovePrevious');
 end;
 
 function InstallGameX86: Boolean;

@@ -1,5 +1,6 @@
 name: Knight Mod 1.1b Game
 on:
+  workflow_call:
   push:
     branches: ['knight-mod-1.1b-public']
   workflow_dispatch:

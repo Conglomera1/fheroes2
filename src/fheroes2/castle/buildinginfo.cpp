@@ -72,7 +72,7 @@ namespace
             fheroes2::Sprite result( base );
             fheroes2::Image thumbnail;
             std::string path;
-            if ( Settings::findFile( "files/data", "build_training_grounds.png", path ) && fheroes2::Load( path, thumbnail )
+            if ( Settings::findKnightModFile( "files/data", "build_training_grounds.png", path ) && fheroes2::Load( path, thumbnail )
                  && thumbnail.width() == base.width() && thumbnail.height() == base.height() ) {
                 fheroes2::Blit( thumbnail, result, 0, 0 );
             }

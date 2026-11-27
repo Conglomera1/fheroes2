@@ -14,12 +14,11 @@ Heroes II data. Knight Mod uses the libraries already in that folder.
    Knight-Mod-1.1b-Windows-x86.zip for 32-bit fheroes2
    Knight-Mod-1.1b-Windows-x64.zip for 64-bit fheroes2
 
-   If you use 32-bit fheroes2 on 64-bit Windows, pick the x86 archive.
 3. Extract the contents of that archive into the folder containing
    fheroes2.exe, keeping the folder structure. After extraction,
-   KnightModLauncher.exe and fheroes2KM.exe should be next to
-   fheroes2.exe. Windows may ask for administrator permission if the
-   folder is protected.
+   KnightModLauncher.exe, fheroes2KM.exe, Uninstall_KM.bat and the
+   Knight Mod folder should be next to fheroes2.exe. Windows may ask
+   for administrator permission if the folder is protected.
 
 PLAYING
 
@@ -29,10 +28,11 @@ want to keep under another name. The mod uses the same save folder.
 Open KnightModLauncher.exe. Adjust the settings if you like,
 then click Play to save them and launch the mod. Restart the game
 to apply changes made while it is running. You can create a desktop
-shortcut to the launcher if you want one.
+shortcut to the launcher if you want one. To open the mod directly,
+run fheroes2KM.exe.
 
 Use the Readme and Balance Guide buttons in the launcher. Both
-language versions are also available in docs\Knight Mod.
+language versions are also available in Knight Mod\docs.
 
   Readme.txt                         Readme in English
   Readme_FR.txt                      Readme in French
@@ -56,16 +56,11 @@ containing fheroes2.exe:
 
   fheroes2KM.exe
   KnightModLauncher.exe
-  knight_mod.ini.default
   Uninstall_KM.bat
-  files\data\resurrectionKM.h2d
-  files\data\training_grounds.png
-  files\data\build_training_grounds.png
-  files\lang\km_*.mo supplied by this archive
-  The four documents listed above and LICENCE.txt in docs\Knight Mod
+  Knight Mod folder
 
-Keep any other files in those folders. You can remove docs\Knight Mod
-if it is empty. Remove your desktop shortcut if you created one.
+Move any personal files out of Knight Mod before deleting the folder.
+Remove your desktop shortcut if you created one.
 
 To clear your settings, you can also delete knight_mod.ini and
 knight_mod_launcher.language from %APPDATA%\fheroes2, or from

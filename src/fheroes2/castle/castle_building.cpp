@@ -226,7 +226,7 @@ namespace
             static const fheroes2::Image training = [] {
                 fheroes2::Image original;
                 std::string path;
-                if ( !Settings::findFile( "files/data", "training_grounds.png", path ) || !fheroes2::Load( path, original ) )
+                if ( !Settings::findKnightModFile( "files/data", "training_grounds.png", path ) || !fheroes2::Load( path, original ) )
                     return fheroes2::Image{};
                 const auto area = fheroes2::GetActiveROI( original );
                 fheroes2::Image result( 114, 26 );

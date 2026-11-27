@@ -5,6 +5,7 @@ title Knight Mod uninstaller
 pushd "%~dp0" >nul 2>&1
 if errorlevel 1 goto :unavailable
 
+if exist "Knight Mod\uninstall\unins*.exe" goto :setup_install
 if exist "docs\Knight Mod\uninstall\unins*.exe" goto :setup_install
 
 set "KM_FOUND="
@@ -22,8 +23,8 @@ set "KM_FAILED="
 call :mod_files remove
 if defined KM_FAILED goto :files_failed
 
-rem Remove only the empty documentation folder, leaving shared folders alone.
-rd "docs\Knight Mod" 2>nul
+rem Remove the mod's folders only when empty.
+for %%D in ("Knight Mod\files\lang" "Knight Mod\files\data" "Knight Mod\files" "Knight Mod\docs" "Knight Mod") do rd "%%~D" 2>nul
 popd
 
 rem Use the same settings directory as Knight Mod Launcher.
@@ -92,20 +93,20 @@ exit /b 0
 for %%F in (
     "fheroes2KM.exe"
     "KnightModLauncher.exe"
-    "knight_mod.ini.default"
-    "files\data\resurrectionKM.h2d"
-    "files\data\training_grounds.png"
-    "files\data\build_training_grounds.png"
-    "docs\Knight Mod\LICENCE.txt"
-    "docs\Knight Mod\Readme.txt"
-    "docs\Knight Mod\Readme_FR.txt"
-    "docs\Knight Mod\Testing_and_Balance_Guide.pdf"
-    "docs\Knight Mod\Guide_de_Test_et_Equilibrage.pdf"
+    "Knight Mod\knight_mod.ini.default"
+    "Knight Mod\files\data\resurrectionKM.h2d"
+    "Knight Mod\files\data\training_grounds.png"
+    "Knight Mod\files\data\build_training_grounds.png"
+    "Knight Mod\docs\LICENCE.txt"
+    "Knight Mod\docs\Readme.txt"
+    "Knight Mod\docs\Readme_FR.txt"
+    "Knight Mod\docs\Testing_and_Balance_Guide.pdf"
+    "Knight Mod\docs\Guide_de_Test_et_Equilibrage.pdf"
 ) do call :%~1 "%%~F"
 
 for %%L in (
     be bg cs da de el eo es fr hu it lt nb nl pl pt ro ru sk sv tr uk vi
-) do call :%~1 "files\lang\km_%%L.mo"
+) do call :%~1 "Knight Mod\files\lang\km_%%L.mo"
 exit /b 0
 
 :find

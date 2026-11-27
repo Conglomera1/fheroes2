@@ -103,22 +103,27 @@ foreach ($arch in @('x86', 'x64')) {
     AssertPreserved $directory $original
     SameBytes "$directory/fheroes2KM.exe" "$Payload/$arch/fheroes2KM.exe"
     SameBytes "$directory/KnightModLauncher.exe" "$Payload/common/KnightModLauncher.exe"
-    foreach ($file in Get-ChildItem "$Payload/common/docs/Knight Mod" -File) {
-        SameBytes "$directory/docs/Knight Mod/$($file.Name)" $file.FullName
+    foreach ($file in Get-ChildItem "$Payload/common/Knight Mod/docs" -File) {
+        SameBytes "$directory/Knight Mod/docs/$($file.Name)" $file.FullName
     }
-    if ((Get-ChildItem "$directory/files/lang" -Filter 'km_*.mo').Count -ne 23) { throw 'Missing mod catalogs' }
-    if ((Get-Content -LiteralPath "$directory/KnightModLauncher.language" -Raw).Trim() -ne $locale) {
+    SameBytes "$directory/Knight Mod/knight_mod.ini.default" "$Payload/common/Knight Mod/knight_mod.ini.default"
+    foreach ($file in Get-ChildItem "$Payload/common/Knight Mod/files/data" -File) {
+        SameBytes "$directory/Knight Mod/files/data/$($file.Name)" $file.FullName
+        if (Test-Path -LiteralPath "$directory/files/data/$($file.Name)") { throw 'Mod assets leaked into the original resource folder' }
+    }
+    if ((Get-ChildItem "$directory/Knight Mod/files/lang" -Filter 'km_*.mo').Count -ne 23) { throw 'Missing mod catalogs' }
+    if ((Get-Content -LiteralPath "$directory/Knight Mod/KnightModLauncher.language" -Raw).Trim() -ne $locale) {
         throw 'The launcher language does not match the installer'
     }
 
     $startMenu = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'Knight Mod'
     $shortcuts = New-Object -ComObject WScript.Shell
     $readmeLink = $shortcuts.CreateShortcut("$startMenu/Readme.lnk").TargetPath
-    if ([IO.Path]::GetFullPath($readmeLink) -ne [IO.Path]::GetFullPath("$directory/docs/Knight Mod/$readme")) {
+    if ([IO.Path]::GetFullPath($readmeLink) -ne [IO.Path]::GetFullPath("$directory/Knight Mod/docs/$readme")) {
         throw 'The Start menu Readme shortcut points to the wrong language or folder'
     }
 
-    $uninstallers = @(Get-ChildItem "$directory/docs/Knight Mod/uninstall" -Filter 'unins*.exe')
+    $uninstallers = @(Get-ChildItem "$directory/Knight Mod/uninstall" -Filter 'unins*.exe')
     if ($uninstallers.Count -ne 1) { throw 'Missing standalone Knight Mod uninstaller' }
     RunSetup $uninstallers[0].FullName "uninstall-$arch" ''
     AssertPreserved $directory $original

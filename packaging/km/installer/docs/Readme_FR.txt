@@ -1,7 +1,7 @@
 ﻿================================================================
                            KNIGHT MOD
                           Version 1.1b
-                 Mis à jour le 24 novembre 2026
+                 Publication le 27 novembre 2026
 ================================================================
 
 Qu’est-ce que Knight Mod ?
@@ -126,29 +126,34 @@ Le mod utilise les bibliothèques déjà présentes dans l’installation
 Windows de fheroes2. Son architecture doit correspondre à celle de cette
 installation.
 
-Comment lancer Knight Mod sous Windows ?
-----------------------------------------
+Comment installer et lancer Knight Mod sous Windows ?
+-----------------------------------------------------
 
-Ouvrir Knight Mod Launcher depuis le menu Démarrer ou depuis le
-raccourci du Bureau, s’il a été créé. Cliquer sur Jouer pour démarrer
-le mod. Le lanceur permet de modifier les réglages.
+Avec Knight-Mod-Setup.exe, sélectionner le dossier contenant
+fheroes2.exe. Pour une installation manuelle, suivre les consignes
+d’installation_fr.txt, à la racine du ZIP principal.
 
-Le mod dispose de son propre exécutable (fheroes2KM.exe), de sa propre
-archive de ressources (files/data/resurrectionKM.h2d) et de fichiers de
-traduction préfixés par km_. L’installation d’origine de fheroes2
-n’est pas altérée.
+Ouvrir KnightModLauncher.exe depuis le dossier d’installation ou le
+raccourci créé par l’installeur. Le lanceur permet de modifier les
+réglages avant de cliquer sur Jouer. Pour lancer Knight Mod
+directement, ouvrir fheroes2KM.exe depuis le même dossier.
 
-Besoin d’une version pour une autre plateforme ? Ne pas hésiter à me le
-demander tant que je suis motivé !
+Les deux exécutables se trouvent à côté de fheroes2.exe. Les ressources
+du mod sont dans Knight Mod\files, et le Readme, le guide et la licence
+dans Knight Mod\docs. Le lanceur ouvre les documents dans sa langue
+d’affichage.
+
+Besoin d’une version pour une autre plateforme ? Ne pas hésiter à me
+le demander tant que je suis motivé !
 
 Comment désinstaller le mod ?
 -----------------------------
 
-Fermer le jeu et le lanceur, puis choisir Désinstaller Knight Mod dans
-le menu Démarrer. Si le choix est proposé, conserver knight_mod.ini
-pour retrouver ses réglages plus tard, ou le supprimer avec le mod.
-Le désinstalleur retire Knight Mod et ses raccourcis. L’installation de
-fheroes2 et les sauvegardes restent en place.
+Fermer le jeu et le lanceur. Pour une installation par EXE, choisir
+Désinstaller Knight Mod dans le menu Démarrer. Pour une installation
+par ZIP, exécuter Uninstall_KM.bat ou suivre les étapes manuelles
+d’installation_fr.txt. Les deux désinstalleurs proposent aussi de
+supprimer les réglages du mod.
 
 Peut-on utiliser des sauvegardes existantes ?
 ---------------------------------------------

@@ -1,55 +1,56 @@
 name: Knight Mod installer validation
 on:
   push:
-    branches: [knight-mod-1.1b-installer-validation]
+    branches: [knight-mod-1.1b-packaging]
   workflow_dispatch:
 permissions:
   contents: read
   actions: read
 jobs:
+  game:
+    uses: ./.github/workflows/km-public-beta.yml
+  launcher:
+    uses: ./.github/workflows/km-launcher.yml
+  zip-uninstall:
+    uses: ./.github/workflows/km-zip-validation.yml
   installer:
+    needs: [game, launcher, zip-uninstall]
     runs-on: windows-2025
     timeout-minutes: 16
-    env:
-      GH_TOKEN: ${{ github.token }}
-      GAME_RUN: '45586745977'
-      LAUNCHER_RUN: '45496462581'
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download the validated game and launcher
-        shell: pwsh
-        run: |
-          gh run download $env:GAME_RUN --repo $env:GITHUB_REPOSITORY --pattern 'Knight-Mod-1.1b-Game-Windows-*' --dir input/game
-          if ($LASTEXITCODE) { throw 'Game archives unavailable' }
-          gh run download $env:LAUNCHER_RUN --repo $env:GITHUB_REPOSITORY --name Knight-Mod-Launcher-Windows-x86 --dir input/launcher
-          if ($LASTEXITCODE) { throw 'Launcher archive unavailable' }
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: Knight-Mod-1.1b-Game-Windows-*
+          path: input/game
+      - uses: actions/download-artifact@v4
+        with:
+          name: Knight-Mod-Launcher-Windows-x86
+          path: input/launcher
 
       - name: Stage the two architectures and common files
         shell: pwsh
         run: |
-          $platforms = @{
-            x86 = 'f42f1832127b6e73c594b8949e2d94ff40cce845d2f03d6cfa2034133c4ff51c'
-            x64 = 'cb12611d55d0281f5e319566c85b4f17f8ab2128d682cd3aa81e4bf359002bc1'
-          }
-          foreach ($arch in $platforms.Keys) {
+          foreach ($arch in @('x86', 'x64')) {
             $name = "Knight-Mod-1.1b-Game-Windows-$arch"
             Expand-Archive "input/game/$name/$name.zip" "input/$arch"
-            if ((Get-FileHash "input/$arch/fheroes2KM.exe").Hash -ne $platforms[$arch]) { throw "Unexpected $arch game build" }
             New-Item -ItemType Directory "payload/$arch" -Force | Out-Null
             Copy-Item "input/$arch/fheroes2KM.exe" "payload/$arch"
           }
 
           $launcher = @(Get-ChildItem input/launcher -Recurse -Filter KnightModLauncher.exe)
-          if ($launcher.Count -ne 1 -or (Get-FileHash $launcher[0]).Hash -ne '5e29e3118ab00404881d5193f942a25acefda7caa370969145db08efab7f35b7') {
+          if ($launcher.Count -ne 1) {
             throw 'Unexpected launcher build'
           }
 
-          New-Item -ItemType Directory -Force 'payload/common/docs/Knight Mod' | Out-Null
-          Copy-Item 'packaging/km/installer/docs/*.txt','packaging/km/installer/docs/*.pdf' 'payload/common/docs/Knight Mod/'
-          Copy-Item 'input/x86/LICENCE' 'payload/common/docs/Knight Mod/LICENCE.txt'
-          Copy-Item 'input/x86/files' 'payload/common/files' -Recurse
-          Copy-Item 'input/x86/knight_mod.ini.default' 'payload/common/'
+          New-Item -ItemType Directory -Force 'payload/common/Knight Mod/docs' | Out-Null
+          Copy-Item 'packaging/km/installer/docs/*.txt','packaging/km/installer/docs/*.pdf' 'payload/common/Knight Mod/docs/'
+          Copy-Item 'input/x86/LICENCE' 'payload/common/Knight Mod/docs/LICENCE.txt'
+          Copy-Item 'input/x86/files' 'payload/common/Knight Mod/files' -Recurse
+          Copy-Item 'input/x86/knight_mod.ini.default' 'payload/common/Knight Mod/'
           Copy-Item $launcher[0] 'payload/common/KnightModLauncher.exe'
           Copy-Item 'packaging/km/installer/launcher.ico' 'payload/'
           [IO.File]::WriteAllText("$pwd/payload/en.language", "en`n")
@@ -71,8 +72,14 @@ jobs:
         shell: pwsh
         run: ./packaging/km/installer/smoke.ps1 -Installer out/Knight-Mod-Setup.exe -Payload payload
 
+      - name: Build and verify the manual ZIP
+        shell: pwsh
+        run: python packaging/km/zip/build.py payload out/fheroes2_KM-1.1b_Windows.zip
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Knight-Mod-Setup-Validation
-          path: out/Knight-Mod-Setup.exe
+          name: Knight-Mod-1.1b-Windows
+          path: |
+            out/Knight-Mod-Setup.exe
+            out/fheroes2_KM-1.1b_Windows.zip
           if-no-files-found: error

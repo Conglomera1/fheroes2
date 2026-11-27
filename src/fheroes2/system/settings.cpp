@@ -89,6 +89,7 @@ namespace
     };
 
     const int defaultSpeedDelay{ 5 };
+    constexpr char knightModDirectory[] = "Knight Mod";
 }
 
 Settings::Settings()
@@ -597,10 +598,14 @@ bool Settings::setGameLanguage( const std::string & requestedLanguage )
 
     const std::string fileName = std::string( "km_" ).append( _gameLanguage ).append( ".mo" );
 #if defined( MACOS_APP_BUNDLE )
-    const ListFiles translations = Settings::FindFiles( "translations", fileName, false );
+    const std::string languageDirectory{ "translations" };
 #else
-    const ListFiles translations = Settings::FindFiles( System::concatPath( "files", "lang" ), fileName, false );
+    const std::string languageDirectory = System::concatPath( "files", "lang" );
 #endif
+    ListFiles translations = Settings::FindFiles( System::concatPath( knightModDirectory, languageDirectory ), fileName, false );
+    if ( translations.empty() ) {
+        translations = Settings::FindFiles( languageDirectory, fileName, false );
+    }
 
     if ( translations.empty() ) {
         ERROR_LOG( "Translation file " << fileName << " was not found." )
@@ -740,6 +745,11 @@ bool Settings::findFile( const std::string & internalDirectory, const std::strin
     }
 
     return false;
+}
+
+bool Settings::findKnightModFile( const std::string & internalDirectory, const std::string & fileName, std::string & fullPath )
+{
+    return findFile( System::concatPath( knightModDirectory, internalDirectory ), fileName, fullPath ) || findFile( internalDirectory, fileName, fullPath );
 }
 
 std::string Settings::GetLastFile( const std::string & prefix, const std::string & name )
