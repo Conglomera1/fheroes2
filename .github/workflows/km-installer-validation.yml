@@ -1,7 +1,7 @@
 name: Knight Mod installer validation
 on:
   push:
-    branches: [knight-mod-1.1b-packaging]
+    branches: [knight-mod-1.1b-packaging, knight-mod-1.1b-installer-validation]
   workflow_dispatch:
 permissions:
   contents: read
