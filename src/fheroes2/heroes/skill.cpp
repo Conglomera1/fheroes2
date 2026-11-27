@@ -780,10 +780,13 @@ void Skill::SecSkills::FillMax( const Skill::Secondary & skill )
 }
 
 std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLevelUp( const int race, const uint32_t firstSkillSeed, const uint32_t secondSkillSeed,
-                                                                                    const int forcedSkill, const bool reserveLastSlot ) const
+                                                                                    const int forcedSkill, const bool reserveNecromancy, const bool reserveWisdom ) const
 {
     std::unordered_set<int> blacklist;
     blacklist.reserve( numOfSecondarySkills + Heroes::maxNumOfSecSkills );
+    const int freeSlots = Heroes::maxNumOfSecSkills - Count();
+    const bool onlyReservedSlotsLeft = freeSlots > 0 && freeSlots <= static_cast<int>( reserveNecromancy ) + static_cast<int>( reserveWisdom );
+    const bool canDrawReservedWisdom = onlyReservedSlotsLeft && reserveWisdom && freeSlots > static_cast<int>( reserveNecromancy );
 
     for ( const Secondary & skill : *this ) {
         if ( skill.Level() != Level::EXPERT ) {
@@ -793,7 +796,7 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
         blacklist.insert( skill.Skill() );
     }
 
-    if ( Count() >= Heroes::maxNumOfSecSkills ) {
+    if ( freeSlots <= 0 ) {
         for ( const int skill : allSecondarySkills ) {
             if ( GetLevel( skill ) != Level::NONE ) {
                 continue;
@@ -805,8 +808,8 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
 
     // Wisdom should be offered to the heroes of "magic" classes on a mandatory basis at least once every three level-ups, regardless of its probability in accordance
     // with the class parameters
-    const bool isWisdomPriority = [this, race, &blacklist = std::as_const( blacklist )]() {
-        if ( !Race::isMagicalRace( race ) ) {
+    const bool isWisdomPriority = [this, race, reserveWisdom, &blacklist = std::as_const( blacklist )]() {
+        if ( reserveWisdom || !Race::isMagicalRace( race ) ) {
             return false;
         }
 
@@ -835,7 +838,13 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
     };
 
     const auto chooseSkill = [&]( const uint32_t seed, const bool preferWisdom ) -> int {
-        if ( reserveLastSlot ) {
+        const int normalSkill = preferWisdom ? Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, seed );
+        if ( onlyReservedSlotsLeft ) {
+            // Wisdom must come from the normal draw, even if the remaining slots are reserved.
+            if ( canDrawReservedWisdom && normalSkill == Secondary::WISDOM ) {
+                return normalSkill;
+            }
+
             auto upgradeBlacklist = blacklist;
             for ( const int skill : allSecondarySkills ) {
                 if ( GetLevel( skill ) == Level::NONE ) {
@@ -863,19 +872,22 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
                 return availableUpgrades.GetWithSeed( seed );
             }
 
-            // Before Necromancy is offered, keep the last slot open even if there is no upgrade.
-            if ( forcedSkill == Secondary::UNKNOWN ) {
+            // The last Necromancy slot may be declined once all seven other skills are Expert.
+            if ( forcedSkill != Secondary::NECROMANCY || reserveWisdom ) {
                 return Secondary::UNKNOWN;
             }
         }
 
-        return preferWisdom ? Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, seed );
+        return normalSkill;
     };
 
     assert( forcedSkill == Secondary::UNKNOWN || blacklist.count( forcedSkill ) == 0 );
     std::pair<Secondary, Secondary> result;
     result.first = levelUpSingleSkill( forcedSkill != Secondary::UNKNOWN ? forcedSkill : chooseSkill( firstSkillSeed, isWisdomPriority ) );
     if ( result.first.Skill() == Secondary::UNKNOWN ) {
+        if ( canDrawReservedWisdom ) {
+            result.first = levelUpSingleSkill( chooseSkill( secondSkillSeed, false ) );
+        }
         return result;
     }
 

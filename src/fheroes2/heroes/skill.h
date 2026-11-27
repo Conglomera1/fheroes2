@@ -142,7 +142,7 @@ namespace Skill
         void FillMax( const Skill::Secondary & );
 
         std::pair<Secondary, Secondary> FindSkillsForLevelUp( int race, uint32_t firstSkillSeed, uint32_t secondSkillSeed, int forcedSkill,
-                                                              bool reserveLastSlot ) const;
+                                                              bool reserveNecromancy, bool reserveWisdom ) const;
 
         std::string String() const;
 

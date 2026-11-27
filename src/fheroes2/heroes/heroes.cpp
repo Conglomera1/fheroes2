@@ -1907,13 +1907,13 @@ void Heroes::_levelUp( const bool skipSecondary, const bool autoselect, const bo
 
 void Heroes::_levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, const int primary, const int progressionRace, const bool autoselect, const bool isMapLoading )
 {
-    const bool isHaartWithoutNecromancy = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::NECROMANCY ) == Skill::Level::NONE;
+    const bool reserveNecromancy = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::NECROMANCY ) == Skill::Level::NONE;
+    const bool reserveWisdom = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::WISDOM ) == Skill::Level::NONE;
     const int freeSkillSlots = maxNumOfSecSkills - _secondarySkills.Count();
-    const bool offerNecromancy = isHaartWithoutNecromancy && progressionRace == Race::NECR && freeSkillSlots > 0;
-    const bool reserveLastSlot = isHaartWithoutNecromancy && freeSkillSlots == 1;
+    const bool offerNecromancy = reserveNecromancy && progressionRace == Race::NECR && freeSkillSlots > 0;
     const auto [sec1, sec2]
         = _secondarySkills.FindSkillsForLevelUp( progressionRace, seeds.seedSecondarySkill1, seeds.seedSecondarySkill2,
-                                                 offerNecromancy ? Skill::Secondary::NECROMANCY : Skill::Secondary::UNKNOWN, reserveLastSlot );
+                                                 offerNecromancy ? Skill::Secondary::NECROMANCY : Skill::Secondary::UNKNOWN, reserveNecromancy, reserveWisdom );
 
     if ( sec1.isValid() && sec2.isValid() ) {
         DEBUG_LOG( DBG_GAME, DBG_INFO, GetName() << " select " << Skill::Secondary::String( sec1.Skill() ) << " or " << Skill::Secondary::String( sec2.Skill() ) )
