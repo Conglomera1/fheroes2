@@ -1156,7 +1156,7 @@ namespace
         void openDocumentation( const wchar_t * frenchName, const wchar_t * englishName )
         {
             auto directory = _modDirectory / L"docs";
-            if ( !fs::is_directory( directory ) )
+            if ( !fileExists( directory ) )
                 directory = _installation / L"docs" / L"Knight Mod";
             const auto english = directory / englishName;
             const auto french = directory / frenchName;
