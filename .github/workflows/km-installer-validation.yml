@@ -36,6 +36,7 @@ jobs:
           Copy-Item "build/$arch/Release-SDL2/fheroes2.exe" package/fheroes2KM.exe
           Copy-Item files/data/resurrection.h2d package/files/data/resurrectionKM.h2d
           Copy-Item files/data/training_grounds.png,files/data/build_training_grounds.png package/files/data/
+          Copy-Item files/data/yog-portrait.png,files/data/yog-mini.png,files/data/lord-haart-portrait.png,files/data/lord-haart-mini.png package/files/data/
           Copy-Item files/lang/km_*.mo package/files/lang/
           Copy-Item packaging/km/knight_mod.ini.default package/
           Copy-Item LICENSE package/LICENCE
@@ -128,6 +129,10 @@ jobs:
             'fheroes2KM.exe','KnightModLauncher.exe','Knight Mod/knight_mod.ini.default',
             'Knight Mod/files/data/resurrectionKM.h2d','Knight Mod/files/data/training_grounds.png',
             'Knight Mod/files/data/build_training_grounds.png',
+            'Knight Mod/files/data/yog-portrait.png',
+            'Knight Mod/files/data/yog-mini.png',
+            'Knight Mod/files/data/lord-haart-portrait.png',
+            'Knight Mod/files/data/lord-haart-mini.png',
             'Knight Mod/files/lang/km_fr.mo','Knight Mod/files/lang/km_vi.mo',
             'Knight Mod/docs/Readme.txt','Knight Mod/docs/Readme_FR.txt',
             'Knight Mod/docs/LICENCE.txt','Knight Mod/docs/Testing_and_Balance_Guide.pdf',
@@ -265,7 +270,7 @@ jobs:
 
       - name: Test installation and uninstallation on Windows
         shell: pwsh
-        run: ./packaging/km/installer/smoke.ps1 -Installer out/Knight-Mod-Setup.exe -Payload payload
+        run: ./packaging/km/installer/smoke.ps1 -Installer out/fheroes2_KM-1.1b_Windows_Setup.exe -Payload payload
 
       - name: Build and verify the manual ZIP
         shell: pwsh
@@ -275,6 +280,6 @@ jobs:
         with:
           name: Knight-Mod-1.1b-Windows
           path: |
-            out/Knight-Mod-Setup.exe
+            out/fheroes2_KM-1.1b_Windows_Setup.exe
             out/fheroes2_KM-1.1b_Windows.zip
           if-no-files-found: error

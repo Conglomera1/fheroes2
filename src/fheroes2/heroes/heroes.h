@@ -181,6 +181,10 @@ public:
 
         // Resurrection expansion heroes.
 
+        // Knight Mod easter eggs. Their slots are empty until the corresponding code is entered.
+        YOG,
+        LORDHAART,
+
         // IMPORTANT! Put all new heroes just above this line.
         HEROES_COUNT
     };
@@ -750,7 +754,7 @@ private:
 
     HeroSeedsForLevelUp _getSeedsForLevelUp() const;
     void _levelUp( const bool skipSecondary, const bool autoselect, const bool isMapLoading );
-    void _levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, const int primary, const bool autoselect, const bool isMapLoading );
+    void _levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, int primary, int progressionRace, bool autoselect, bool isMapLoading );
     void _angleStep( const int targetDirection );
     void _applyMovementPenalty( const uint32_t penalty );
     bool _moveStep( const bool jumpToNextTile );
@@ -851,8 +855,7 @@ public:
     // and by the count of her default names.
     static constexpr size_t getMaximumAllowedHeroes()
     {
-        // We exclude the "UNKNOWN" hero, the "debug" hero, all 17 heroes from campaign.
-        return Heroes::HEROES_COUNT - 2 - 17;
+        return Heroes::CELIA;
     }
 
     Heroes * Get( const int heroId ) const;
@@ -866,6 +869,7 @@ public:
     void NewWeek() const;
 
     Heroes * GetHeroForHire( const int race, const int heroIDToIgnore ) const;
+    Heroes * unlockHiddenHero( int heroId );
     Heroes * FromJail( const int32_t tileIndex ) const;
 
     template <typename BaseIterator>

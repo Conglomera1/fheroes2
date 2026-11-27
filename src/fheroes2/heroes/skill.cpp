@@ -779,8 +779,8 @@ void Skill::SecSkills::FillMax( const Skill::Secondary & skill )
     }
 }
 
-std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLevelUp( const int race, const uint32_t firstSkillSeed,
-                                                                                      uint32_t const secondSkillSeed ) const
+std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLevelUp( const int race, const uint32_t firstSkillSeed, const uint32_t secondSkillSeed,
+                                                                                   const int forcedSkill ) const
 {
     std::unordered_set<int> blacklist;
     blacklist.reserve( numOfSecondarySkills + Heroes::maxNumOfSecSkills );
@@ -836,14 +836,22 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
 
     std::pair<Secondary, Secondary> result;
 
-    result.first = levelUpSingleSkill( isWisdomPriority ? Skill::Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, firstSkillSeed ) );
+    if ( forcedSkill != Secondary::UNKNOWN ) {
+        assert( blacklist.count( forcedSkill ) == 0 );
+        result.first = levelUpSingleSkill( forcedSkill );
+    }
+    else {
+        result.first = levelUpSingleSkill( isWisdomPriority ? Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, firstSkillSeed ) );
+    }
     if ( result.first.Skill() == Secondary::UNKNOWN ) {
         return result;
     }
 
     blacklist.insert( result.first.Skill() );
 
-    result.second = levelUpSingleSkill( SecondaryPriorityFromRace( race, blacklist, secondSkillSeed ) );
+    result.second = levelUpSingleSkill( isWisdomPriority && forcedSkill != Secondary::UNKNOWN && forcedSkill != Secondary::WISDOM
+                                           ? Secondary::WISDOM
+                                           : SecondaryPriorityFromRace( race, blacklist, secondSkillSeed ) );
     assert( result.first.Skill() != result.second.Skill() );
 
     return result;

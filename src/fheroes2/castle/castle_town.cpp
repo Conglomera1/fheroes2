@@ -25,6 +25,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "army.h"
@@ -399,13 +400,14 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
 
     Kingdom & kingdom = GetKingdom();
 
-    Heroes * hero1 = kingdom.GetRecruits().GetHero1();
-    Heroes * hero2 = kingdom.GetRecruits().GetHero2();
+    const Recruits & recruits = kingdom.GetRecruits();
+    Heroes * hero1 = recruits.GetHero1();
+    Heroes * hero2 = recruits.GetHero2();
 
     std::string not_allow1_msg;
     std::string not_allow2_msg;
     const bool allow_buy_hero1 = hero1 ? AllowBuyHero( &not_allow1_msg ) : false;
-    const bool allow_buy_hero2 = hero2 ? AllowBuyHero( &not_allow2_msg ) : false;
+    bool allow_buy_hero2 = hero2 ? AllowBuyHero( &not_allow2_msg ) : false;
 
     // first hero
     dst_pt.x = cur_pt.x + 443;
@@ -430,19 +432,21 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
     dst_pt.x = cur_pt.x + 443;
     dst_pt.y = cur_pt.y + 363;
     const fheroes2::Rect rectHero2( dst_pt.x, dst_pt.y, 102, 94 );
-    if ( hero2 ) {
-        hero2->PortraitRedraw( dst_pt.x, dst_pt.y, PORT_BIG, display );
-    }
-    else {
-        const fheroes2::Sprite & noHeroBackgound = Assets::getImage( ICN::STRIP, 3 );
-        fheroes2::Copy( noHeroBackgound, 0, 0, display, rectHero2.x, rectHero2.y, rectHero2.width, rectHero2.height );
-    }
+    const auto drawSecondRecruit = [&]() {
+        if ( hero2 ) {
+            hero2->PortraitRedraw( rectHero2.x, rectHero2.y, PORT_BIG, display );
+        }
+        else {
+            const fheroes2::Sprite & noHeroBackground = Assets::getImage( ICN::STRIP, 3 );
+            fheroes2::Copy( noHeroBackground, 0, 0, display, rectHero2.x, rectHero2.y, rectHero2.width, rectHero2.height );
+        }
 
-    // indicator
-    if ( !allow_buy_hero2 ) {
-        const fheroes2::Sprite & spriteDeny = Assets::getImage( ICN::TOWNWIND, 12 );
-        fheroes2::Blit( spriteDeny, display, dst_pt.x + 102 - 4 + 1 - spriteDeny.width(), dst_pt.y + 93 - 2 - spriteDeny.height() );
-    }
+        if ( !allow_buy_hero2 ) {
+            const fheroes2::Sprite & spriteDeny = Assets::getImage( ICN::TOWNWIND, 12 );
+            fheroes2::Blit( spriteDeny, display, rectHero2.x + 102 - 4 + 1 - spriteDeny.width(), rectHero2.y + 93 - 2 - spriteDeny.height() );
+        }
+    };
+    drawSecondRecruit();
 
     dst_pt.y = cur_pt.y + 480 - 19;
     fheroes2::Button buttonPrevCastle( cur_pt.x, dst_pt.y, ICN::SMALLBAR, 1, 2 );
@@ -607,7 +611,31 @@ Castle::ConstructionDialogResult Castle::_openConstructionDialog( uint32_t & dwe
 
     display.render( restorer.rect() );
 
+    const int hiddenHero = _race == Race::BARB ? Heroes::YOG : ( _race == Race::KNGT ? Heroes::LORDHAART : Heroes::UNKNOWN );
+    const std::string_view unlockCode = hiddenHero == Heroes::YOG ? "yog" : "haart";
+    size_t matchedLetters = 0;
+
     while ( le.HandleEvents() ) {
+        if ( hiddenHero != Heroes::UNKNOWN && le.isAnyKeyPressed() ) {
+            const auto key = le.getPressedKeyValue();
+            const auto letter = key >= fheroes2::Key::KEY_A && key <= fheroes2::Key::KEY_Z
+                                    ? static_cast<char>( 'a' + static_cast<int>( key ) - static_cast<int>( fheroes2::Key::KEY_A ) )
+                                    : '\0';
+            matchedLetters = letter == unlockCode[matchedLetters] ? matchedLetters + 1 : static_cast<size_t>( letter == unlockCode.front() );
+            if ( matchedLetters == unlockCode.size() ) {
+                matchedLetters = 0;
+                if ( Heroes * unlocked = world.unlockHiddenHero( hiddenHero ) ) {
+                    kingdom.GetCurrentRecruits().SetHero2( unlocked );
+                    hero2 = unlocked;
+                    allow_buy_hero2 = AllowBuyHero( &not_allow2_msg );
+                    drawSecondRecruit();
+                    updateStatusBar();
+                    display.render( rectHero2 );
+                    continue;
+                }
+            }
+        }
+
         buttonExit.drawOnState( le.isMouseLeftButtonPressedAndHeldInArea( buttonExit.area() ) );
 
         if ( le.MouseClickLeft( buttonExit.area() ) || Game::HotKeyCloseWindow() ) {

@@ -347,6 +347,11 @@ public:
         return vec_heroes.GetHeroForHire( race, heroIDToIgnore );
     }
 
+    Heroes * unlockHiddenHero( const int heroId )
+    {
+        return vec_heroes.unlockHiddenHero( heroId );
+    }
+
     const Heroes * GetHeroesCondWins() const;
     const Heroes * GetHeroesCondLoss() const;
 

@@ -14,9 +14,10 @@ MinVersion=6.1
 DefaultDirName={code:FindFheroes2Directory}
 DisableDirPage=no
 DirExistsWarning=no
-DefaultGroupName=Knight Mod
+DefaultGroupName=fheroes2
+UsePreviousGroup=no
 DisableProgramGroupPage=yes
-OutputBaseFilename=Knight-Mod-Setup
+OutputBaseFilename=fheroes2_KM-1.1b_Windows_Setup
 SetupIconFile={#PayloadDir}\launcher.ico
 UninstallDisplayIcon={app}\KnightModLauncher.exe
 UninstallFilesDir={app}\Knight Mod\uninstall
@@ -68,13 +69,22 @@ Source: "{#PayloadDir}\en.language"; DestDir: "{app}\Knight Mod"; DestName: "Kni
 Source: "{#PayloadDir}\fr.language"; DestDir: "{app}\Knight Mod"; DestName: "KnightModLauncher.language"; Flags: ignoreversion; Languages: french
 
 [Icons]
-Name: "{group}\Knight Mod Launcher"; Filename: "{app}\KnightModLauncher.exe"; WorkingDir: "{app}"
-Name: "{group}\Readme"; Filename: "{app}\Knight Mod\docs\Readme.txt"; Languages: english
-Name: "{group}\Readme"; Filename: "{app}\Knight Mod\docs\Readme_FR.txt"; Languages: french
-Name: "{group}\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Testing_and_Balance_Guide.pdf"; Languages: english
-Name: "{group}\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Guide_de_Test_et_Equilibrage.pdf"; Languages: french
-Name: "{group}\{cm:Uninstall}"; Filename: "{uninstallexe}"
+Name: "{group}\Knight Mod\Knight Mod Launcher"; Filename: "{app}\KnightModLauncher.exe"; WorkingDir: "{app}"
+Name: "{group}\Knight Mod\Readme"; Filename: "{app}\Knight Mod\docs\Readme.txt"; Languages: english
+Name: "{group}\Knight Mod\Readme"; Filename: "{app}\Knight Mod\docs\Readme_FR.txt"; Languages: french
+Name: "{group}\Knight Mod\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Testing_and_Balance_Guide.pdf"; Languages: english
+Name: "{group}\Knight Mod\{cm:Guide}"; Filename: "{app}\Knight Mod\docs\Guide_de_Test_et_Equilibrage.pdf"; Languages: french
+Name: "{group}\Knight Mod\{cm:Uninstall}"; Filename: "{uninstallexe}"; IconFilename: "{sys}\shell32.dll"; IconIndex: 31
 Name: "{autodesktop}\Knight Mod Launcher"; Filename: "{app}\KnightModLauncher.exe"; WorkingDir: "{app}"; Tasks: desktopicon
+
+[InstallDelete]
+Type: files; Name: "{commonprograms}\Knight Mod\Knight Mod Launcher.lnk"
+Type: files; Name: "{commonprograms}\Knight Mod\Readme.lnk"
+Type: files; Name: "{commonprograms}\Knight Mod\Testing and Balance Guide.lnk"
+Type: files; Name: "{commonprograms}\Knight Mod\Guide de test et d'équilibrage.lnk"
+Type: files; Name: "{commonprograms}\Knight Mod\Uninstall Knight Mod.lnk"
+Type: files; Name: "{commonprograms}\Knight Mod\Désinstaller Knight Mod.lnk"
+Type: dirifempty; Name: "{commonprograms}\Knight Mod"
 
 [Run]
 Filename: "{app}\Knight Mod\docs\Readme.txt"; Description: "{cm:Readme}"; Flags: postinstall shellexec skipifsilent unchecked runasoriginaluser; Languages: english
