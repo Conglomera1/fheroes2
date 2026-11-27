@@ -78,6 +78,15 @@ RunSetup $Installer 'mixed-dll' "/DIR=`"$mixed`" /LANG=french" -Reject
 AssertPreserved $mixed $original
 if ((Snapshot $mixed).Count -ne $original.Count) { throw 'Setup wrote into a folder with mismatched DLLs' }
 
+$legacy = Join-Path $work 'Previous Knight Mod'
+Copy-Item "$work/fheroes2 x86" $legacy -Recurse
+New-Item -ItemType Directory "$legacy/docs/Knight Mod/uninstall" -Force | Out-Null
+Set-Content -LiteralPath "$legacy/docs/Knight Mod/uninstall/unins000.exe" -Value 'previous'
+$original = Snapshot $legacy
+RunSetup $Installer 'previous-layout' "/DIR=`"$legacy`" /LANG=english" -Reject
+AssertPreserved $legacy $original
+if ((Snapshot $legacy).Count -ne $original.Count) { throw 'Setup modified the older installation' }
+
 $reg = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\fheroes2_is1'
 New-Item -Path $reg -Force | Out-Null
 New-ItemProperty -Path $reg -Name 'Inno Setup: App Path' -Value "$work/fheroes2 x86" -PropertyType String -Force | Out-Null

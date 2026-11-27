@@ -7,9 +7,9 @@ Il faut une installation fonctionnelle de fheroes2 1.1.17 ou d’une
 version ultérieure, avec les données de Heroes II. Knight Mod utilise
 les bibliothèques déjà présentes dans ce dossier.
 
-1. Fermer fheroes2 et Knight Mod. Si le mod a été installé avec
-   Knight-Mod-Setup.exe, le désinstaller depuis le menu Démarrer
-   avant de passer au ZIP.
+1. Fermer fheroes2 et Knight Mod. Désinstaller toute installation
+   précédente de Knight Mod avant d’extraire le ZIP. Conserver les
+   réglages s’ils doivent servir à nouveau.
 2. Choisir l’archive correspondant à l’installation de fheroes2.
 
    Knight-Mod-1.1b-Windows-x86.zip pour fheroes2 32 bits
