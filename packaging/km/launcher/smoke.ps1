@@ -119,7 +119,15 @@ try {
     Wait-Until {
         if ([Native]::FindWindow('#32770', 'Invalid value') -ne [IntPtr]::Zero) { throw 'The launcher rejected a setting from the fixture on Save.' }
         if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher reported an error while saving the fixture.' }
-        (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1'
+        # Permit the launcher to replace the INI atomically while the probe reads it.
+        $share = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
+        $file = [IO.File]::Open($ini, [IO.FileMode]::Open, [IO.FileAccess]::Read, $share)
+        try {
+            $reader = [IO.StreamReader]::new($file)
+            try { $reader.ReadToEnd() -match 'training_grounds.show_artwork = 1' }
+            finally { $reader.Dispose() }
+        }
+        finally { $file.Dispose() }
     } 'Saving did not update the actual INI.'
     $settings = Get-Content -LiteralPath $ini -Raw
     foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
