@@ -1,6 +1,5 @@
 name: Knight Mod Launcher
 on:
-  workflow_call:
   push:
     branches: [knight-launcher-x86]
   workflow_dispatch:
