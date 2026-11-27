@@ -1631,13 +1631,6 @@ bool Heroes::BuySpellBook( const Castle & castle )
         return false;
     }
 
-    if ( _id == YOG && GetLevel() < 10 ) {
-        if ( isControlHuman() ) {
-            fheroes2::showStandardTextMessage( GetName(), _( "Yog has turned his back on the teachings of Bracada. He has no use for a spell book." ), Dialog::OK );
-        }
-        return false;
-    }
-
     if ( IsFullBagArtifacts() ) {
         if ( isControlHuman() ) {
             fheroes2::showStandardTextMessage(
@@ -1670,9 +1663,16 @@ bool Heroes::BuySpellBook( const Castle & castle )
         header.append( _( "Do you wish to buy one?" ) );
 
         const fheroes2::ArtifactDialogElement artifactUI( Artifact::MAGIC_BOOK );
-        if ( fheroes2::showStandardTextMessage( GetName(), std::move( header ), Dialog::YES | Dialog::NO, { &artifactUI } ) == Dialog::NO ) {
+        if ( fheroes2::showStandardTextMessage( GetName(), std::move( header ), Dialog::YES | Dialog::NO, { &artifactUI } ) != Dialog::YES ) {
             return false;
         }
+    }
+
+    if ( _id == YOG && GetLevel() < 10 ) {
+        if ( isControlHuman() ) {
+            fheroes2::showStandardTextMessage( GetName(), _( "Yog has turned his back on the teachings of Bracada. He has no use for a spell book." ), Dialog::OK );
+        }
+        return false;
     }
 
     if ( SpellBookActivate() ) {
@@ -1907,10 +1907,13 @@ void Heroes::_levelUp( const bool skipSecondary, const bool autoselect, const bo
 
 void Heroes::_levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, const int primary, const int progressionRace, const bool autoselect, const bool isMapLoading )
 {
-    const bool offerNecromancy = _id == LORDHAART && progressionRace == Race::NECR && _secondarySkills.Count() < maxNumOfSecSkills
-                                 && _secondarySkills.GetLevel( Skill::Secondary::NECROMANCY ) == Skill::Level::NONE;
-    const auto [sec1, sec2] = _secondarySkills.FindSkillsForLevelUp( progressionRace, seeds.seedSecondarySkill1, seeds.seedSecondarySkill2,
-                                                                    offerNecromancy ? Skill::Secondary::NECROMANCY : Skill::Secondary::UNKNOWN );
+    const bool isHaartWithoutNecromancy = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::NECROMANCY ) == Skill::Level::NONE;
+    const int freeSkillSlots = maxNumOfSecSkills - _secondarySkills.Count();
+    const bool offerNecromancy = isHaartWithoutNecromancy && progressionRace == Race::NECR && freeSkillSlots > 0;
+    const bool reserveLastSlot = isHaartWithoutNecromancy && freeSkillSlots == 1;
+    const auto [sec1, sec2]
+        = _secondarySkills.FindSkillsForLevelUp( progressionRace, seeds.seedSecondarySkill1, seeds.seedSecondarySkill2,
+                                                 offerNecromancy ? Skill::Secondary::NECROMANCY : Skill::Secondary::UNKNOWN, reserveLastSlot );
 
     if ( sec1.isValid() && sec2.isValid() ) {
         DEBUG_LOG( DBG_GAME, DBG_INFO, GetName() << " select " << Skill::Secondary::String( sec1.Skill() ) << " or " << Skill::Secondary::String( sec2.Skill() ) )

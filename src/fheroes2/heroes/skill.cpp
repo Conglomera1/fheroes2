@@ -780,7 +780,7 @@ void Skill::SecSkills::FillMax( const Skill::Secondary & skill )
 }
 
 std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLevelUp( const int race, const uint32_t firstSkillSeed, const uint32_t secondSkillSeed,
-                                                                                   const int forcedSkill ) const
+                                                                                    const int forcedSkill, const bool reserveLastSlot ) const
 {
     std::unordered_set<int> blacklist;
     blacklist.reserve( numOfSecondarySkills + Heroes::maxNumOfSecSkills );
@@ -834,24 +834,55 @@ std::pair<Skill::Secondary, Skill::Secondary> Skill::SecSkills::FindSkillsForLev
         return result;
     };
 
-    std::pair<Secondary, Secondary> result;
+    const auto chooseSkill = [&]( const uint32_t seed, const bool preferWisdom ) -> int {
+        if ( reserveLastSlot ) {
+            auto upgradeBlacklist = blacklist;
+            for ( const int skill : allSecondarySkills ) {
+                if ( GetLevel( skill ) == Level::NONE ) {
+                    upgradeBlacklist.insert( skill );
+                }
+            }
 
-    if ( forcedSkill != Secondary::UNKNOWN ) {
-        assert( blacklist.count( forcedSkill ) == 0 );
-        result.first = levelUpSingleSkill( forcedSkill );
-    }
-    else {
-        result.first = levelUpSingleSkill( isWisdomPriority ? Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, firstSkillSeed ) );
-    }
+            if ( upgradeBlacklist.size() < allSecondarySkills.size() ) {
+                if ( preferWisdom && upgradeBlacklist.count( Secondary::WISDOM ) == 0 ) {
+                    return Secondary::WISDOM;
+                }
+
+                const int upgrade = SecondaryPriorityFromRace( race, upgradeBlacklist, seed );
+                if ( upgrade != Secondary::UNKNOWN ) {
+                    return upgrade;
+                }
+
+                // Haart can still improve an acquired skill if his new class assigns it zero weight.
+                Rand::Queue availableUpgrades( Heroes::maxNumOfSecSkills );
+                for ( const int skill : allSecondarySkills ) {
+                    if ( upgradeBlacklist.count( skill ) == 0 ) {
+                        availableUpgrades.Push( skill, 1 );
+                    }
+                }
+                return availableUpgrades.GetWithSeed( seed );
+            }
+
+            // Before Necromancy is offered, keep the last slot open even if there is no upgrade.
+            if ( forcedSkill == Secondary::UNKNOWN ) {
+                return Secondary::UNKNOWN;
+            }
+        }
+
+        return preferWisdom ? Secondary::WISDOM : SecondaryPriorityFromRace( race, blacklist, seed );
+    };
+
+    assert( forcedSkill == Secondary::UNKNOWN || blacklist.count( forcedSkill ) == 0 );
+    std::pair<Secondary, Secondary> result;
+    result.first = levelUpSingleSkill( forcedSkill != Secondary::UNKNOWN ? forcedSkill : chooseSkill( firstSkillSeed, isWisdomPriority ) );
     if ( result.first.Skill() == Secondary::UNKNOWN ) {
         return result;
     }
 
     blacklist.insert( result.first.Skill() );
 
-    result.second = levelUpSingleSkill( isWisdomPriority && forcedSkill != Secondary::UNKNOWN && forcedSkill != Secondary::WISDOM
-                                           ? Secondary::WISDOM
-                                           : SecondaryPriorityFromRace( race, blacklist, secondSkillSeed ) );
+    const bool offerWisdomSecond = isWisdomPriority && forcedSkill != Secondary::UNKNOWN && forcedSkill != Secondary::WISDOM;
+    result.second = levelUpSingleSkill( chooseSkill( secondSkillSeed, offerWisdomSecond ) );
     assert( result.first.Skill() != result.second.Skill() );
 
     return result;
