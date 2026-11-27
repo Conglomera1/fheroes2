@@ -22,8 +22,8 @@ Heroes II data. Knight Mod uses the libraries already in that folder.
 
 PLAYING
 
-Before your first game, keep any fheroes2 autosave or quicksave you
-want to keep under another name. The mod uses the same save folder.
+Before your first game, rename any fheroes2 autosaves or quicksaves
+that you want to keep. The mod uses the same save folder.
 
 Open KnightModLauncher.exe. Adjust the settings if you like,
 then click Play to save them and launch the mod. Restart the game
