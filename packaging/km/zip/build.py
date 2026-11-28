@@ -62,6 +62,8 @@ def main():
             with ZipFile(io.BytesIO(outer.read(f"Knight-Mod-1.1b-Windows-{arch}.zip"))) as inner:
                 if inner.testzip():
                     raise ValueError(f"Invalid {arch} archive")
+                if inner.read("KnightModLauncher.exe") != payload["KnightModLauncher.exe"]:
+                    raise ValueError(f"The launcher in the {arch} archive differs from the approved file")
 
 
 if __name__ == "__main__":

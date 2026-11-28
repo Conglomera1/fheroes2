@@ -60,53 +60,6 @@ jobs:
           name: Knight-Mod-1.1b-Game-Windows-${{ matrix.platform }}
           path: Knight-Mod-1.1b-Game-Windows-${{ matrix.platform }}.zip
           if-no-files-found: error
-  launcher:
-    runs-on: windows-2025
-    timeout-minutes: 12
-    steps:
-      - uses: actions/checkout@v4
-      - name: Compile and test the x86 launcher
-        shell: cmd
-        run: |
-          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x86
-          if errorlevel 1 exit /b 1
-          call packaging\km\launcher\build.cmd
-      - name: Build the x64 process probe
-        shell: cmd
-        run: |
-          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
-          call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
-          if errorlevel 1 exit /b 1
-          cd packaging\km\launcher\build
-          echo #include ^<cstdio^> > probe.cpp
-          echo int main^(^) { auto* output = std::fopen^("launcher-probe.txt", "wb"^); if ^(!output^) return 1; return std::fclose^(output^); } >> probe.cpp
-          cl /nologo /EHsc /MT probe.cpp /Fe:game-x64.exe /link /MACHINE:X64
-      - name: Verify the PE files and smoke test on Windows x64
-        shell: pwsh
-        run: |
-          $build = 'packaging/km/launcher/build'
-          function Check-PE($Path, $Machine, $Magic) {
-            $bytes = [IO.File]::ReadAllBytes((Resolve-Path $Path))
-            $offset = [BitConverter]::ToInt32($bytes,0x3c)
-            if ([BitConverter]::ToUInt32($bytes,$offset) -ne 0x4550 -or
-                [BitConverter]::ToUInt16($bytes,$offset+4) -ne $Machine -or
-                [BitConverter]::ToUInt16($bytes,$offset+24) -ne $Magic) {
-              throw "Wrong architecture: $Path"
-            }
-          }
-          Check-PE "$build/KnightModLauncher.exe" 0x14c 0x10b
-          Check-PE "$build/game-x64.exe" 0x8664 0x20b
-          & packaging/km/launcher/smoke.ps1 -Launcher "$build/KnightModLauncher.exe" -GameProbe "$build/game-x64.exe" -ScreenshotFolder "$build/screenshots"
-          Get-FileHash "$build/KnightModLauncher.exe" -Algorithm SHA256
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: Knight-Mod-Launcher-Windows-x86
-          path: |
-            packaging/km/launcher/build/KnightModLauncher.exe
-            packaging/km/launcher/build/screenshots/*.png
-          if-no-files-found: error
   zip-uninstall:
     runs-on: windows-2025
     timeout-minutes: 7
@@ -214,7 +167,7 @@ jobs:
           Assert-Kept $game $mod
           Assert-Kept $game @('Knight Mod/uninstall/unins000.exe')
   installer:
-    needs: [game, launcher, zip-uninstall]
+    needs: [game, zip-uninstall]
     runs-on: windows-2025
     timeout-minutes: 16
     steps:
@@ -226,9 +179,13 @@ jobs:
         with:
           pattern: Knight-Mod-1.1b-Game-Windows-*
           path: input/game
-      - uses: actions/download-artifact@v4
+      # Reuse the launcher validated on Windows. Update the run and SHA-256 together for a new launcher version.
+      - name: Download the approved x86 launcher
+        uses: actions/download-artifact@v4
         with:
-          name: Knight-Mod-Launcher-Windows-x86
+          name: KMSettings-wxWidgets-Windows-x86
+          github-token: ${{ github.token }}
+          run-id: 46151171252
           path: input/launcher
 
       - name: Stage the two architectures and common files
@@ -243,15 +200,21 @@ jobs:
 
           $launcher = @(Get-ChildItem input/launcher -Recurse -Filter KnightModLauncher.exe)
           if ($launcher.Count -ne 1) {
-            throw 'Unexpected launcher build'
+            throw 'Expected one approved launcher executable'
           }
+          $approvedLauncherSha256 = '275b3e0f15082ddf4f9c82f85fd262a80f1c5c7b02b7a020d7810b9c6add6ae8'
+          $launcherHash = Get-FileHash -LiteralPath $launcher[0].FullName -Algorithm SHA256
+          if ($launcherHash.Hash -ne $approvedLauncherSha256) {
+            throw "Unexpected launcher SHA-256: $($launcherHash.Hash)"
+          }
+          Write-Host "Approved launcher SHA-256: $($launcherHash.Hash)"
 
           New-Item -ItemType Directory -Force 'payload/common/Knight Mod/docs' | Out-Null
           Copy-Item 'packaging/km/installer/docs/*.txt','packaging/km/installer/docs/*.pdf' 'payload/common/Knight Mod/docs/'
           Copy-Item 'input/x86/LICENCE' 'payload/common/Knight Mod/docs/LICENCE.txt'
           Copy-Item 'input/x86/files' 'payload/common/Knight Mod/files' -Recurse
           Copy-Item 'input/x86/knight_mod.ini.default' 'payload/common/Knight Mod/'
-          Copy-Item $launcher[0] 'payload/common/KnightModLauncher.exe'
+          Copy-Item -LiteralPath $launcher[0].FullName -Destination 'payload/common/KnightModLauncher.exe'
           Copy-Item 'packaging/km/installer/launcher.ico' 'payload/'
           [IO.File]::WriteAllText("$pwd/payload/en.language", "en`n")
           [IO.File]::WriteAllText("$pwd/payload/fr.language", "fr`n")
