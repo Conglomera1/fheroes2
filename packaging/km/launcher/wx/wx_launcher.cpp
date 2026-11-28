@@ -44,6 +44,7 @@ namespace
             , _style( style )
         {
             MakeOwnerDrawn();
+            InvalidateBestSize();
         }
 
         void select( const bool selected )
@@ -420,7 +421,7 @@ namespace
                 openPath( _configuration );
             }, 302 );
             for ( auto * item : std::array<wxButton *, 4>{ _defaults, _guide, readme, _folder } )
-                commands->Add( item, 0, wxRIGHT, dip( 7 ) );
+                commands->Add( item, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, dip( 7 ) );
             footerSizer->Add( commands, 0, wxEXPAND | wxALL, dip( 10 ) );
 
             auto * actions = new wxBoxSizer( wxHORIZONTAL );
