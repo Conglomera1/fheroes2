@@ -42,7 +42,7 @@ public static class KMWindow {
     }
     public static void Select(IntPtr combo, int value) {
         SendMessage(combo, 0x014e, (IntPtr)value, IntPtr.Zero);
-        SendMessage(GetParent(combo), 0x0111, (IntPtr)((1 << 16) | GetDlgCtrlID(combo)), combo);
+        SendMessage(GetParent(combo), 0x0111, (IntPtr)((9 << 16) | GetDlgCtrlID(combo)), combo);
     }
     public static void Cancel(IntPtr window) {
         PostMessage(window, 0x10, IntPtr.Zero, IntPtr.Zero);
