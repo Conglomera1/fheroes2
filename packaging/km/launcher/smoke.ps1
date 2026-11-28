@@ -115,22 +115,15 @@ try {
     [void][Native]::SendMessage($window, 0x111, [IntPtr]310, [IntPtr]::Zero)
     Write-Output 'The Readme control and Advanced panels passed.'
     Write-Output "The base fee at startup is $(Read-ControlText ([Native]::GetDlgItem($panel, 203)))."
+    $saveStatus = [Native]::GetDlgItem($window, 319)
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]303, [IntPtr]::Zero)) { throw 'Cannot click Save.' }
     Wait-Until {
         if ([Native]::FindWindow('#32770', 'Invalid value') -ne [IntPtr]::Zero) { throw 'The launcher rejected a setting from the fixture on Save.' }
         if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher reported an error while saving the fixture.' }
-        # Permit the launcher to replace the INI atomically while the probe reads it.
-        $share = [IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete
-        $file = [IO.File]::Open($ini, [IO.FileMode]::Open, [IO.FileAccess]::Read, $share)
-        try {
-            $reader = [IO.StreamReader]::new($file)
-            try { $reader.ReadToEnd() -match 'training_grounds.show_artwork = 1' }
-            finally { $reader.Dispose() }
-        }
-        finally { $file.Dispose() }
-    } 'Saving did not update the actual INI.'
+        (Read-ControlText $saveStatus) -eq 'Settings saved.'
+    } 'The launcher did not report that settings were saved.'
     $settings = Get-Content -LiteralPath $ini -Raw
-    foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
+    foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65', 'training_grounds.show_artwork = 1')) {
         if (-not $settings.Contains($line)) { throw "Saving lost an existing value: $line" }
     }
     Write-Output 'The existing INI and mode presets passed.'

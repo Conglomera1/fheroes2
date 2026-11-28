@@ -54,6 +54,7 @@ namespace
     constexpr int conversionId = 316;
     constexpr int requirementsId = 317;
     constexpr int panelId = 318;
+    constexpr int statusId = 319;
 
     struct ComRelease
     {
@@ -347,7 +348,7 @@ namespace
             SendMessageW( _quote, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.strong ), TRUE );
             _saveProfile = button( saveProfileId, _panel );
             _loadProfile = button( loadProfileId, _panel );
-            _status = control( L"STATIC", L"", SS_CENTERIMAGE | SS_ENDELLIPSIS );
+            _status = control( L"STATIC", L"", SS_CENTERIMAGE | SS_ENDELLIPSIS, statusId );
             _defaults = button( defaultsId );
             _guide = button( guideId );
             _readme = button( readmeId );
