@@ -67,7 +67,7 @@ $homeFolder = New-Item -ItemType Directory -Path (Join-Path $temp 'profile with 
 $env:HOME = $homeFolder.FullName
 $config = New-Item -ItemType Directory -Path (Join-Path $homeFolder.FullName '.fheroes2')
 $ini = Join-Path $config.FullName 'knight_mod.ini'
-$exe = Join-Path $game.FullName 'KnightModLauncher.exe'
+$exe = Join-Path $game.FullName ([IO.Path]::GetFileName($Launcher))
 Copy-Item $Launcher $exe
 Copy-Item $GameProbe (Join-Path $game.FullName 'fheroes2KM.exe')
 Set-Content -LiteralPath $ini -Encoding ASCII -Value @('# keep me', 'external.setting = 47', 'conscription.mode = 2', 'conscription.gold_per_peasant = 65')

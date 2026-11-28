@@ -1,7 +1,7 @@
 name: Knight Mod Launcher
 on:
   push:
-    branches: [knight-launcher-x86]
+    branches: [knight-launcher-x86, knight-mod-kmsettings-validation]
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,7 +17,7 @@ jobs:
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x86
           if errorlevel 1 exit /b 1
-          call packaging\km\launcher\build.cmd
+          call packaging\km\launcher\build.cmd KMSettings.exe
       - name: Build the x64 process probe
         shell: cmd
         run: |
@@ -41,15 +41,15 @@ jobs:
               throw "Wrong architecture: $Path"
             }
           }
-          Check-PE "$build/KnightModLauncher.exe" 0x14c 0x10b
+          Check-PE "$build/KMSettings.exe" 0x14c 0x10b
           Check-PE "$build/game-x64.exe" 0x8664 0x20b
-          & packaging/km/launcher/smoke.ps1 -Launcher "$build/KnightModLauncher.exe" -GameProbe "$build/game-x64.exe" -ScreenshotFolder "$build/screenshots"
-          Get-FileHash "$build/KnightModLauncher.exe" -Algorithm SHA256
+          & packaging/km/launcher/smoke.ps1 -Launcher "$build/KMSettings.exe" -GameProbe "$build/game-x64.exe" -ScreenshotFolder "$build/screenshots"
+          Get-FileHash "$build/KMSettings.exe" -Algorithm SHA256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Knight-Mod-Launcher-Windows-x86
+          name: KMSettings-Windows-x86
           path: |
-            packaging/km/launcher/build/KnightModLauncher.exe
+            packaging/km/launcher/build/KMSettings.exe
             packaging/km/launcher/build/screenshots/*.png
           if-no-files-found: error
