@@ -1,55 +1,74 @@
 name: Knight Mod Launcher
 on:
   push:
-    branches: [knight-launcher-x86]
+    branches: [knight-mod-kmsettings-validation]
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
   launcher:
     runs-on: windows-2025
-    timeout-minutes: 12
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - name: Compile and test the x86 launcher
+      - name: Fetch the published wxWidgets 3.2.12 sources
+        shell: pwsh
+        run: |
+          $source = Join-Path $env:RUNNER_TEMP 'wxWidgets-3.2.12.tar.bz2'
+          Invoke-WebRequest 'https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.12/wxWidgets-3.2.12.tar.bz2' -OutFile $source
+          $expected = 'a62719bb5e1dcc41c1a6fc1eecd499c7ee8521f70402c7b1bb3342a1e16344e0'
+          if ((Get-FileHash $source -Algorithm SHA256).Hash -ne $expected) { throw 'Unexpected wxWidgets source archive' }
+          tar -xf $source -C $env:RUNNER_TEMP
+          if ($LASTEXITCODE -ne 0) { throw 'Could not extract wxWidgets' }
+      - name: Build KMSettings and its tests in x86
         shell: cmd
         run: |
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x86
           if errorlevel 1 exit /b 1
-          call packaging\km\launcher\build.cmd
+          cmake -S packaging/km/launcher/wx -B build/kmsettings -G Ninja -DCMAKE_BUILD_TYPE=Release "-DWX_WIDGETS_SOURCE_DIR=%RUNNER_TEMP%\wxWidgets-3.2.12"
+          if errorlevel 1 exit /b 1
+          cmake --build build/kmsettings --target KMSettings KMSettingsModelTest KMSettingsFilesTest KMSettingsIniTest --parallel 4
+          if errorlevel 1 exit /b 1
+          ctest --test-dir build/kmsettings --output-on-failure
+          if errorlevel 1 exit /b 1
+          dumpbin /nologo /imports build\kmsettings\bin\KnightModLauncher.exe > build\kmsettings\imports.txt
+          if errorlevel 1 exit /b 1
+          findstr /r /i /c:" CreateFile2 *$" /c:" VCRUNTIME.*\.dll *$" /c:" MSVCP.*\.dll *$" /c:" wx.*\.dll *$" build\kmsettings\imports.txt
+          if not errorlevel 1 exit /b 1
+          exit /b 0
       - name: Build the x64 process probe
         shell: cmd
         run: |
           for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath`) do set "VS_PATH=%%i"
           call "%VS_PATH%\VC\Auxiliary\Build\vcvarsall.bat" x64
           if errorlevel 1 exit /b 1
-          cd packaging\km\launcher\build
+          cd build\kmsettings
           echo #include ^<cstdio^> > probe.cpp
-          echo int main^(^) { auto* output = std::fopen^("launcher-probe.txt", "wb"^); if ^(!output^) return 1; return std::fclose^(output^); } >> probe.cpp
+          echo int main^(^) { auto* output = std::fopen^( "launcher-probe.txt", "wb" ^); if ^(!output^) return 1; return std::fclose^(output^); } >> probe.cpp
           cl /nologo /EHsc /MT probe.cpp /Fe:game-x64.exe /link /MACHINE:X64
-      - name: Verify the PE files and smoke test on Windows x64
+      - name: Check identity, architecture and Windows GUI
         shell: pwsh
         run: |
-          $build = 'packaging/km/launcher/build'
-          function Check-PE($Path, $Machine, $Magic) {
-            $bytes = [IO.File]::ReadAllBytes((Resolve-Path $Path))
-            $offset = [BitConverter]::ToInt32($bytes,0x3c)
-            if ([BitConverter]::ToUInt32($bytes,$offset) -ne 0x4550 -or
-                [BitConverter]::ToUInt16($bytes,$offset+4) -ne $Machine -or
-                [BitConverter]::ToUInt16($bytes,$offset+24) -ne $Magic) {
-              throw "Wrong architecture: $Path"
-            }
+          $build = 'build/kmsettings'
+          $exe = (Resolve-Path "$build/bin/KnightModLauncher.exe").Path
+          $bytes = [IO.File]::ReadAllBytes($exe)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+          if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x4550 -or [BitConverter]::ToUInt16($bytes, $pe+4) -ne 0x14c -or
+              [BitConverter]::ToUInt16($bytes, $pe+24) -ne 0x10b -or [BitConverter]::ToUInt32($bytes, $pe+72) -ne 0x00010006) {
+            throw 'Expected an x86 executable targeting subsystem version 6.1'
           }
-          Check-PE "$build/KnightModLauncher.exe" 0x14c 0x10b
-          Check-PE "$build/game-x64.exe" 0x8664 0x20b
-          & packaging/km/launcher/smoke.ps1 -Launcher "$build/KnightModLauncher.exe" -GameProbe "$build/game-x64.exe" -ScreenshotFolder "$build/screenshots"
-          Get-FileHash "$build/KnightModLauncher.exe" -Algorithm SHA256
+          $version = (Get-Item -LiteralPath $exe).VersionInfo
+          if ($version.InternalName -ne 'KMSettings' -or $version.OriginalFilename -ne 'KnightModLauncher.exe' -or
+              $version.ProductName -ne 'Knight Mod Settings' -or $version.CompanyName -ne 'Conglomera') {
+            throw 'The executable has unexpected version metadata'
+          }
+          & packaging/km/launcher/wx/smoke.ps1 -Launcher $exe -GameProbe "$build/game-x64.exe" -Screenshot "$pwd/$build/Settings.png"
+          Get-FileHash $exe -Algorithm SHA256
       - uses: actions/upload-artifact@v4
-        if: always()
         with:
-          name: Knight-Mod-Launcher-Windows-x86
+          name: KMSettings-wxWidgets-Windows-x86
           path: |
-            packaging/km/launcher/build/KnightModLauncher.exe
-            packaging/km/launcher/build/screenshots/*.png
+            build/kmsettings/bin/KnightModLauncher.exe
+            build/kmsettings/Settings.png
           if-no-files-found: error

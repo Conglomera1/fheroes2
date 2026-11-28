@@ -141,7 +141,8 @@ namespace Skill
         void AddSkill( const Skill::Secondary & );
         void FillMax( const Skill::Secondary & );
 
-        std::pair<Secondary, Secondary> FindSkillsForLevelUp( const int race, const uint32_t firstSkillSeed, uint32_t const secondSkillSeed ) const;
+        std::pair<Secondary, Secondary> FindSkillsForLevelUp( int race, uint32_t firstSkillSeed, uint32_t secondSkillSeed, int forcedSkill,
+                                                              bool reserveNecromancy, bool reserveWisdom ) const;
 
         std::string String() const;
 

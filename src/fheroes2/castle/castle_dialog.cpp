@@ -300,15 +300,6 @@ namespace
             return false;
         }
 
-        if ( hero->IsFullBagArtifacts() ) {
-            fheroes2::showStandardTextMessage(
-                hero->GetName(),
-                _( "You must purchase a spell book to use the mage guild, but you currently have no room for a spell book. Try giving one of your artifacts to another hero." ),
-                Dialog::OK );
-
-            return false;
-        }
-
         return hero->BuySpellBook( castle );
     }
 

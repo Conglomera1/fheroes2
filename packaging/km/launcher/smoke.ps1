@@ -67,7 +67,7 @@ $homeFolder = New-Item -ItemType Directory -Path (Join-Path $temp 'profile with 
 $env:HOME = $homeFolder.FullName
 $config = New-Item -ItemType Directory -Path (Join-Path $homeFolder.FullName '.fheroes2')
 $ini = Join-Path $config.FullName 'knight_mod.ini'
-$exe = Join-Path $game.FullName 'KnightModLauncher.exe'
+$exe = Join-Path $game.FullName ([IO.Path]::GetFileName($Launcher))
 Copy-Item $Launcher $exe
 Copy-Item $GameProbe (Join-Path $game.FullName 'fheroes2KM.exe')
 Set-Content -LiteralPath $ini -Encoding ASCII -Value @('# keep me', 'external.setting = 47', 'conscription.mode = 2', 'conscription.gold_per_peasant = 65')
@@ -115,14 +115,15 @@ try {
     [void][Native]::SendMessage($window, 0x111, [IntPtr]310, [IntPtr]::Zero)
     Write-Output 'The Readme control and Advanced panels passed.'
     Write-Output "The base fee at startup is $(Read-ControlText ([Native]::GetDlgItem($panel, 203)))."
+    $saveStatus = [Native]::GetDlgItem($window, 319)
     if (-not [Native]::PostMessage($window, 0x111, [IntPtr]303, [IntPtr]::Zero)) { throw 'Cannot click Save.' }
     Wait-Until {
         if ([Native]::FindWindow('#32770', 'Invalid value') -ne [IntPtr]::Zero) { throw 'The launcher rejected a setting from the fixture on Save.' }
         if ([Native]::FindWindow('#32770', 'Knight Mod Launcher') -ne [IntPtr]::Zero) { throw 'The launcher reported an error while saving the fixture.' }
-        (Get-Content -LiteralPath $ini -Raw) -match 'training_grounds.show_artwork = 1'
-    } 'Saving did not update the actual INI.'
+        (Read-ControlText $saveStatus) -eq 'Settings saved.'
+    } 'The launcher did not report that settings were saved.'
     $settings = Get-Content -LiteralPath $ini -Raw
-    foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65')) {
+    foreach ($line in @('# keep me', 'external.setting = 47', 'conscription.gold_per_peasant = 65', 'training_grounds.show_artwork = 1')) {
         if (-not $settings.Contains($line)) { throw "Saving lost an existing value: $line" }
     }
     Write-Output 'The existing INI and mode presets passed.'

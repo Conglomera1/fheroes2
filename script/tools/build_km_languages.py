@@ -14,6 +14,13 @@ MODE2 = [
     "Conscription",
     "CHANGE",
 ]
+HIDDEN_HEROES = [
+    "Yog",
+    "Lord Haart",
+    "Yog has turned his back on the teachings of Bracada. He has no use for a spell book.",
+    "Having proven himself a worthy Barbarian, Yog no longer feels the need to reject his magical heritage.",
+    "Rumors of Lord Haart's ties to a Necromantic cult may not have been entirely unfounded.",
+]
 
 def load_po(path):
     catalog={}; entry={}; field=None; fuzzy=False
@@ -56,7 +63,8 @@ def mo(catalog,cp):
     return struct.pack('<7I',0x950412de,0,n,28,28+8*n,0,0)+b''.join(struct.pack('<2I',*x) for x in it+vt)+ids+values
 base=rows('core.tsv');extra=rows('extra.tsv');out=pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else ROOT/'files/lang';out.mkdir(parents=True,exist_ok=True)
 mode2 = rows('mode2.tsv')
-assert set(base) == set(extra) == set(mode2)
+hidden_heroes = rows('hidden-heroes.tsv')
+assert set(base) == set(extra) == set(mode2) == set(hidden_heroes)
 assert {p.stem for p in (ROOT/'files/lang').glob('*.po')} == set(base)
 for lang,translations in base.items():
     assert len(extra[lang]) == len(EXTRA), lang
@@ -64,6 +72,7 @@ for lang,translations in base.items():
     translations[3]+='\n\n'
     updates=dict(zip(KEYS+EXTRA,translations+extra[lang]))
     updates.update(zip(MODE2, mode2[lang], strict=True))
+    updates.update(zip(HIDDEN_HEROES, hidden_heroes[lang], strict=True))
     catalog=load_po(ROOT/'files/lang'/f'{lang}.po');catalog.update(updates);cp=CP[lang]
     for k,v in updates.items():assert unicodedata.normalize('NFC',encode(v,cp).decode(cp))==unicodedata.normalize('NFC',v),(lang,'unrepresentable translation',v)
     for k,v in updates.items():assert sorted(re.findall(r'%\{[^}]+\}',k))==sorted(re.findall(r'%\{[^}]+\}',v)),(lang,k)

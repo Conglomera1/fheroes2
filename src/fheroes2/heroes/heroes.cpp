@@ -53,6 +53,7 @@
 #include "ground.h"
 #include "icn.h"
 #include "image.h"
+#include "image_tool.h"
 #include "kingdom.h"
 #include "logging.h"
 #include "luck.h"
@@ -121,7 +122,10 @@ namespace
         gettext_noop( "Elderian" ), gettext_noop( "Ceallach" ), gettext_noop( "Drakonia" ), gettext_noop( "Martine" ), gettext_noop( "Jarkonas" ),
 
         // Debug hero. Should not be used anywhere outside the development!
-        "Debug Hero" };
+        "Debug Hero",
+
+        // Knight Mod easter eggs.
+        gettext_noop( "Yog" ), gettext_noop( "Lord Haart" ) };
 
     std::pair<int, int> getHeroIdRangeForRace( const int race )
     {
@@ -255,6 +259,16 @@ Heroes::Heroes( const int heroId, const int race )
     , _race( race )
 {
     _army.Reset( true );
+
+    if ( _id == YOG ) {
+        attack = 2;
+        defense = 1;
+        power = 2;
+        knowledge = 1;
+        _secondarySkills = Skill::SecSkills();
+        _secondarySkills.AddSkill( Skill::Secondary( Skill::Secondary::WISDOM, Skill::Level::BASIC ) );
+        _secondarySkills.AddSkill( Skill::Secondary( Skill::Secondary::PATHFINDING, Skill::Level::BASIC ) );
+    }
 
     // Add to debug hero a lot of stuff.
     if ( _id == DEBUG_HERO ) {
@@ -1617,6 +1631,16 @@ bool Heroes::BuySpellBook( const Castle & castle )
         return false;
     }
 
+    if ( IsFullBagArtifacts() ) {
+        if ( isControlHuman() ) {
+            fheroes2::showStandardTextMessage(
+                GetName(),
+                _( "You must purchase a spell book to use the mage guild, but you currently have no room for a spell book. Try giving one of your artifacts to another hero." ),
+                Dialog::OK );
+        }
+        return false;
+    }
+
     const Funds payment = PaymentConditions::BuySpellBook();
     Kingdom & kingdom = GetKingdom();
 
@@ -1639,9 +1663,16 @@ bool Heroes::BuySpellBook( const Castle & castle )
         header.append( _( "Do you wish to buy one?" ) );
 
         const fheroes2::ArtifactDialogElement artifactUI( Artifact::MAGIC_BOOK );
-        if ( fheroes2::showStandardTextMessage( GetName(), std::move( header ), Dialog::YES | Dialog::NO, { &artifactUI } ) == Dialog::NO ) {
+        if ( fheroes2::showStandardTextMessage( GetName(), std::move( header ), Dialog::YES | Dialog::NO, { &artifactUI } ) != Dialog::YES ) {
             return false;
         }
+    }
+
+    if ( _id == YOG && GetLevel() < 10 ) {
+        if ( isControlHuman() ) {
+            fheroes2::showStandardTextMessage( GetName(), _( "Yog has turned his back on the teachings of Bracada. He has no use for a spell book." ), Dialog::OK );
+        }
+        return false;
     }
 
     if ( SpellBookActivate() ) {
@@ -1854,19 +1885,35 @@ void Heroes::_levelUp( const bool skipSecondary, const bool autoselect, const bo
 {
     const HeroSeedsForLevelUp seeds = _getSeedsForLevelUp();
 
-    // level up primary skill
-    const int primarySkill = Skill::Primary::LevelUp( _race, GetLevel(), seeds.seedPrimarySkill );
+    const int level = GetLevel();
+    int progressionRace = _race;
+    if ( level >= 10 && ( _id == YOG || _id == LORDHAART ) ) {
+        progressionRace = _id == YOG ? Race::WZRD : Race::NECR;
+        if ( level == 10 && !isMapLoading && isControlHuman() ) {
+            const char * message = _id == YOG ? _( "Having proven himself a worthy Barbarian, Yog no longer feels the need to reject his magical heritage." )
+                                              : _( "Rumors of Lord Haart's ties to a Necromantic cult may not have been entirely unfounded." );
+            fheroes2::showStandardTextMessage( GetName(), message, Dialog::OK );
+        }
+    }
+
+    const int primarySkill = Skill::Primary::LevelUp( progressionRace, level, seeds.seedPrimarySkill );
 
     DEBUG_LOG( DBG_GAME, DBG_INFO, "for " << GetName() << ", up " << Skill::Primary::String( primarySkill ) )
 
     if ( !skipSecondary ) {
-        _levelUpSecondarySkill( seeds, primarySkill, autoselect, isMapLoading );
+        _levelUpSecondarySkill( seeds, primarySkill, progressionRace, autoselect, isMapLoading );
     }
 }
 
-void Heroes::_levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, const int primary, const bool autoselect, const bool isMapLoading )
+void Heroes::_levelUpSecondarySkill( const HeroSeedsForLevelUp & seeds, const int primary, const int progressionRace, const bool autoselect, const bool isMapLoading )
 {
-    const auto [sec1, sec2] = _secondarySkills.FindSkillsForLevelUp( _race, seeds.seedSecondarySkill1, seeds.seedSecondarySkill2 );
+    const bool reserveNecromancy = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::NECROMANCY ) == Skill::Level::NONE;
+    const bool reserveWisdom = _id == LORDHAART && _secondarySkills.GetLevel( Skill::Secondary::WISDOM ) == Skill::Level::NONE;
+    const int freeSkillSlots = maxNumOfSecSkills - _secondarySkills.Count();
+    const bool offerNecromancy = reserveNecromancy && progressionRace == Race::NECR && freeSkillSlots > 0;
+    const auto [sec1, sec2]
+        = _secondarySkills.FindSkillsForLevelUp( progressionRace, seeds.seedSecondarySkill1, seeds.seedSecondarySkill2,
+                                                 offerNecromancy ? Skill::Secondary::NECROMANCY : Skill::Secondary::UNKNOWN, reserveNecromancy, reserveWisdom );
 
     if ( sec1.isValid() && sec2.isValid() ) {
         DEBUG_LOG( DBG_GAME, DBG_INFO, GetName() << " select " << Skill::Secondary::String( sec1.Skill() ) << " or " << Skill::Secondary::String( sec2.Skill() ) )
@@ -2071,6 +2118,46 @@ void Heroes::Move2Dest( const int32_t destinationIndex )
 
 const fheroes2::Sprite & Heroes::GetPortrait( const int heroId, const int portraitType )
 {
+    if ( heroId == YOG || heroId == LORDHAART ) {
+        static const auto load = []( const char * portraitFile, const char * miniatureFile ) {
+            std::array<fheroes2::Sprite, 3> sizes;
+            std::string path;
+            if ( Settings::findKnightModFile( "files/data", portraitFile, path ) && fheroes2::Load( path, sizes[0] ) ) {
+                sizes[1].resize( 50, 47 );
+                fheroes2::Resize( sizes[0], sizes[1] );
+            }
+            if ( Settings::findKnightModFile( "files/data", miniatureFile, path ) ) {
+                fheroes2::Load( path, sizes[2] );
+            }
+            return sizes;
+        };
+        const auto & sizes = [heroId]() -> const std::array<fheroes2::Sprite, 3> & {
+            if ( heroId == YOG ) {
+                static const auto yog = load( "yog-portrait.png", "yog-mini.png" );
+                return yog;
+            }
+            static const auto haart = load( "lord-haart-portrait.png", "lord-haart-mini.png" );
+            return haart;
+        }();
+        switch ( portraitType ) {
+        case PORT_BIG:
+            if ( !sizes[0].empty() )
+                return sizes[0];
+            break;
+        case PORT_MEDIUM:
+            if ( !sizes[1].empty() )
+                return sizes[1];
+            break;
+        case PORT_SMALL:
+            if ( !sizes[2].empty() )
+                return sizes[2];
+            break;
+        default:
+            break;
+        }
+        return GetPortrait( heroId == YOG ? THUNDAX : LORDKILBURN, portraitType );
+    }
+
     if ( isValidId( heroId ) )
         switch ( portraitType ) {
         case PORT_BIG:
@@ -2326,7 +2413,25 @@ void AllHeroes::Init()
         _heroes.emplace_back( std::make_unique<Heroes>( Heroes::UNKNOWN, Race::KNGT ) );
     }
 
+    _heroes.emplace_back( std::make_unique<Heroes>() ); // Yog
+    _heroes.emplace_back( std::make_unique<Heroes>() ); // Lord Haart
+
     assert( _heroes.size() == Heroes::HEROES_COUNT );
+}
+
+Heroes * AllHeroes::unlockHiddenHero( const int heroId )
+{
+    if ( heroId != Heroes::YOG && heroId != Heroes::LORDHAART ) {
+        return nullptr;
+    }
+
+    auto & slot = _heroes[heroId];
+    if ( slot->isValid() ) {
+        return nullptr;
+    }
+
+    slot = std::make_unique<Heroes>( heroId, heroId == Heroes::YOG ? Race::BARB : Race::KNGT );
+    return slot.get();
 }
 
 Heroes * AllHeroes::GetHeroForHire( const int race, const int heroIDToIgnore ) const
@@ -2356,8 +2461,8 @@ Heroes * AllHeroes::GetHeroForHire( const int race, const int heroIDToIgnore ) c
         for ( const Heroes * hero : *this ) {
             assert( hero != nullptr );
 
-            // Only regular (non-campaign) heroes are available for hire
-            if ( hero->GetID() > maxHeroId ) {
+            // Campaign heroes are offered separately. The hidden heroes enter the pool after being unlocked.
+            if ( hero->GetID() > maxHeroId && hero->GetID() != Heroes::YOG && hero->GetID() != Heroes::LORDHAART ) {
                 continue;
             }
 
@@ -2675,7 +2780,7 @@ IStreamBase & operator>>( IStreamBase & stream, AllHeroes & heroes )
     const uint32_t size = stream.get32();
 
     heroesRef.clear();
-    heroesRef.reserve( size );
+    heroesRef.reserve( std::max<uint32_t>( size, Heroes::HEROES_COUNT ) );
 
     static_assert( LAST_SUPPORTED_FORMAT_VERSION < FORMAT_VERSION_1010_RELEASE, "Remove the logic below." );
     if ( Game::GetVersionOfCurrentSaveFile() < FORMAT_VERSION_1010_RELEASE ) {
@@ -2700,6 +2805,12 @@ IStreamBase & operator>>( IStreamBase & stream, AllHeroes & heroes )
             stream >> *hero;
 
             heroesRef.emplace_back( std::move( hero ) );
+        }
+    }
+
+    if ( Game::GetVersionOfCurrentSaveFile() < FORMAT_VERSION_KNIGHT_HIDDEN_HEROES ) {
+        while ( heroesRef.size() < Heroes::HEROES_COUNT ) {
+            heroesRef.emplace_back( std::make_unique<Heroes>() );
         }
     }
 

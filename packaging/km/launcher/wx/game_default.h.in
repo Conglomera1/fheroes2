@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+#pragma once
+
+inline constexpr char gameDefaultIni[] = R"KM_INI(@KM_GAME_DEFAULT_INI@)KM_INI";

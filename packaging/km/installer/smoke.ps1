@@ -95,6 +95,13 @@ New-Item -ItemType Directory $userSettings -Force | Out-Null
 Set-Content -LiteralPath "$userSettings/knight_mod.ini" -Value 'test-existing-settings'
 $userIniHash = (Get-FileHash -LiteralPath "$userSettings/knight_mod.ini").Hash
 
+$programs = [Environment]::GetFolderPath('CommonPrograms')
+$fheroes2Menu = Join-Path $programs 'fheroes2'
+$startMenu = Join-Path $fheroes2Menu 'Knight Mod'
+$baseLink = Join-Path $fheroes2Menu 'fheroes2.lnk'
+$previousMenu = Join-Path $programs 'Knight Mod'
+$shortcuts = New-Object -ComObject WScript.Shell
+
 foreach ($arch in @('x86', 'x64')) {
     $directory = Join-Path $work "fheroes2 $arch"
     $original = Snapshot $directory
@@ -103,6 +110,14 @@ foreach ($arch in @('x86', 'x64')) {
         $options = '/LANG=french /TASKS='
         $locale = 'fr'
         $readme = 'Readme_FR.txt'
+        New-Item -ItemType Directory $fheroes2Menu,$previousMenu -Force | Out-Null
+        $link = $shortcuts.CreateShortcut($baseLink)
+        $link.TargetPath = "$directory/fheroes2.exe"
+        $link.Save()
+        $baseLinkHash = (Get-FileHash -LiteralPath $baseLink).Hash
+        $legacyLink = $shortcuts.CreateShortcut("$previousMenu/Readme.lnk")
+        $legacyLink.TargetPath = "$directory/Readme.txt"
+        $legacyLink.Save()
     } else {
         $options = "/DIR=`"$directory`" /LANG=english /TASKS="
         $locale = 'en'
@@ -125,17 +140,30 @@ foreach ($arch in @('x86', 'x64')) {
         throw 'The launcher language does not match the installer'
     }
 
-    $startMenu = Join-Path ([Environment]::GetFolderPath('CommonPrograms')) 'Knight Mod'
-    $shortcuts = New-Object -ComObject WScript.Shell
+    if (($arch -eq 'x86') -and (Test-Path -LiteralPath "$previousMenu/Readme.lnk")) {
+        throw 'The old Start menu shortcut was not removed'
+    }
     $readmeLink = $shortcuts.CreateShortcut("$startMenu/Readme.lnk").TargetPath
     if ([IO.Path]::GetFullPath($readmeLink) -ne [IO.Path]::GetFullPath("$directory/Knight Mod/docs/$readme")) {
         throw 'The Start menu Readme shortcut points to the wrong language or folder'
+    }
+
+    $uninstallShortcut = if ($locale -eq 'fr') { 'Désinstaller Knight Mod.lnk' } else { 'Uninstall Knight Mod.lnk' }
+    $uninstallLink = $shortcuts.CreateShortcut((Join-Path $startMenu $uninstallShortcut))
+    if ($uninstallLink.IconLocation -notmatch '[/\\]shell32\.dll,\s*31$') {
+        throw "Uninstall shortcut uses the wrong icon: $($uninstallLink.IconLocation)"
     }
 
     $uninstallers = @(Get-ChildItem "$directory/Knight Mod/uninstall" -Filter 'unins*.exe')
     if ($uninstallers.Count -ne 1) { throw 'Missing standalone Knight Mod uninstaller' }
     RunSetup $uninstallers[0].FullName "uninstall-$arch" ''
     AssertPreserved $directory $original
+    if (Test-Path -LiteralPath $startMenu) { throw 'The Knight Mod Start menu group was not removed' }
+    if ($arch -eq 'x86') {
+        if ((Get-FileHash -LiteralPath $baseLink).Hash -ne $baseLinkHash) { throw 'The original Start menu shortcut changed' }
+        Remove-Item -LiteralPath $baseLink
+        Remove-Item -LiteralPath $fheroes2Menu
+    }
     $remaining = @((Snapshot $directory).Keys | Where-Object { !$original.ContainsKey($_) })
     if ($remaining.Count) {
         Get-Content -LiteralPath "$work/uninstall-$arch.log" | Select-Object -Last 60

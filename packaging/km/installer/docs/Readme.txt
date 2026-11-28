@@ -1,7 +1,7 @@
 ================================================================
                            KNIGHT MOD
                           Version 1.1b
-                  Published: November 27, 2026
+                  Published: November 28, 2026
 ================================================================
 
 What is the Knight Mod?
@@ -35,6 +35,13 @@ separate mechanics and later brought together.
 The first public beta combined both mechanics and added CPU support.
 Version 1.1b introduces adjustable daily conscription in each town and
 improves how CPU players supply and use their Training Grounds.
+
+Two heroes from the original Heroes of Might and Magic are hiding in
+Knight Mod. To find them, type their name on the build screen of a
+castle of their faction. Look for a Barbarian who turned his back on
+magic and a Knight rumored to have ties to a necromantic cult.
+
+Recruit them and keep leveling them up. Both have a surprise in store.
 
 What does it do?
 ----------------
@@ -119,7 +126,7 @@ fheroes2 installation. Its architecture must match that installation.
 How do I install and start Knight Mod on Windows?
 -------------------------------------------------
 
-With Knight-Mod-Setup.exe, select the folder containing fheroes2.exe.
+With fheroes2_KM-1.1b_Windows_Setup.exe, select the folder containing fheroes2.exe.
 For manual installation, follow Installation.txt in the main ZIP.
 
 Open KnightModLauncher.exe from the installation folder or use the

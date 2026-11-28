@@ -8,6 +8,7 @@
 #include <shlobj.h>
 
 #include "settings.h"
+#include "settings_files.h"
 
 #include <filesystem>
 #include <memory>
@@ -53,6 +54,7 @@ namespace
     constexpr int conversionId = 316;
     constexpr int requirementsId = 317;
     constexpr int panelId = 318;
+    constexpr int statusId = 319;
 
     struct ComRelease
     {
@@ -115,148 +117,6 @@ namespace
         return text;
     }
 
-    std::wstring env( const wchar_t * name )
-    {
-        const DWORD length = GetEnvironmentVariableW( name, nullptr, 0 );
-        if ( !length )
-            return {};
-        std::wstring value( length, L'\0' );
-        const DWORD used = GetEnvironmentVariableW( name, value.data(), length );
-        if ( used >= length )
-            return {};
-        value.resize( used );
-        return value;
-    }
-
-    fs::path configDirectory()
-    {
-        const std::wstring home = env( L"HOME" );
-        if ( !home.empty() )
-            return fs::path( home ) / L".fheroes2";
-        const std::wstring appData = env( L"APPDATA" );
-        if ( !appData.empty() )
-            return fs::path( appData ) / L"fheroes2";
-        wchar_t folder[MAX_PATH]{};
-        if ( SUCCEEDED( SHGetFolderPathW( nullptr, CSIDL_APPDATA, nullptr, SHGFP_TYPE_CURRENT, folder ) ) )
-            return fs::path( folder ) / L"fheroes2";
-        throw std::runtime_error( "AppData" );
-    }
-
-    fs::path executableDirectory()
-    {
-        std::wstring path( 32768, L'\0' );
-        const DWORD length = GetModuleFileNameW( nullptr, path.data(), static_cast<DWORD>( path.size() ) );
-        if ( !length || length >= path.size() )
-            throw std::runtime_error( "Launcher path" );
-        path.resize( length );
-        return fs::path( path ).parent_path();
-    }
-
-    struct FileCloser
-    {
-        void operator()( void * file ) const { CloseHandle( file ); }
-    };
-
-    std::unique_ptr<void, FileCloser> openFile( const wchar_t * path, const DWORD access, const DWORD share, const DWORD disposition )
-    {
-        // The filesystem runtime in newer MSVC toolsets can import CreateFile2.
-        const HANDLE file = CreateFileW( path, access, share, nullptr, disposition, FILE_ATTRIBUTE_NORMAL, nullptr );
-        return std::unique_ptr<void, FileCloser>( file == INVALID_HANDLE_VALUE ? nullptr : file );
-    }
-
-    fs::path absolutePath( const fs::path & path )
-    {
-        const DWORD capacity = GetFullPathNameW( path.c_str(), 0, nullptr, nullptr );
-        if ( !capacity )
-            throw std::runtime_error( "Absolute path" );
-        std::wstring value( capacity, L'\0' );
-        const DWORD length = GetFullPathNameW( path.c_str(), capacity, value.data(), nullptr );
-        if ( !length || length >= capacity )
-            throw std::runtime_error( "Absolute path" );
-        value.resize( length );
-        return fs::path( value );
-    }
-
-    bool fileExists( const fs::path & path )
-    {
-        const DWORD attributes = GetFileAttributesW( path.c_str() );
-        if ( attributes != INVALID_FILE_ATTRIBUTES )
-            return true;
-        const DWORD error = GetLastError();
-        if ( error == ERROR_FILE_NOT_FOUND || error == ERROR_PATH_NOT_FOUND )
-            return false;
-        throw std::runtime_error( "File attributes" );
-    }
-
-    void createDirectories( const fs::path & path )
-    {
-        const fs::path full = absolutePath( path );
-        const int result = SHCreateDirectoryExW( nullptr, full.c_str(), nullptr );
-        if ( result == ERROR_SUCCESS )
-            return;
-        const DWORD attributes = GetFileAttributesW( full.c_str() );
-        if ( attributes == INVALID_FILE_ATTRIBUTES || !( attributes & FILE_ATTRIBUTE_DIRECTORY ) )
-            throw std::runtime_error( "Create directory" );
-    }
-
-    std::string readFile( const fs::path & path )
-    {
-        const auto file = openFile( path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, OPEN_EXISTING );
-        if ( !file )
-            throw std::runtime_error( "Open file for reading" );
-        std::string contents;
-        char data[16384];
-        while ( true ) {
-            DWORD read = 0;
-            if ( !ReadFile( file.get(), data, sizeof( data ), &read, nullptr ) )
-                throw std::runtime_error( "Read contents" );
-            if ( !read )
-                return contents;
-            contents.append( data, read );
-        }
-    }
-
-    void writeFile( const fs::path & path, const std::string & contents )
-    {
-        wchar_t temporary[MAX_PATH]{};
-        if ( !GetTempFileNameW( path.parent_path().c_str(), L"km", 0, temporary ) )
-            throw std::runtime_error( "Temporary file" );
-        try {
-            {
-                const auto file = openFile( temporary, GENERIC_WRITE, 0, TRUNCATE_EXISTING );
-                if ( !file )
-                    throw std::runtime_error( "Open settings for writing" );
-                std::string_view remaining( contents );
-                while ( !remaining.empty() ) {
-                    const auto chunk = static_cast<DWORD>( std::min( remaining.size(), size_t{ 65536 } ) );
-                    DWORD written = 0;
-                    if ( !WriteFile( file.get(), remaining.data(), chunk, &written, nullptr ) || !written )
-                        throw std::runtime_error( "Write settings" );
-                    remaining.remove_prefix( written );
-                }
-            }
-            if ( !MoveFileExW( temporary, path.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH ) )
-                throw std::runtime_error( "Replace settings" );
-        }
-        catch ( ... ) {
-            DeleteFileW( temporary );
-            throw;
-        }
-    }
-
-    bool startGame( const fs::path & app, const fs::path & folder )
-    {
-        STARTUPINFOW startup{};
-        startup.cb = sizeof( startup );
-        PROCESS_INFORMATION process{};
-        std::wstring command = L"\"" + app.wstring() + L"\"";
-        if ( !CreateProcessW( app.c_str(), command.data(), nullptr, nullptr, FALSE, 0, nullptr, folder.c_str(), &startup, &process ) )
-            return false;
-        CloseHandle( process.hThread );
-        CloseHandle( process.hProcess );
-        return true;
-    }
-
     std::string narrowNumber( const std::wstring & text )
     {
         std::string result;
@@ -268,43 +128,31 @@ namespace
         return std::string( km::trim( result ) );
     }
 
-    bool matches( const fs::path & first, const fs::path & second )
-    {
-        if ( _wcsicmp( absolutePath( first ).c_str(), absolutePath( second ).c_str() ) == 0 )
-            return true;
-        constexpr DWORD share = FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
-        const auto firstFile = openFile( first.c_str(), 0, share, OPEN_EXISTING );
-        const auto secondFile = openFile( second.c_str(), 0, share, OPEN_EXISTING );
-        BY_HANDLE_FILE_INFORMATION a{}, b{};
-        return firstFile && secondFile && GetFileInformationByHandle( firstFile.get(), &a ) && GetFileInformationByHandle( secondFile.get(), &b )
-               && a.dwVolumeSerialNumber == b.dwVolumeSerialNumber && a.nFileIndexHigh == b.nFileIndexHigh && a.nFileIndexLow == b.nFileIndexLow;
-    }
-
     class Launcher
     {
     public:
         Launcher( HINSTANCE instance, const int show )
             : _instance( instance )
-            , _installation( executableDirectory() )
+            , _installation( km::files::installationDirectory() )
             , _modDirectory( _installation / L"Knight Mod" )
-            , _config( configDirectory() )
+            , _config( km::files::configurationDirectory() )
             , _ini( _config / L"knight_mod.ini" )
             , _localeFile( _config / L"knight_mod_launcher.language" )
         {
             _french = PRIMARYLANGID( GetUserDefaultUILanguage() ) == LANG_FRENCH;
-            if ( fileExists( _localeFile ) )
-                _french = km::trim( readFile( _localeFile ) ) == "fr";
-            else if ( fileExists( _modDirectory / L"KnightModLauncher.language" ) )
-                _french = km::trim( readFile( _modDirectory / L"KnightModLauncher.language" ) ) == "fr";
-            else if ( fileExists( _installation / L"KnightModLauncher.language" ) )
-                _french = km::trim( readFile( _installation / L"KnightModLauncher.language" ) ) == "fr";
+            if ( km::files::isFile( _localeFile ) )
+                _french = km::trim( km::files::readText( _localeFile ) ) == "fr";
+            else if ( km::files::isFile( _modDirectory / L"KnightModLauncher.language" ) )
+                _french = km::trim( km::files::readText( _modDirectory / L"KnightModLauncher.language" ) ) == "fr";
+            else if ( km::files::isFile( _installation / L"KnightModLauncher.language" ) )
+                _french = km::trim( km::files::readText( _installation / L"KnightModLauncher.language" ) ) == "fr";
 
             const std::wstring args = GetCommandLineW();
             if ( args.find( L"--language=" ) != args.npos )
                 _french = args.find( L"--language=fr" ) != args.npos;
             _values = km::defaults();
-            if ( fileExists( _ini ) )
-                km::load( readFile( _ini ), _values, false );
+            if ( km::files::isFile( _ini ) )
+                km::load( km::files::readText( _ini ), _values, false );
             _saved = _values;
 
             if ( const auto dc = GetDC( nullptr ) ) {
@@ -500,7 +348,7 @@ namespace
             SendMessageW( _quote, WM_SETFONT, reinterpret_cast<WPARAM>( _ui.strong ), TRUE );
             _saveProfile = button( saveProfileId, _panel );
             _loadProfile = button( loadProfileId, _panel );
-            _status = control( L"STATIC", L"", SS_CENTERIMAGE | SS_ENDELLIPSIS );
+            _status = control( L"STATIC", L"", SS_CENTERIMAGE | SS_ENDELLIPSIS, statusId );
             _defaults = button( defaultsId );
             _guide = button( guideId );
             _readme = button( readmeId );
@@ -1071,7 +919,7 @@ namespace
 
         std::optional<fs::path> profilePath( const bool save )
         {
-            createDirectories( _config );
+            km::files::ensureDirectory( _config );
             IFileDialog * nativeDialog = nullptr;
             if ( FAILED( CoCreateInstance( save ? CLSID_FileSaveDialog : CLSID_FileOpenDialog, nullptr, CLSCTX_INPROC_SERVER,
                                            IID_PPV_ARGS( &nativeDialog ) ) ) )
@@ -1111,12 +959,12 @@ namespace
         {
             if ( !capture() )
                 return;
-            createDirectories( _config );
-            const std::string existing = fileExists( _ini ) ? readFile( _ini ) : "# Knight Mod settings\r\n";
-            writeFile( _ini, km::updateIni( existing, _values ) );
+            km::files::ensureDirectory( _config );
+            const std::string existing = km::files::isFile( _ini ) ? km::files::readText( _ini ) : "# Knight Mod settings\r\n";
+            km::files::replaceText( _ini, km::updateIni( existing, _values ) );
             _saved = _values;
             status( tr( L"Réglages enregistrés.", L"Settings saved." ) );
-            if ( play && !startGame( _installation / L"fheroes2KM.exe", _installation ) )
+            if ( play && !km::files::launchGame( _installation ) )
                 error( L"Impossible de lancer fheroes2KM.exe. Vérifier que le lanceur et le jeu sont dans le même dossier.", L"Could not start fheroes2KM.exe. Place the launcher next to the game." );
         }
 
@@ -1127,23 +975,35 @@ namespace
             const auto path = profilePath( saveProfile );
             if ( !path )
                 return;
+            if ( !km::files::isIniProfile( *path ) ) {
+                error( L"Choisir un profil au format .ini.", L"Choose a profile in .ini format." );
+                return;
+            }
             if ( saveProfile ) {
-                if ( matches( *path, _ini ) ) {
+                if ( km::files::sameFile( *path, _ini ) ) {
                     error( L"Choisis un nom différent de knight_mod.ini.", L"Choose a name other than knight_mod.ini." );
                     return;
                 }
-                writeFile( *path, km::updateIni( "# Knight Mod profile\r\n", _values ) );
+                km::files::replaceText( *path, km::updateIni( "# Knight Mod profile\r\n", _values ) );
                 status( tr( L"Profil enregistré.", L"Profile saved." ) );
+                return;
             }
-            else {
-                if ( !km::load( readFile( *path ), _values, true ) ) {
-                    error( L"Ce profil ne contient pas de réglages Knight Mod valides.", L"This profile does not contain valid Knight Mod settings." );
-                    return;
-                }
-                setControls();
-                fitToContent();
-                status( tr( L"Profil chargé. Enregistre ou lance le jeu.", L"Profile loaded. Save or play to apply." ) );
+
+            std::string contents;
+            try {
+                contents = km::files::readText( *path );
             }
+            catch ( const km::files::FileTooLarge & ) {
+                error( L"Le profil dépasse la taille maximale de 1 Mio.", L"The profile is larger than 1 MiB." );
+                return;
+            }
+            if ( !km::load( contents, _values, true ) ) {
+                error( L"Ce profil ne contient pas de réglages Knight Mod valides.", L"This profile does not contain valid Knight Mod settings." );
+                return;
+            }
+            setControls();
+            fitToContent();
+            status( tr( L"Profil chargé. Enregistre ou lance le jeu.", L"Profile loaded. Save or play to apply." ) );
         }
 
         void open( const fs::path & path )
@@ -1156,13 +1016,13 @@ namespace
         void openDocumentation( const wchar_t * frenchName, const wchar_t * englishName )
         {
             auto directory = _modDirectory / L"docs";
-            if ( !fs::is_directory( directory ) )
+            if ( !km::files::isDirectory( directory ) )
                 directory = _installation / L"docs" / L"Knight Mod";
             const auto english = directory / englishName;
             const auto french = directory / frenchName;
-            if ( _french && fileExists( french ) )
+            if ( _french && km::files::isFile( french ) )
                 open( french );
-            else if ( fileExists( english ) )
+            else if ( km::files::isFile( english ) )
                 open( english );
             else
                 error( L"Document introuvable dans Knight Mod\\docs.", L"Document not found in Knight Mod\\docs." );
@@ -1184,8 +1044,8 @@ namespace
             _french = chosen == frenchId;
             localize();
             setControls();
-            createDirectories( _config );
-            writeFile( _localeFile, _french ? "fr\n" : "en\n" );
+            km::files::ensureDirectory( _config );
+            km::files::replaceText( _localeFile, _french ? "fr\n" : "en\n" );
         }
 
         void changeMode( const double mode )
@@ -1286,7 +1146,7 @@ namespace
                 InvalidateRect( _requirements, nullptr, FALSE );
                 break;
             case folderId:
-                createDirectories( _config );
+                km::files::ensureDirectory( _config );
                 open( _config );
                 break;
             case quitId:
