@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
-#include "settings.h"
+#include "documented_ini.h"
 #include "settings_files.h"
 
 #include <wx/collpane.h>
@@ -10,6 +10,8 @@
 #include <wx/tipwin.h>
 #include <wx/tokenzr.h>
 #include <wx/wx.h>
+#include <wx/msw/dc.h>
+#include <wx/msw/wrapwin.h>
 
 #include <array>
 #include <initializer_list>
@@ -26,9 +28,76 @@ namespace
     const wxColour muted( 77, 93, 113 );
     const wxColour pale( 245, 248, 252 );
     const wxColour wash( 238, 244, 251 );
+    const wxColour border( 174, 190, 209 );
+    const wxColour rule( 217, 225, 233 );
     constexpr int firstFieldId = 200;
     constexpr int firstTabId = 310;
     constexpr int statusId = 319;
+
+    enum class ButtonStyle { Regular, Header, Primary, Tab };
+
+    class LauncherButton final : public wxButton
+    {
+    public:
+        LauncherButton( wxWindow * parent, const int id, const wxString & label, const ButtonStyle style )
+            : wxButton( parent, id, label, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT )
+            , _style( style )
+        {
+            MakeOwnerDrawn();
+        }
+
+        void select( const bool selected )
+        {
+            _selected = selected;
+            Refresh();
+        }
+
+    protected:
+        wxSize DoGetBestSize() const override
+        {
+            const int padding = _style == ButtonStyle::Tab ? 24 : 20;
+            return wxSize( GetTextExtent( GetLabel() ).x + FromDIP( padding ), FromDIP( _style == ButtonStyle::Tab ? 40 : 30 ) );
+        }
+
+        bool MSWOnDraw( WXDRAWITEMSTRUCT * item ) override
+        {
+            const auto & native = *reinterpret_cast<const DRAWITEMSTRUCT *>( item );
+            const wxRect bounds( native.rcItem.left, native.rcItem.top, native.rcItem.right - native.rcItem.left, native.rcItem.bottom - native.rcItem.top );
+            wxDCTemp dc( native.hDC, bounds.GetSize() );
+            const bool down = ( native.itemState & ODS_SELECTED ) != 0;
+            const bool focused = ( native.itemState & ODS_FOCUS ) != 0;
+            const bool primary = _style == ButtonStyle::Primary;
+            const bool header = _style == ButtonStyle::Header;
+            const auto surface = GetParent()->GetBackgroundColour();
+            dc.SetPen( *wxTRANSPARENT_PEN );
+            dc.SetBrush( wxBrush( surface ) );
+            dc.DrawRectangle( bounds );
+            if ( _style == ButtonStyle::Tab ) {
+                if ( _selected ) {
+                    dc.SetBrush( wxBrush( blue ) );
+                    dc.DrawRectangle( bounds.x + FromDIP( 8 ), bounds.GetBottom() - FromDIP( 2 ), bounds.width - FromDIP( 16 ), FromDIP( 2 ) );
+                }
+            }
+            else {
+                dc.SetPen( wxPen( primary ? blue : border ) );
+                dc.SetBrush( wxBrush( primary ? ( down ? navy : blue ) : header ? ( down ? blue : navy ) : ( down ? wash : *wxWHITE ) ) );
+                dc.DrawRoundedRectangle( wxRect( bounds ).Deflate( 1 ), FromDIP( 5 ) );
+            }
+            if ( focused && ( native.itemState & ODS_NOFOCUSRECT ) == 0 ) {
+                dc.SetBrush( *wxTRANSPARENT_BRUSH );
+                dc.SetPen( wxPen( primary || header ? *wxWHITE : blue, 1, wxPENSTYLE_DOT ) );
+                dc.DrawRoundedRectangle( wxRect( bounds ).Deflate( FromDIP( 3 ) ), FromDIP( 4 ) );
+            }
+            dc.SetFont( primary || _selected ? GetFont().Bold() : GetFont() );
+            dc.SetTextForeground( primary || header ? *wxWHITE : _selected ? blue : ink );
+            dc.DrawLabel( GetLabel(), bounds, wxALIGN_CENTER );
+            return true;
+        }
+
+    private:
+        ButtonStyle _style;
+        bool _selected = false;
+    };
 
     struct SettingRow
     {
@@ -115,9 +184,10 @@ namespace
         }
 
         template <typename Handler>
-        wxButton * button( wxWindow * parent, const wxString & label, Handler handler, const int id = wxID_ANY )
+        LauncherButton * button( wxWindow * parent, const wxString & label, Handler handler, const int id = wxID_ANY,
+                                 const ButtonStyle style = ButtonStyle::Regular )
         {
-            auto * item = new wxButton( parent, id, label );
+            auto * item = new LauncherButton( parent, id, label, style );
             item->Bind( wxEVT_BUTTON, [this, handler]( wxCommandEvent & ) {
                 clearHelp();
                 try {
@@ -141,7 +211,7 @@ namespace
             title->SetFont( title->GetFont().Larger() );
             title->SetForegroundColour( *wxWHITE );
             line->Add( title, 1, wxALIGN_CENTER_VERTICAL );
-            line->Add( button( header, L"Change language", [this] { changeLanguage(); } ), 0, wxALIGN_CENTER_VERTICAL );
+            line->Add( button( header, L"Change language", [this] { changeLanguage(); }, wxID_ANY, ButtonStyle::Header ), 0, wxALIGN_CENTER_VERTICAL );
             auto * margins = new wxBoxSizer( wxVERTICAL );
             margins->Add( line, 1, wxEXPAND | wxALL, dip( 16 ) );
             header->SetSizer( margins );
@@ -154,11 +224,11 @@ namespace
             tabs->SetBackgroundColour( pale );
             auto * tabLine = new wxBoxSizer( wxHORIZONTAL );
             for ( size_t i = 0; i < _pages.size(); ++i ) {
-                _tabs[i] = button( tabs, L"", [this, i] { selectPage( i ); }, firstTabId + static_cast<int>( i ) );
+                _tabs[i] = button( tabs, L"", [this, i] { selectPage( i ); }, firstTabId + static_cast<int>( i ), ButtonStyle::Tab );
                 tabLine->Add( _tabs[i], 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, dip( 7 ) );
             }
             auto * tabMargins = new wxBoxSizer( wxVERTICAL );
-            tabMargins->Add( tabLine, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, dip( 8 ) );
+            tabMargins->Add( tabLine, 0, wxEXPAND | wxLEFT, dip( 14 ) );
             tabs->SetSizer( tabMargins );
             body->Add( tabs, 0, wxEXPAND );
 
@@ -259,7 +329,9 @@ namespace
             auto * column = content( page );
             column->Add( text( page, L"Taxation", true ), 0, wxBOTTOM, dip( 9 ) );
             appendRows( page, column, { "tax", "cap" } );
-            column->AddSpacer( dip( 9 ) );
+            auto * divider = new wxPanel( page, wxID_ANY, wxDefaultPosition, wxSize( -1, dip( 1 ) ) );
+            divider->SetBackgroundColour( rule );
+            column->Add( divider, 0, wxEXPAND | wxTOP | wxBOTTOM, dip( 8 ) );
             column->Add( text( page, L"Conscription", true ), 0, wxBOTTOM, dip( 9 ) );
             appendRows( page, column, { "mode", "base", "odd", "even", "increment", "step", "multiplier", "uniform" } );
 
@@ -356,10 +428,7 @@ namespace
             _status->SetForegroundColour( muted );
             actions->Add( _status, 1, wxALIGN_CENTER_VERTICAL | wxRIGHT, dip( 6 ) );
             _save = button( footer, L"", [this] { save( false ); }, 303 );
-            _play = button( footer, L"", [this] { save( true ); }, 304 );
-            _play->SetBackgroundColour( blue );
-            _play->SetForegroundColour( *wxWHITE );
-            _play->SetFont( _play->GetFont().Bold() );
+            _play = button( footer, L"", [this] { save( true ); }, 304, ButtonStyle::Primary );
             _quit = button( footer, L"", [this] { Close(); }, 305 );
             for ( auto * item : { _save, _play, _quit } )
                 actions->Add( item, 0, wxLEFT, dip( 6 ) );
@@ -546,11 +615,8 @@ namespace
         {
             const auto selected = static_cast<size_t>( _book->GetSelection() );
             auto * page = _pages[selected];
-            for ( size_t i = 0; i < _tabs.size(); ++i ) {
-                auto font = _tabs[i]->GetFont();
-                font.SetWeight( i == selected ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL );
-                _tabs[i]->SetFont( font );
-            }
+            for ( size_t i = 0; i < _tabs.size(); ++i )
+                _tabs[i]->select( i == selected );
             page->Layout();
             page->FitInside();
             const int chrome = GetSizer()->GetMinSize().y - _book->GetMinSize().y;
@@ -607,8 +673,8 @@ namespace
             if ( !capture() )
                 return;
             storage::ensureDirectory( _configuration );
-            const auto existing = storage::isFile( _ini ) ? storage::readText( _ini ) : "# Knight Mod settings\r\n";
-            const auto updated = km::updateIni( existing, _values );
+            const auto existing = storage::isFile( _ini ) ? storage::readText( _ini ) : std::string();
+            const auto updated = km::updateDocumentedIni( existing, _values );
             if ( updated.size() > storage::maxProfileSize )
                 throw storage::FileTooLarge();
             storage::replaceText( _ini, updated );
@@ -708,7 +774,7 @@ namespace
         bool _french = false;
         bool _synchronizing = false;
         std::array<SettingRow, km::count> _rows{};
-        std::array<wxButton *, 3> _tabs{};
+        std::array<LauncherButton *, 3> _tabs{};
         std::array<wxScrolledWindow *, 3> _pages{};
         wxSimplebook * _book{};
         wxCollapsiblePane * _conversion{}, * _requirements{};

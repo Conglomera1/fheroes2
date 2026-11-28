@@ -18,7 +18,7 @@ BEGIN
             VALUE "FileDescription", "Knight Mod Settings"
             VALUE "FileVersion", "1.1.1.0"
             VALUE "InternalName", "KMSettings"
-            VALUE "OriginalFilename", "KMSettings.exe"
+            VALUE "OriginalFilename", "KnightModLauncher.exe"
             VALUE "ProductName", "Knight Mod Settings"
             VALUE "ProductVersion", "1.1.1.0"
             VALUE "Comments", "Source: https://github.com/Conglomera1/fheroes2"

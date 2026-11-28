@@ -28,11 +28,11 @@ jobs:
           if errorlevel 1 exit /b 1
           cmake -S packaging/km/launcher/wx -B build/kmsettings -G Ninja -DCMAKE_BUILD_TYPE=Release "-DWX_WIDGETS_SOURCE_DIR=%RUNNER_TEMP%\wxWidgets-3.2.12"
           if errorlevel 1 exit /b 1
-          cmake --build build/kmsettings --target KMSettings KMSettingsModelTest KMSettingsFilesTest --parallel 4
+          cmake --build build/kmsettings --target KMSettings KMSettingsModelTest KMSettingsFilesTest KMSettingsIniTest --parallel 4
           if errorlevel 1 exit /b 1
           ctest --test-dir build/kmsettings --output-on-failure
           if errorlevel 1 exit /b 1
-          dumpbin /nologo /imports build\kmsettings\bin\KMSettings.exe > build\kmsettings\imports.txt
+          dumpbin /nologo /imports build\kmsettings\bin\KnightModLauncher.exe > build\kmsettings\imports.txt
           if errorlevel 1 exit /b 1
           findstr /r /i /c:" CreateFile2 *$" /c:" VCRUNTIME.*\.dll *$" /c:" MSVCP.*\.dll *$" /c:" wx.*\.dll *$" build\kmsettings\imports.txt
           if not errorlevel 1 exit /b 1
@@ -51,7 +51,7 @@ jobs:
         shell: pwsh
         run: |
           $build = 'build/kmsettings'
-          $exe = (Resolve-Path "$build/bin/KMSettings.exe").Path
+          $exe = (Resolve-Path "$build/bin/KnightModLauncher.exe").Path
           $bytes = [IO.File]::ReadAllBytes($exe)
           $pe = [BitConverter]::ToInt32($bytes, 0x3c)
           if ([BitConverter]::ToUInt32($bytes, $pe) -ne 0x4550 -or [BitConverter]::ToUInt16($bytes, $pe+4) -ne 0x14c -or
@@ -59,7 +59,7 @@ jobs:
             throw 'Expected an x86 executable targeting subsystem version 6.1'
           }
           $version = (Get-Item -LiteralPath $exe).VersionInfo
-          if ($version.InternalName -ne 'KMSettings' -or $version.OriginalFilename -ne 'KMSettings.exe' -or
+          if ($version.InternalName -ne 'KMSettings' -or $version.OriginalFilename -ne 'KnightModLauncher.exe' -or
               $version.ProductName -ne 'Knight Mod Settings' -or $version.CompanyName -ne 'Conglomera') {
             throw 'The executable has unexpected version metadata'
           }
@@ -69,6 +69,6 @@ jobs:
         with:
           name: KMSettings-wxWidgets-Windows-x86
           path: |
-            build/kmsettings/bin/KMSettings.exe
+            build/kmsettings/bin/KnightModLauncher.exe
             build/kmsettings/Settings.png
           if-no-files-found: error
